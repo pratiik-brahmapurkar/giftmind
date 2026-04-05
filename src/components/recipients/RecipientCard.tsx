@@ -81,6 +81,9 @@ const RecipientCard = ({ recipient, onEdit, onDelete, onFindGift }: RecipientCar
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onEdit}>
             <Pencil className="w-3 h-3" />
           </Button>
+          <Button variant="outline" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onDelete}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
         </div>
       </CardContent>
     </Card>
