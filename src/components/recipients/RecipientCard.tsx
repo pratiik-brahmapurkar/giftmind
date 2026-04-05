@@ -15,6 +15,7 @@ interface RecipientCardProps {
     last_gift_date: string | null;
   };
   onEdit: () => void;
+  onDelete: () => void;
   onFindGift: () => void;
 }
 
