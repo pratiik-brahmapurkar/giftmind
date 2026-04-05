@@ -250,15 +250,40 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       age_range: "under_18" | "18_25" | "25_35" | "35_50" | "50_65" | "65_plus"
+      app_role: "superadmin" | "admin" | "user"
       cultural_context:
         | "indian_hindu"
         | "indian_muslim"
@@ -409,6 +434,7 @@ export const Constants = {
   public: {
     Enums: {
       age_range: ["under_18", "18_25", "25_35", "35_50", "50_65", "65_plus"],
+      app_role: ["superadmin", "admin", "user"],
       cultural_context: [
         "indian_hindu",
         "indian_muslim",
