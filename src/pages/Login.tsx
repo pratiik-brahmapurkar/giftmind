@@ -25,7 +25,22 @@ const Login = () => {
       setError(error.message);
       setLoading(false);
     } else {
-      navigate("/dashboard");
+      // Check onboarding status
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("has_completed_onboarding")
+          .eq("user_id", user.id)
+          .single();
+        if (profile && !profile.has_completed_onboarding) {
+          navigate("/onboarding");
+        } else {
+          navigate("/dashboard");
+        }
+      } else {
+        navigate("/dashboard");
+      }
     }
   };
 
