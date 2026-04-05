@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import MyPeople from "./pages/MyPeople";
 import GiftFlow from "./pages/GiftFlow";
 import GiftHistory from "./pages/GiftHistory";
+import Credits from "./pages/Credits";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/my-people" element={<AuthGuard><MyPeople /></AuthGuard>} />
             <Route path="/gift-flow" element={<AuthGuard><GiftFlow /></AuthGuard>} />
             <Route path="/gift-history" element={<AuthGuard><GiftHistory /></AuthGuard>} />
+            <Route path="/credits" element={<AuthGuard><Credits /></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
