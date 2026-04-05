@@ -23,6 +23,7 @@ import AdminGuard from "@/components/admin/AdminGuard";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AdminOverview from "@/pages/admin/AdminOverview";
 import AdminPlaceholder from "@/pages/admin/AdminPlaceholder";
+import AdminUsers from "@/pages/admin/AdminUsers";
 
 const queryClient = new QueryClient();
 
@@ -49,7 +50,7 @@ const App = () => (
             <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
             {/* Admin routes */}
             <Route path="/admin" element={<AuthGuard><AdminGuard><AdminLayout><AdminOverview /></AdminLayout></AdminGuard></AuthGuard>} />
-            <Route path="/admin/users" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
+            <Route path="/admin/users" element={<AuthGuard><AdminGuard><AdminLayout><AdminUsers /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/credits" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/gifts" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
