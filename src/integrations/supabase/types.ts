@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_packages: {
+        Row: {
+          badge_text: string | null
+          created_at: string
+          credits: number
+          features: string[] | null
+          id: string
+          is_active: boolean
+          name: string
+          price_inr: number
+          price_usd: number
+          sort_order: number
+          updated_at: string
+          validity_days: number
+        }
+        Insert: {
+          badge_text?: string | null
+          created_at?: string
+          credits: number
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price_inr?: number
+          price_usd?: number
+          sort_order?: number
+          updated_at?: string
+          validity_days?: number
+        }
+        Update: {
+          badge_text?: string | null
+          created_at?: string
+          credits?: number
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_inr?: number
+          price_usd?: number
+          sort_order?: number
+          updated_at?: string
+          validity_days?: number
+        }
+        Relationships: []
+      }
       credit_transactions: {
         Row: {
           amount: number
@@ -21,6 +66,8 @@ export type Database = {
           created_at: string
           details: string | null
           id: string
+          payment_id: string | null
+          provider: string | null
           type: string
           user_id: string
         }
@@ -30,6 +77,8 @@ export type Database = {
           created_at?: string
           details?: string | null
           id?: string
+          payment_id?: string | null
+          provider?: string | null
           type: string
           user_id: string
         }
@@ -39,6 +88,8 @@ export type Database = {
           created_at?: string
           details?: string | null
           id?: string
+          payment_id?: string | null
+          provider?: string | null
           type?: string
           user_id?: string
         }
