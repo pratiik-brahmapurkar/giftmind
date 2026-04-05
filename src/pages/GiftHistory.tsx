@@ -9,24 +9,19 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Gift, MoreVertical, Sparkles, Calendar, Filter, X } from "lucide-react";
+import { Gift, MoreVertical, Sparkles, Calendar, Filter, X, Download, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { OCCASIONS } from "@/components/gift-flow/constants";
 import { RELATIONSHIP_COLORS } from "@/components/recipients/constants";
 import GiftDetailPanel from "@/components/gift-history/GiftDetailPanel";
 import FeedbackModal from "@/components/gift-history/FeedbackModal";
+import UpgradeModal from "@/components/pricing/UpgradeModal";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import type { Tables } from "@/integrations/supabase/types";
 
 type GiftSession = Tables<"gift_sessions"> & {
