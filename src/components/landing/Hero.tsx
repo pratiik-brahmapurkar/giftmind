@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Gift, Sparkles, Heart } from "lucide-react";
+import { Gift, Sparkles, Heart, CheckCircle2 } from "lucide-react";
 
 const GiftBoxAnimation = () => (
   <div className="relative w-64 h-64 md:w-80 md:h-80">
@@ -19,9 +19,7 @@ const GiftBoxAnimation = () => (
           <div className="absolute inset-0 flex items-center justify-center">
             <Gift className="w-12 h-12 md:w-16 md:h-16 text-primary-foreground opacity-90" />
           </div>
-          {/* Ribbon vertical */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-full bg-accent/60" />
-          {/* Ribbon horizontal */}
           <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-4 bg-accent/60" />
         </div>
         {/* Lid */}
@@ -30,7 +28,6 @@ const GiftBoxAnimation = () => (
           animate={{ rotate: [-3, 3, -3] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         >
-          {/* Bow */}
           <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-6 rounded-full bg-accent" />
         </motion.div>
       </div>
@@ -70,8 +67,11 @@ const GiftBoxAnimation = () => (
 
 const Hero = () => {
   return (
-    <section className="relative min-h-screen flex items-center gradient-mesh overflow-hidden">
-      <div className="container mx-auto px-4 py-20 md:py-0">
+    <section className="relative min-h-screen flex items-center overflow-hidden">
+      {/* Animated gradient mesh background */}
+      <div className="absolute inset-0 hero-gradient-mesh" />
+
+      <div className="container mx-auto px-4 py-20 md:py-0 relative z-10">
         <div className="flex flex-col md:flex-row items-center gap-12 md:gap-16">
           {/* Text */}
           <motion.div
@@ -103,7 +103,7 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-              <Button variant="hero" size="lg" className="text-base px-8 py-6 rounded-lg">
+              <Button variant="hero" size="lg" className="text-base px-8 py-6 rounded-lg animate-cta-pulse">
                 <Gift className="w-5 h-5 mr-2" />
                 Find the Perfect Gift — Free
               </Button>
@@ -112,14 +112,16 @@ const Hero = () => {
               </Button>
             </div>
 
-            <p className="mt-6 text-sm text-muted-foreground">
-              ✨ 3 free credits • No card needed • Results in 60s
-            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 justify-center md:justify-start text-sm text-muted-foreground">
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> No credit card required</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> 3 free sessions</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> 60-second results</span>
+            </div>
           </motion.div>
 
-          {/* Gift Animation */}
+          {/* Gift Animation — explicit size to prevent layout shift */}
           <motion.div
-            className="flex-1 flex justify-center"
+            className="flex-1 flex justify-center w-[256px] h-[200px] md:w-[320px] md:h-[320px]"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.3 }}

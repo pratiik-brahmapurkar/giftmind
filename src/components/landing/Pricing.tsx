@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, Rocket } from "lucide-react";
-
-const INR_TO_USD = 0.012;
+import { Check } from "lucide-react";
 
 const plans = [
   {
@@ -17,6 +15,8 @@ const plans = [
     dark: false,
     badge: null,
     highlighted: false,
+    crossedPerSession: null,
+    perSession: null,
   },
   {
     name: "Popular",
@@ -29,6 +29,8 @@ const plans = [
     dark: false,
     badge: "Best Value ⭐",
     highlighted: true,
+    crossedPerSession: "₹9.96",
+    perSession: "₹6.65/session",
   },
   {
     name: "Pro",
@@ -41,12 +43,15 @@ const plans = [
     dark: true,
     badge: "Power Gifter 🚀",
     highlighted: false,
+    crossedPerSession: "₹9.96",
+    perSession: "₹6.50/session",
   },
 ];
+
 const Pricing = () => {
   const [showUSD, setShowUSD] = useState(false);
 
-  const formatPrice = (plan: typeof plans[0]) => {
+  const formatPrice = (plan: (typeof plans)[0]) => {
     if (showUSD) return `$${plan.priceUSD}`;
     return `₹${plan.priceINR.toLocaleString("en-IN")}`;
   };
@@ -67,7 +72,6 @@ const Pricing = () => {
             Pay per use. No subscriptions. No surprises.
           </p>
 
-          {/* Toggle */}
           <button
             onClick={() => setShowUSD(!showUSD)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -80,7 +84,7 @@ const Pricing = () => {
           </button>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-end">
           {plans.map((plan, i) => (
             <motion.div
               key={plan.name}
@@ -88,20 +92,24 @@ const Pricing = () => {
                 plan.dark
                   ? "bg-foreground text-background"
                   : plan.highlighted
-                  ? "bg-card border-2 border-primary shadow-xl relative z-10"
+                  ? "relative z-10 pricing-gradient-border"
                   : "bg-card card-shadow"
               }`}
+              style={plan.highlighted ? { minHeight: "110%" } : undefined}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.15 }}
             >
               {plan.badge && (
-                <div className={`inline-block self-center px-4 py-1 rounded-full text-xs font-semibold mb-4 ${
+                <div className={`inline-block self-center px-4 py-1 rounded-full text-xs font-semibold mb-2 ${
                   plan.dark ? "bg-destructive/20 text-destructive" : "bg-primary/10 text-primary"
                 }`}>
                   {plan.badge}
                 </div>
+              )}
+              {plan.highlighted && (
+                <p className="text-xs text-muted-foreground text-center mb-3">Most chosen by gifters</p>
               )}
 
               <h3 className="text-xl font-bold mb-1 text-center">{plan.name}</h3>
@@ -109,9 +117,17 @@ const Pricing = () => {
                 {plan.credits} credits · {plan.validity}
               </p>
 
-              <div className="mb-6 text-center">
+              <div className="mb-2 text-center">
                 <span className="text-4xl font-bold font-mono tracking-tight">{formatPrice(plan)}</span>
               </div>
+
+              {plan.crossedPerSession && !showUSD && (
+                <p className="text-center text-xs mb-4">
+                  <span className="line-through text-muted-foreground">{plan.crossedPerSession}</span>{" "}
+                  <span className="text-primary font-semibold">{plan.perSession}</span>
+                </p>
+              )}
+              {!plan.crossedPerSession && <div className="mb-4" />}
 
               <ul className="space-y-3 mb-8 flex-1">
                 {plan.features.map((f) => (
@@ -132,12 +148,25 @@ const Pricing = () => {
           ))}
         </div>
 
-        <motion.p
-          className="text-center mt-8 text-muted-foreground"
+        {/* Comparison row */}
+        <motion.div
+          className="max-w-5xl mx-auto mt-8 text-center"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ delay: 0.5 }}
+        >
+          <p className="text-sm text-muted-foreground bg-muted/50 rounded-full px-6 py-3 inline-block">
+            All plans include: AI recommendations · Confidence scores · Buy links · Cultural intelligence
+          </p>
+        </motion.div>
+
+        <motion.p
+          className="text-center mt-6 text-muted-foreground"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.6 }}
         >
           🎁 Start with 3 free credits — no card needed
         </motion.p>
