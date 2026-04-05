@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Gift } from "lucide-react";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import GiftFlowStepper from "@/components/gift-flow/GiftFlowStepper";
@@ -14,16 +14,7 @@ import StepOccasion from "@/components/gift-flow/StepOccasion";
 import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
 import StepResults from "@/components/gift-flow/StepResults";
-import RecipientFormModal from "@/components/recipients/RecipientFormModal";
-import type { RecipientFormData } from "@/components/recipients/constants";
 import { defaultGiftFlowState, type GiftFlowState } from "@/components/gift-flow/constants";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 200 : -200, opacity: 0 }),
@@ -43,8 +34,6 @@ const GiftFlow = () => {
     const recipientId = searchParams.get("recipient") || null;
     return { ...defaultGiftFlowState, occasion, recipientId };
   });
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [noCreditsOpen, setNoCreditsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Check credits
@@ -62,25 +51,15 @@ const GiftFlow = () => {
     enabled: !!user,
   });
 
-  useEffect(() => {
-    if (profile && (profile.credits ?? 0) < 1) {
-      setNoCreditsOpen(true);
-    }
-  }, [profile]);
+  const credits = profile?.credits ?? 0;
+  const noCredits = profile !== undefined && credits < 1;
 
   const update = <K extends keyof GiftFlowState>(key: K, val: GiftFlowState[K]) =>
     setFlow((p) => ({ ...p, [key]: val }));
 
-  const goNext = () => {
-    setDir(1);
-    setStep((s) => Math.min(s + 1, 4));
-  };
-  const goBack = () => {
-    setDir(-1);
-    setStep((s) => Math.max(s - 1, 0));
-  };
+  const goNext = () => { setDir(1); setStep((s) => Math.min(s + 1, 4)); };
+  const goBack = () => { setDir(-1); setStep((s) => Math.max(s - 1, 0)); };
 
-  // Validation per step
   const canProceed = () => {
     if (step === 0) return !!flow.recipientId;
     if (step === 1) return !!flow.occasion;
@@ -88,7 +67,6 @@ const GiftFlow = () => {
     return true;
   };
 
-  // Save session to DB on reaching results
   const saveMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase
@@ -110,9 +88,7 @@ const GiftFlow = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      setSessionId(data.id);
-    },
+    onSuccess: (data) => setSessionId(data.id),
     onError: () => toast.error("Failed to save session"),
   });
 
@@ -120,36 +96,6 @@ const GiftFlow = () => {
     goNext();
     if (!sessionId) saveMutation.mutate();
   };
-
-  // Add recipient inline
-  const addRecipientMutation = useMutation({
-    mutationFn: async (form: RecipientFormData) => {
-      const { data, error } = await supabase
-        .from("recipients")
-        .insert({
-          user_id: user!.id,
-          name: form.name,
-          relationship_type: form.relationship_type as any,
-          relationship_depth: form.relationship_depth as any,
-          age_range: form.age_range ? (form.age_range as any) : null,
-          gender: form.gender ? (form.gender as any) : null,
-          interests: form.interests,
-          cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
-          notes: form.notes || null,
-          important_dates: form.important_dates as any,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      update("recipientId", data.id);
-      setAddModalOpen(false);
-      toast.success("Person added!");
-    },
-    onError: () => toast.error("Failed to add person"),
-  });
 
   const handleChooseGift = async (gift: any) => {
     if (sessionId) {
@@ -162,13 +108,40 @@ const GiftFlow = () => {
     navigate("/dashboard");
   };
 
+  // No credits overlay
+  if (noCredits) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="max-w-md text-center space-y-6 p-8">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Gift className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-2xl font-heading font-bold text-foreground">
+              You've used all your free credits 🎁
+            </h2>
+            <p className="text-muted-foreground">
+              Get more credits to keep finding perfect gifts.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button variant="hero" size="lg" onClick={() => navigate("/credits")}>
+                Buy More Credits
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-muted-foreground">
+                ← Go back to dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="max-w-2xl mx-auto pb-20 md:pb-0">
-        {/* Stepper */}
         <GiftFlowStepper currentStep={step} />
 
-        {/* Steps */}
         <div className="mt-8 min-h-[400px]">
           <AnimatePresence mode="wait" custom={dir}>
             <motion.div
@@ -184,7 +157,6 @@ const GiftFlow = () => {
                 <StepRecipient
                   selectedId={flow.recipientId}
                   onSelect={(id) => update("recipientId", id)}
-                  onAddNew={() => setAddModalOpen(true)}
                 />
               )}
               {step === 1 && (
@@ -218,6 +190,7 @@ const GiftFlow = () => {
                   }
                   notes={flow.extraNotes}
                   onNotesChange={(v) => update("extraNotes", v)}
+                  onSkip={handleProceedToResults}
                 />
               )}
               {step === 4 && (
@@ -245,50 +218,17 @@ const GiftFlow = () => {
             </Button>
 
             {step === 3 ? (
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={handleProceedToResults} className="text-muted-foreground">
-                  Skip
-                </Button>
-                <Button variant="hero" onClick={handleProceedToResults}>
-                  Get Recommendations <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
+              <Button variant="hero" onClick={handleProceedToResults}>
+                Get Recommendations <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
             ) : (
               <Button variant="hero" onClick={goNext} disabled={!canProceed()}>
-                Next <ArrowRight className="w-4 h-4" />
+                Next <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             )}
           </div>
         )}
       </div>
-
-      {/* Add recipient modal */}
-      <RecipientFormModal
-        open={addModalOpen}
-        onOpenChange={setAddModalOpen}
-        onSubmit={(data) => addRecipientMutation.mutate(data)}
-        loading={addRecipientMutation.isPending}
-      />
-
-      {/* No credits dialog */}
-      <Dialog open={noCreditsOpen} onOpenChange={setNoCreditsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="font-heading">You're out of credits</DialogTitle>
-            <DialogDescription>
-              Each gift session uses 1 credit. Upgrade your plan or purchase more credits to continue.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 mt-4">
-            <Button variant="hero" className="flex-1" onClick={() => navigate("/pricing")}>
-              View Plans
-            </Button>
-            <Button variant="outline" className="flex-1" onClick={() => navigate("/dashboard")}>
-              Back to Dashboard
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 };
