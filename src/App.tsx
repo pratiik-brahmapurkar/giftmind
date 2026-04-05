@@ -29,6 +29,7 @@ import AdminGiftAnalytics from "@/pages/admin/AdminGiftAnalytics";
 import AdminBlogPosts from "@/pages/admin/AdminBlogPosts";
 import AdminBlogCategories from "@/pages/admin/AdminBlogCategories";
 import AdminMediaLibrary from "@/pages/admin/AdminMediaLibrary";
+import AdminBlogEditor from "@/pages/admin/AdminBlogEditor";
 
 const queryClient = new QueryClient();
 

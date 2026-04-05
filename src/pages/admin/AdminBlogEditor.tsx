@@ -38,7 +38,7 @@ export default function AdminBlogEditor() {
   const [slug, setSlug] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [content, setContent] = useState("");
-  const [status, setStatus] = useState("draft");
+  const [status, setStatus] = useState<"draft" | "published" | "scheduled" | "archived">("draft");
   const [scheduledAt, setScheduledAt] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
