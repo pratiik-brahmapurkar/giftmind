@@ -56,7 +56,7 @@ export default function BlogCategory() {
     <div className="min-h-screen bg-background">
       <BlogSeo title={`${category.name} — GiftMind Blog`} description={category.description || undefined} />
       <Navbar />
-      <main className="max-w-5xl mx-auto px-4 py-12">
+      <main className="max-w-5xl mx-auto px-4 pt-24 pb-12">
         <div className="text-center mb-10">
           <p className="text-4xl mb-2">{category.icon}</p>
           <h1 className="text-3xl md:text-4xl font-bold font-['Clash_Display',sans-serif]">{category.name}</h1>

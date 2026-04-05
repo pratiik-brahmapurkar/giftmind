@@ -9,7 +9,7 @@ export default function RefundPolicy() {
     <div className="min-h-screen bg-background">
       <BlogSeo title="Refund Policy" description="GiftMind Credit Refund Policy — understand when and how you can request a refund." />
       <Navbar />
-      <main className="max-w-[720px] mx-auto px-4 py-12">
+      <main className="max-w-[720px] mx-auto px-4 pt-24 pb-12">
         <h1 className="text-3xl font-bold font-['Clash_Display',sans-serif] mb-2">Refund Policy</h1>
         <p className="text-sm text-muted-foreground mb-8">Last updated: {UPDATED}</p>
         <article className="prose prose-lg max-w-none prose-headings:font-bold prose-headings:text-foreground prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-3 prose-p:text-base prose-p:leading-relaxed prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground">

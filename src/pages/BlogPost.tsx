@@ -144,7 +144,7 @@ export default function BlogPost() {
         url={url}
       />
       <Navbar />
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="max-w-3xl mx-auto px-4 pt-24 pb-8">
         {/* Breadcrumb */}
         <nav className="text-xs text-muted-foreground mb-6 flex items-center gap-1">
           <Link to="/blog" className="hover:text-primary">Blog</Link>
