@@ -5,6 +5,7 @@ import {
   Gift,
   LayoutDashboard,
   Users,
+  CreditCard,
   History,
   Coins,
   LogOut,
