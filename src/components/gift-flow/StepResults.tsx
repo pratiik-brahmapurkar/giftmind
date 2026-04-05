@@ -130,6 +130,8 @@ const StepResults = ({ currency, onRegenerate, onBack, onChoose }: StepResultsPr
         })}
       </div>
 
+      <AffiliateDisclaimer />
+
       {/* Bottom actions */}
       <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
         <Button variant="outline" onClick={onRegenerate} className="w-full sm:w-auto">

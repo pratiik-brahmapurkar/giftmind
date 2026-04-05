@@ -20,9 +20,10 @@ const Footer = () => {
             <Link to="/blog" className="hover:text-primary transition-colors">Blog</Link>
           </nav>
 
-          <p className="text-sm text-muted-foreground">
-            Made with 💜 in India
-          </p>
+          <div className="text-sm text-muted-foreground text-center md:text-right space-y-1">
+            <p>Made with 💜 in India</p>
+            <p className="text-xs">Some links may be affiliate links.</p>
+          </div>
         </div>
       </div>
     </footer>
