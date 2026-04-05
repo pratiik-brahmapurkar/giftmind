@@ -23,6 +23,8 @@ export type Database = {
           created_at: string
           currency: string
           extra_notes: string | null
+          feedback_notes: string | null
+          feedback_rating: string | null
           id: string
           occasion: string | null
           occasion_date: string | null
@@ -40,6 +42,8 @@ export type Database = {
           created_at?: string
           currency?: string
           extra_notes?: string | null
+          feedback_notes?: string | null
+          feedback_rating?: string | null
           id?: string
           occasion?: string | null
           occasion_date?: string | null
@@ -57,6 +61,8 @@ export type Database = {
           created_at?: string
           currency?: string
           extra_notes?: string | null
+          feedback_notes?: string | null
+          feedback_rating?: string | null
           id?: string
           occasion?: string | null
           occasion_date?: string | null
