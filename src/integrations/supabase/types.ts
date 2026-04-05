@@ -14,10 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      gift_sessions: {
+        Row: {
+          budget_max: number | null
+          budget_min: number | null
+          chosen_gift: Json | null
+          context_tags: string[] | null
+          created_at: string
+          currency: string
+          extra_notes: string | null
+          id: string
+          occasion: string | null
+          occasion_date: string | null
+          recipient_id: string | null
+          results: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget_max?: number | null
+          budget_min?: number | null
+          chosen_gift?: Json | null
+          context_tags?: string[] | null
+          created_at?: string
+          currency?: string
+          extra_notes?: string | null
+          id?: string
+          occasion?: string | null
+          occasion_date?: string | null
+          recipient_id?: string | null
+          results?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget_max?: number | null
+          budget_min?: number | null
+          chosen_gift?: Json | null
+          context_tags?: string[] | null
+          created_at?: string
+          currency?: string
+          extra_notes?: string | null
+          id?: string
+          occasion?: string | null
+          occasion_date?: string | null
+          recipient_id?: string | null
+          results?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_sessions_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
+          credits: number
           full_name: string | null
           has_completed_onboarding: boolean
           id: string
@@ -28,6 +91,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          credits?: number
           full_name?: string | null
           has_completed_onboarding?: boolean
           id?: string
@@ -38,6 +102,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          credits?: number
           full_name?: string | null
           has_completed_onboarding?: boolean
           id?: string
