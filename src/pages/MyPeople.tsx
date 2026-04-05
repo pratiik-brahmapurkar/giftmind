@@ -195,6 +195,7 @@ const MyPeople = () => {
                 key={r.id}
                 recipient={r}
                 onEdit={() => openEdit(r.id)}
+                onDelete={() => setDeletingId(r.id)}
                 onFindGift={() => navigate(`/gift-flow?recipient=${r.id}`)}
               />
             ))}
