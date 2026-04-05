@@ -60,7 +60,8 @@ const App = () => (
             <Route path="/admin/credits" element={<AuthGuard><AdminGuard><AdminLayout><AdminCredits /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/gifts" element={<AuthGuard><AdminGuard><AdminLayout><AdminGiftAnalytics /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogPosts /></AdminLayout></AdminGuard></AuthGuard>} />
-            <Route path="/admin/blog/new" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
+            <Route path="/admin/blog/new" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogEditor /></AdminLayout></AdminGuard></AuthGuard>} />
+            <Route path="/admin/blog/edit/:id" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogEditor /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog/categories" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogCategories /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/media" element={<AuthGuard><AdminGuard><AdminLayout><AdminMediaLibrary /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog/analytics" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />

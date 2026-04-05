@@ -32,7 +32,7 @@ export default function PublishCard(props: PublishCardProps) {
       <CardContent className="space-y-3 pt-0">
         <div>
           <Label className="text-xs">Status</Label>
-          <Select value={status} onValueChange={onStatusChange}>
+          <Select value={status} onValueChange={(v) => onStatusChange(v as "draft" | "published" | "scheduled" | "archived")}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="draft">Draft</SelectItem>
