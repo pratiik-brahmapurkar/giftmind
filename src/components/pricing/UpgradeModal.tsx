@@ -5,14 +5,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import PricingCards from "./PricingCards";
+import PricingCards, { CurrencyKey } from "./PricingCards";
 
 interface UpgradeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Which plan to recommend based on the user's limitation */
   highlightPlan?: "starter" | "popular" | "pro";
   reason?: string;
+  defaultCurrency?: CurrencyKey;
+  onSelectPlan?: (planKey: string, currency: CurrencyKey) => void;
 }
 
 export default function UpgradeModal({
