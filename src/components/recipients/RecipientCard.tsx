@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Gift, Pencil } from "lucide-react";
+import { Gift, Pencil, Trash2 } from "lucide-react";
 import { RELATIONSHIP_TYPES, RELATIONSHIP_COLORS } from "./constants";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
