@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate, useBlocker } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,7 +53,6 @@ export default function AdminBlogEditor() {
   const [ctaUrl, setCtaUrl] = useState("/gift-flow");
   const [ctaOccasion, setCtaOccasion] = useState("");
 
-  // UI state
   const [mediaPicker, setMediaPicker] = useState(false);
   const [mediaForContent, setMediaForContent] = useState(false);
   const [aiModal, setAiModal] = useState(false);
@@ -62,17 +61,14 @@ export default function AdminBlogEditor() {
   const [dirty, setDirty] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Unsaved changes blocker
-  const blocker = useBlocker(dirty);
+  // Warn on browser close/refresh with unsaved changes
   useEffect(() => {
-    if (blocker.state === "blocked") {
-      if (window.confirm("You have unsaved changes. Leave anyway?")) {
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    }
-  }, [blocker]);
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   // Mark dirty on changes
   useEffect(() => { setDirty(true); }, [title, slug, excerpt, content, status, categoryId, tags, featuredImage, metaTitle, metaDescription]);
