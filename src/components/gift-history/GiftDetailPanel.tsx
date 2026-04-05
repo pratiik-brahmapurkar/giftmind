@@ -33,8 +33,8 @@ interface Props {
 const GiftDetailPanel = ({ session, onClose }: Props) => {
   if (!session) return null;
 
-  const results = (session.results as GiftResult[] | null) || [];
-  const chosen = session.chosen_gift as GiftResult | null;
+  const results = (session.results as unknown as GiftResult[] | null) || [];
+  const chosen = session.chosen_gift as unknown as GiftResult | null;
   const occasion = OCCASIONS.find((o) => o.value === session.occasion);
 
   const getConfidenceStyle = (score: number) => {
