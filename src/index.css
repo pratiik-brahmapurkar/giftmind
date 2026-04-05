@@ -124,4 +124,51 @@
   .card-shadow-hover {
     box-shadow: var(--shadow-card-hover);
   }
+
+  /* Hero animated gradient mesh */
+  .hero-gradient-mesh {
+    background:
+      radial-gradient(ellipse at 20% 50%, hsl(249 76% 64% / 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, hsl(0 100% 70% / 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, hsl(244 98% 81% / 0.05) 0%, transparent 50%),
+      hsl(var(--background));
+    animation: meshShift 12s ease-in-out infinite;
+  }
+
+  @keyframes meshShift {
+    0%, 100% {
+      background-position: 0% 50%, 100% 0%, 50% 100%;
+    }
+    50% {
+      background-position: 50% 0%, 0% 100%, 100% 50%;
+    }
+  }
+
+  /* CTA pulse */
+  .animate-cta-pulse {
+    animation: ctaPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes ctaPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+
+  /* Pricing gradient border for Popular card */
+  .pricing-gradient-border {
+    background: hsl(var(--card));
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+    box-shadow: 0 8px 32px hsl(249 76% 64% / 0.15);
+  }
+
+  .pricing-gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, hsl(249 76% 64%), hsl(0 100% 70%));
+    z-index: -1;
+  }
 }
