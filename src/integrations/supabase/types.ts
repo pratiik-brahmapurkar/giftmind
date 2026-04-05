@@ -115,33 +115,51 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          country: string | null
           created_at: string
           credits: number
+          currency_preference: string | null
           full_name: string | null
           has_completed_onboarding: boolean
           id: string
+          language: string | null
+          notify_credit_expiry: boolean | null
+          notify_gift_reminders: boolean | null
+          notify_tips: boolean | null
           referral_code: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
+          country?: string | null
           created_at?: string
           credits?: number
+          currency_preference?: string | null
           full_name?: string | null
           has_completed_onboarding?: boolean
           id?: string
+          language?: string | null
+          notify_credit_expiry?: boolean | null
+          notify_gift_reminders?: boolean | null
+          notify_tips?: boolean | null
           referral_code?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
+          country?: string | null
           created_at?: string
           credits?: number
+          currency_preference?: string | null
           full_name?: string | null
           has_completed_onboarding?: boolean
           id?: string
+          language?: string | null
+          notify_credit_expiry?: boolean | null
+          notify_gift_reminders?: boolean | null
+          notify_tips?: boolean | null
           referral_code?: string | null
           updated_at?: string
           user_id?: string
@@ -202,6 +220,33 @@ export type Database = {
           relationship_type?: Database["public"]["Enums"]["relationship_type"]
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          credits_awarded: number | null
+          id: string
+          referred_email: string
+          referrer_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          credits_awarded?: number | null
+          id?: string
+          referred_email: string
+          referrer_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          credits_awarded?: number | null
+          id?: string
+          referred_email?: string
+          referrer_id?: string
+          status?: string
         }
         Relationships: []
       }
