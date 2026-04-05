@@ -12,6 +12,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
+import MyPeople from "./pages/MyPeople";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
