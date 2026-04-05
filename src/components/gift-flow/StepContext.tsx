@@ -1,15 +1,18 @@
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CONTEXT_TAGS } from "./constants";
+import { cn } from "@/lib/utils";
+import { ArrowRight } from "lucide-react";
 
 interface StepContextProps {
   tags: string[];
   onToggleTag: (tag: string) => void;
   notes: string;
   onNotesChange: (val: string) => void;
+  onSkip?: () => void;
 }
 
-const StepContext = ({ tags, onToggleTag, notes, onNotesChange }: StepContextProps) => {
+const StepContext = ({ tags, onToggleTag, notes, onNotesChange, onSkip }: StepContextProps) => {
   return (
     <div className="space-y-5">
       <div>
@@ -21,33 +24,51 @@ const StepContext = ({ tags, onToggleTag, notes, onNotesChange }: StepContextPro
         </p>
       </div>
 
-      {/* Quick tags */}
+      {/* Quick tags with emoji */}
       <div className="flex flex-wrap gap-2">
-        {CONTEXT_TAGS.map((tag) => (
-          <Badge
-            key={tag}
-            variant={tags.includes(tag) ? "default" : "outline"}
-            className="cursor-pointer text-xs px-3 py-1.5"
-            onClick={() => onToggleTag(tag)}
-          >
-            {tag}
-          </Badge>
-        ))}
+        {CONTEXT_TAGS.map((tag) => {
+          const isSelected = tags.includes(tag.label);
+          return (
+            <button
+              key={tag.label}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                isSelected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-foreground border-border hover:border-primary/40"
+              )}
+              onClick={() => onToggleTag(tag.label)}
+            >
+              {tag.emoji} {tag.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Textarea */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">
-          Tell us anything else that might help…
+          Anything else that might help? (optional)
         </label>
-        <Textarea
-          value={notes}
-          onChange={(e) => onNotesChange(e.target.value)}
-          placeholder="e.g. She recently started painting, loves pastel colors, dislikes anything too techy…"
-          rows={4}
-          maxLength={1000}
-        />
+        <div className="relative">
+          <Textarea
+            value={notes}
+            onChange={(e) => onNotesChange(e.target.value.slice(0, 300))}
+            placeholder="e.g., She just started painting, he's really into cricket, they're vegan..."
+            rows={3}
+            maxLength={300}
+          />
+          <span className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">
+            {notes.length}/300
+          </span>
+        </div>
       </div>
+
+      {onSkip && (
+        <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground text-xs">
+          Skip this step <ArrowRight className="w-3 h-3 ml-1" />
+        </Button>
+      )}
     </div>
   );
 };

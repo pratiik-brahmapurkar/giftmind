@@ -2,20 +2,36 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, User } from "lucide-react";
-import { RELATIONSHIP_COLORS, RELATIONSHIP_TYPES } from "@/components/recipients/constants";
+import { Plus, Check } from "lucide-react";
+import { RELATIONSHIP_TYPES } from "@/components/recipients/constants";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import RecipientFormModal from "@/components/recipients/RecipientFormModal";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import type { RecipientFormData } from "@/components/recipients/constants";
+
+const AVATAR_COLORS: Record<string, string> = {
+  partner: "bg-[hsl(0,73%,71%)]",
+  parent: "bg-[hsl(249,76%,65%)]",
+  sibling: "bg-[hsl(249,98%,80%)]",
+  close_friend: "bg-[hsl(153,53%,53%)]",
+  friend: "bg-[hsl(153,53%,53%)]",
+  colleague: "bg-[hsl(45,98%,71%)]",
+  boss: "bg-[hsl(45,98%,71%)]",
+  new_relationship: "bg-[hsl(0,100%,86%)]",
+};
 
 interface StepRecipientProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onAddNew: () => void;
 }
 
-const StepRecipient = ({ selectedId, onSelect, onAddNew }: StepRecipientProps) => {
+const StepRecipient = ({ selectedId, onSelect }: StepRecipientProps) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [inlineFormOpen, setInlineFormOpen] = useState(false);
 
   const { data: recipients = [], isLoading } = useQuery({
     queryKey: ["recipients", user?.id],
@@ -30,11 +46,63 @@ const StepRecipient = ({ selectedId, onSelect, onAddNew }: StepRecipientProps) =
     enabled: !!user,
   });
 
+  const addMutation = useMutation({
+    mutationFn: async (form: RecipientFormData) => {
+      const { data, error } = await supabase
+        .from("recipients")
+        .insert({
+          user_id: user!.id,
+          name: form.name,
+          relationship_type: form.relationship_type as any,
+          relationship_depth: form.relationship_depth as any,
+          age_range: form.age_range ? (form.age_range as any) : null,
+          gender: form.gender ? (form.gender as any) : null,
+          interests: form.interests,
+          cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
+          notes: form.notes || null,
+          important_dates: form.important_dates as any,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      onSelect(data.id);
+      setInlineFormOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["recipients"] });
+      toast.success("Person added!");
+    },
+    onError: () => toast.error("Failed to add person"),
+  });
+
+  // 0 recipients — show inline form directly
+  if (!isLoading && recipients.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl md:text-2xl font-heading font-bold text-foreground">
+            Who is this gift for?
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Add the person you want to find a gift for
+          </p>
+        </div>
+        <RecipientFormModal
+          open={true}
+          onOpenChange={() => {}}
+          onSubmit={(data) => addMutation.mutate(data)}
+          loading={addMutation.isPending}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-xl md:text-2xl font-heading font-bold text-foreground">
-          Who is this for?
+          Who is this gift for?
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           Select a saved person or add someone new
@@ -42,7 +110,7 @@ const StepRecipient = ({ selectedId, onSelect, onAddNew }: StepRecipientProps) =
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="border-border/50">
               <CardContent className="p-4 animate-pulse">
@@ -53,34 +121,42 @@ const StepRecipient = ({ selectedId, onSelect, onAddNew }: StepRecipientProps) =
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {recipients.map((r: any) => {
-            const avatarColor = RELATIONSHIP_COLORS[r.relationship_type] || "bg-primary";
+            const avatarColor = AVATAR_COLORS[r.relationship_type] || "bg-primary";
             const relLabel = RELATIONSHIP_TYPES.find((t) => t.value === r.relationship_type)?.label;
+            const isSelected = selectedId === r.id;
             return (
               <Card
                 key={r.id}
                 className={cn(
-                  "cursor-pointer border-2 transition-all hover:shadow-md",
-                  selectedId === r.id
-                    ? "border-primary shadow-md"
+                  "cursor-pointer border-2 transition-all hover:shadow-md relative",
+                  isSelected
+                    ? "border-primary shadow-md bg-primary/5"
                     : "border-border/50 hover:border-primary/30"
                 )}
                 onClick={() => onSelect(r.id)}
               >
-                <CardContent className="p-4">
+                {isSelected && (
+                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                    <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                  </div>
+                )}
+                <CardContent className="p-4 flex items-center gap-3">
                   <div
                     className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-primary-foreground mb-2",
+                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-primary-foreground shrink-0",
                       avatarColor
                     )}
                   >
                     {r.name.charAt(0).toUpperCase()}
                   </div>
-                  <p className="font-medium text-sm text-foreground truncate">{r.name}</p>
-                  {relLabel && (
-                    <Badge variant="outline" className="text-[9px] mt-1">{relLabel}</Badge>
-                  )}
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate">{r.name}</p>
+                    {relLabel && (
+                      <Badge variant="outline" className="text-[9px] mt-0.5">{relLabel}</Badge>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -89,9 +165,9 @@ const StepRecipient = ({ selectedId, onSelect, onAddNew }: StepRecipientProps) =
           {/* Add new card */}
           <Card
             className="cursor-pointer border-2 border-dashed border-border/50 hover:border-primary/30 transition-all"
-            onClick={onAddNew}
+            onClick={() => setInlineFormOpen(true)}
           >
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[120px]">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[80px]">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
                 <Plus className="w-5 h-5 text-primary" />
               </div>
@@ -100,6 +176,13 @@ const StepRecipient = ({ selectedId, onSelect, onAddNew }: StepRecipientProps) =
           </Card>
         </div>
       )}
+
+      <RecipientFormModal
+        open={inlineFormOpen}
+        onOpenChange={setInlineFormOpen}
+        onSubmit={(data) => addMutation.mutate(data)}
+        loading={addMutation.isPending}
+      />
     </div>
   );
 };
