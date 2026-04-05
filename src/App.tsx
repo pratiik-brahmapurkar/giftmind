@@ -35,6 +35,9 @@ import AdminMarketplaces from "@/pages/admin/AdminMarketplaces";
 import BlogListing from "@/pages/BlogListing";
 import BlogPost from "@/pages/BlogPost";
 import BlogCategory from "@/pages/BlogCategory";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
+import RefundPolicy from "@/pages/RefundPolicy";
 
 const queryClient = new QueryClient();
 
