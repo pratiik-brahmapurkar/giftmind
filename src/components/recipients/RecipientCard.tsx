@@ -19,7 +19,7 @@ interface RecipientCardProps {
   onFindGift: () => void;
 }
 
-const RecipientCard = ({ recipient, onEdit, onFindGift }: RecipientCardProps) => {
+const RecipientCard = ({ recipient, onEdit, onDelete, onFindGift }: RecipientCardProps) => {
   const initial = recipient.name.charAt(0).toUpperCase();
   const relLabel =
     RELATIONSHIP_TYPES.find((r) => r.value === recipient.relationship_type)?.label ??
