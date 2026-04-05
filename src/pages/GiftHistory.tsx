@@ -32,11 +32,13 @@ const GiftHistory = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { limits } = useUserPlan();
 
   const [selectedSession, setSelectedSession] = useState<GiftSession | null>(null);
   const [feedbackSession, setFeedbackSession] = useState<GiftSession | null>(null);
   const [filterOccasion, setFilterOccasion] = useState<string>("all");
   const [filterRecipient, setFilterRecipient] = useState<string>("all");
+  const [exportUpgradeOpen, setExportUpgradeOpen] = useState(false);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ["gift-sessions"],
