@@ -48,7 +48,7 @@ const PLANS = [
       { text: "Save up to 15 people", included: true, highlight: false, gold: false },
       { text: "3 regenerations per session", included: true, highlight: false, gold: false },
       { text: "All store links (Amazon, Flipkart, Myntra & more)", included: true, highlight: false, gold: false },
-      { text: "Signal Check — "See what your gift says"", included: true, highlight: true, gold: false },
+      { text: 'Signal Check \u2014 "See what your gift says"', included: true, highlight: true, gold: false },
       { text: "Batch mode for festivals", included: true, highlight: true, gold: false },
       { text: "3 occasion reminders", included: true, highlight: true, gold: false },
     ],
