@@ -49,6 +49,7 @@ const RecipientFormModal = ({
   onSubmit,
   initialData,
   loading,
+  reminderNote,
 }: RecipientFormModalProps) => {
   const [form, setForm] = useState<RecipientFormData>(defaultFormData);
   const [customInterest, setCustomInterest] = useState("");
