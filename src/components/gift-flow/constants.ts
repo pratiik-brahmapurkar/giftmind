@@ -95,7 +95,7 @@ export const defaultGiftFlowState: GiftFlowState = {
   extraNotes: "",
 };
 
-export const BUDGET_INSIGHTS: Record<string, Record<string, string>> = {
+export const BUDGET_INSIGHTS: Record<string, string> = {
   low_partner: "💡 For a partner, consider experiential gifts in this range — they communicate more than material items.",
   high_colleague: "💡 This is generous for a colleague. ₹1,500–3,000 is typical for professional relationships.",
 };

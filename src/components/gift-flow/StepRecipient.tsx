@@ -93,7 +93,6 @@ const StepRecipient = ({ selectedId, onSelect }: StepRecipientProps) => {
           onOpenChange={() => {}}
           onSubmit={(data) => addMutation.mutate(data)}
           loading={addMutation.isPending}
-          inline
         />
       </div>
     );
