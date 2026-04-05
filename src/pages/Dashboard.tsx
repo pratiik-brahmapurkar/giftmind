@@ -228,7 +228,34 @@ const Dashboard = () => {
             })}
           </div>
         </div>
+
+        {/* Batch mode card */}
+        {!limits.hasBatchMode && (
+          <Card
+            className="border-border/50 border-dashed cursor-pointer hover:bg-muted/30 transition-colors"
+            onClick={() => setBatchUpgradeOpen(true)}
+          >
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <Lock className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Batch Mode</p>
+                <p className="text-xs text-muted-foreground">
+                  Find gifts for your entire Diwali list in one session. Available on Popular and above.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      <UpgradeModal
+        open={batchUpgradeOpen}
+        onOpenChange={setBatchUpgradeOpen}
+        highlightPlan="popular"
+        reason="Batch mode is available on Popular and above. Find gifts for your entire Diwali list in one session."
+      />
     </DashboardLayout>
   );
 };
