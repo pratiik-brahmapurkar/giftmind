@@ -25,6 +25,7 @@ import AdminOverview from "@/pages/admin/AdminOverview";
 import AdminPlaceholder from "@/pages/admin/AdminPlaceholder";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminCredits from "@/pages/admin/AdminCredits";
+import AdminGiftAnalytics from "@/pages/admin/AdminGiftAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -53,7 +54,7 @@ const App = () => (
             <Route path="/admin" element={<AuthGuard><AdminGuard><AdminLayout><AdminOverview /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/users" element={<AuthGuard><AdminGuard><AdminLayout><AdminUsers /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/credits" element={<AuthGuard><AdminGuard><AdminLayout><AdminCredits /></AdminLayout></AdminGuard></AuthGuard>} />
-            <Route path="/admin/gifts" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
+            <Route path="/admin/gifts" element={<AuthGuard><AdminGuard><AdminLayout><AdminGiftAnalytics /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog/new" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog/categories" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
