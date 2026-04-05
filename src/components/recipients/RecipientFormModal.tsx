@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -115,87 +116,85 @@ const RecipientFormModal = ({
         </DialogHeader>
 
         <ScrollArea className="px-6 pb-6 max-h-[calc(90vh-80px)]">
-          <form onSubmit={handleSubmit} className="space-y-5 pr-2">
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={form.name}
-                onChange={(e) => update("name", e.target.value)}
-                placeholder="e.g. Mom, Priya, Alex"
-                maxLength={100}
-                required
-              />
-            </div>
+          <form onSubmit={handleSubmit} className="space-y-6 pr-2">
 
-            {/* Relationship Type */}
-            <div className="space-y-1.5">
-              <Label>Relationship *</Label>
-              <Select value={form.relationship_type} onValueChange={(v) => update("relationship_type", v)}>
-                <SelectTrigger><SelectValue placeholder="Select relationship" /></SelectTrigger>
-                <SelectContent>
-                  {RELATIONSHIP_TYPES.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+            {/* ── Section 1: Basic Info ── */}
+            <div className="space-y-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Basic Info</p>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="name">Name *</Label>
+                <Input id="name" value={form.name} onChange={(e) => update("name", e.target.value)}
+                  placeholder="e.g. Mom, Priya, Alex" maxLength={100} required />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Relationship *</Label>
+                <Select value={form.relationship_type} onValueChange={(v) => update("relationship_type", v)}>
+                  <SelectTrigger><SelectValue placeholder="Select relationship" /></SelectTrigger>
+                  <SelectContent>
+                    {RELATIONSHIP_TYPES.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>
+                        <span className="mr-2">{r.emoji}</span> {r.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>How close are you?</Label>
+                <RadioGroup value={form.relationship_depth} onValueChange={(v) => update("relationship_depth", v)} className="flex gap-3">
+                  {RELATIONSHIP_DEPTHS.map((d) => (
+                    <div key={d.value} className="flex items-center gap-1.5">
+                      <RadioGroupItem value={d.value} id={`depth-${d.value}`} />
+                      <Label htmlFor={`depth-${d.value}`} className="text-sm font-normal cursor-pointer">{d.label}</Label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </RadioGroup>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Age Range</Label>
+                  <Select value={form.age_range} onValueChange={(v) => update("age_range", v)}>
+                    <SelectTrigger><SelectValue placeholder="Age" /></SelectTrigger>
+                    <SelectContent>
+                      {AGE_RANGES.map((a) => (
+                        <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Gender</Label>
+                  <Select value={form.gender} onValueChange={(v) => update("gender", v)}>
+                    <SelectTrigger><SelectValue placeholder="Gender" /></SelectTrigger>
+                    <SelectContent>
+                      {GENDER_OPTIONS.map((g) => (
+                        <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            {/* Relationship Depth */}
-            <div className="space-y-1.5">
-              <Label>How close are you?</Label>
-              <RadioGroup
-                value={form.relationship_depth}
-                onValueChange={(v) => update("relationship_depth", v)}
-                className="flex gap-3"
-              >
-                {RELATIONSHIP_DEPTHS.map((d) => (
-                  <div key={d.value} className="flex items-center gap-1.5">
-                    <RadioGroupItem value={d.value} id={`depth-${d.value}`} />
-                    <Label htmlFor={`depth-${d.value}`} className="text-sm font-normal cursor-pointer">
-                      {d.label}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
+            <Separator />
 
-            {/* Age Range */}
-            <div className="space-y-1.5">
-              <Label>Age Range</Label>
-              <Select value={form.age_range} onValueChange={(v) => update("age_range", v)}>
-                <SelectTrigger><SelectValue placeholder="Select age range" /></SelectTrigger>
-                <SelectContent>
-                  {AGE_RANGES.map((a) => (
-                    <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Gender */}
-            <div className="space-y-1.5">
-              <Label>Gender</Label>
-              <Select value={form.gender} onValueChange={(v) => update("gender", v)}>
-                <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
-                <SelectContent>
-                  {GENDER_OPTIONS.map((g) => (
-                    <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Interests */}
-            <div className="space-y-1.5">
-              <Label>Interests</Label>
+            {/* ── Section 2: Interests ── */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Interests</p>
               <div className="flex flex-wrap gap-1.5">
                 {INTEREST_SUGGESTIONS.map((tag) => (
                   <Badge
                     key={tag}
                     variant={form.interests.includes(tag) ? "default" : "outline"}
-                    className="cursor-pointer text-xs"
+                    className={`cursor-pointer text-xs transition-colors ${
+                      form.interests.includes(tag)
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-muted-foreground hover:bg-muted"
+                    }`}
                     onClick={() => toggleInterest(tag)}
                   >
                     {tag}
@@ -204,34 +203,27 @@ const RecipientFormModal = ({
                 {form.interests
                   .filter((i) => !INTEREST_SUGGESTIONS.includes(i))
                   .map((tag) => (
-                    <Badge key={tag} variant="default" className="cursor-pointer text-xs" onClick={() => toggleInterest(tag)}>
+                    <Badge key={tag} className="cursor-pointer text-xs bg-primary text-primary-foreground" onClick={() => toggleInterest(tag)}>
                       {tag} <X className="w-3 h-3 ml-1" />
                     </Badge>
                   ))}
               </div>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  placeholder="Add custom interest"
-                  value={customInterest}
-                  onChange={(e) => setCustomInterest(e.target.value)}
-                  maxLength={50}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addCustomInterest();
-                    }
-                  }}
-                  className="h-8 text-sm"
-                />
+              <div className="flex gap-2">
+                <Input placeholder="Add custom interest" value={customInterest}
+                  onChange={(e) => setCustomInterest(e.target.value)} maxLength={50}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomInterest(); } }}
+                  className="h-8 text-sm" />
                 <Button type="button" size="sm" variant="outline" onClick={addCustomInterest} className="h-8 shrink-0">
                   <Plus className="w-3 h-3" />
                 </Button>
               </div>
             </div>
 
-            {/* Cultural Context */}
-            <div className="space-y-1.5">
-              <Label>Cultural Context</Label>
+            <Separator />
+
+            {/* ── Section 3: Cultural Context ── */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cultural Context</p>
               <Select value={form.cultural_context} onValueChange={(v) => update("cultural_context", v)}>
                 <SelectTrigger><SelectValue placeholder="Select context" /></SelectTrigger>
                 <SelectContent>
@@ -242,36 +234,24 @@ const RecipientFormModal = ({
               </Select>
             </div>
 
-            {/* Important Dates */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <CalendarDays className="w-4 h-4" /> Important Dates
-              </Label>
+            <Separator />
+
+            {/* ── Section 4: Important Dates ── */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5" /> Important Dates
+              </p>
               {form.important_dates.map((d, i) => (
                 <div key={i} className="flex items-center gap-2 rounded-lg border border-border p-2">
-                  <Input
-                    placeholder="Label (e.g. Birthday)"
-                    value={d.label}
-                    onChange={(e) => updateDate(i, "label", e.target.value)}
-                    maxLength={50}
-                    className="h-8 text-sm flex-1"
-                  />
-                  <Input
-                    placeholder="MM-DD"
-                    value={d.date}
-                    onChange={(e) => updateDate(i, "date", e.target.value)}
-                    maxLength={5}
-                    className="h-8 text-sm w-20"
-                  />
+                  <Input placeholder="Label (e.g. Birthday)" value={d.label}
+                    onChange={(e) => updateDate(i, "label", e.target.value)} maxLength={50}
+                    className="h-8 text-sm flex-1" />
+                  <Input placeholder="MM-DD" value={d.date}
+                    onChange={(e) => updateDate(i, "date", e.target.value)} maxLength={5}
+                    className="h-8 text-sm w-20" />
                   <div className="flex items-center gap-1">
-                    <Checkbox
-                      checked={d.recurring}
-                      onCheckedChange={(v) => updateDate(i, "recurring", !!v)}
-                      id={`recurring-${i}`}
-                    />
-                    <Label htmlFor={`recurring-${i}`} className="text-[10px] text-muted-foreground cursor-pointer">
-                      Yearly
-                    </Label>
+                    <Checkbox checked={d.recurring} onCheckedChange={(v) => updateDate(i, "recurring", !!v)} id={`recurring-${i}`} />
+                    <Label htmlFor={`recurring-${i}`} className="text-[10px] text-muted-foreground cursor-pointer">Yearly</Label>
                   </div>
                   <button type="button" onClick={() => removeDate(i)} className="text-muted-foreground hover:text-destructive">
                     <X className="w-4 h-4" />
@@ -283,17 +263,13 @@ const RecipientFormModal = ({
               </Button>
             </div>
 
-            {/* Notes */}
-            <div className="space-y-1.5">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={form.notes}
-                onChange={(e) => update("notes", e.target.value)}
-                placeholder="Anything else that might help…"
-                maxLength={1000}
-                rows={3}
-              />
+            <Separator />
+
+            {/* ── Section 5: Notes ── */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notes</p>
+              <Textarea id="notes" value={form.notes} onChange={(e) => update("notes", e.target.value)}
+                placeholder="Anything else that might help…" maxLength={1000} rows={3} />
             </div>
 
             <Button type="submit" variant="hero" className="w-full" disabled={loading}>

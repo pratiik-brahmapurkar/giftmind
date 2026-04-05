@@ -1,18 +1,18 @@
 // Shared constants for recipient forms
 
 export const RELATIONSHIP_TYPES = [
-  { value: "partner", label: "Partner" },
-  { value: "parent", label: "Parent" },
-  { value: "sibling", label: "Sibling" },
-  { value: "close_friend", label: "Close Friend" },
-  { value: "friend", label: "Friend" },
-  { value: "colleague", label: "Colleague" },
-  { value: "boss", label: "Boss" },
-  { value: "acquaintance", label: "Acquaintance" },
-  { value: "in_law", label: "In-Law" },
-  { value: "child", label: "Child" },
-  { value: "mentor", label: "Mentor" },
-  { value: "new_relationship", label: "New Relationship (< 6 months)" },
+  { value: "partner", label: "Partner", emoji: "💑" },
+  { value: "parent", label: "Parent", emoji: "👨‍👩‍👧" },
+  { value: "sibling", label: "Sibling", emoji: "👫" },
+  { value: "close_friend", label: "Close Friend", emoji: "🤝" },
+  { value: "friend", label: "Friend", emoji: "👋" },
+  { value: "colleague", label: "Colleague", emoji: "💼" },
+  { value: "boss", label: "Boss", emoji: "🧑‍💼" },
+  { value: "acquaintance", label: "Acquaintance", emoji: "🤝" },
+  { value: "in_law", label: "In-Law", emoji: "👨‍👩‍👧‍👦" },
+  { value: "child", label: "Child", emoji: "👶" },
+  { value: "mentor", label: "Mentor", emoji: "🧑‍🏫" },
+  { value: "new_relationship", label: "New Relationship", emoji: "💕" },
 ] as const;
 
 export const RELATIONSHIP_DEPTHS = [
@@ -52,20 +52,46 @@ export const INTEREST_SUGGESTIONS = [
   "Spirituality", "Sports", "Food", "Beauty", "Home Decor",
 ];
 
-export const RELATIONSHIP_COLORS: Record<string, string> = {
-  partner: "bg-pink-500",
-  parent: "bg-blue-500",
-  sibling: "bg-green-500",
-  close_friend: "bg-purple-500",
-  friend: "bg-indigo-400",
-  colleague: "bg-slate-500",
-  boss: "bg-amber-600",
-  acquaintance: "bg-gray-400",
-  in_law: "bg-teal-500",
-  child: "bg-orange-400",
-  mentor: "bg-cyan-600",
-  new_relationship: "bg-rose-400",
+export const RELATIONSHIP_AVATAR_COLORS: Record<string, string> = {
+  partner: "#FF6B6B",
+  parent: "#6C5CE7",
+  sibling: "#A29BFE",
+  close_friend: "#00B894",
+  friend: "#00B894",
+  colleague: "#FDCB6E",
+  boss: "#FDCB6E",
+  acquaintance: "#B2BEC3",
+  in_law: "#6C5CE7",
+  child: "#FF6B6B",
+  mentor: "#6C5CE7",
+  new_relationship: "#FFB8B8",
 };
+
+export const RELATIONSHIP_BADGE_COLORS: Record<string, string> = {
+  partner: "bg-[#FF6B6B]/10 text-[#FF6B6B] border-[#FF6B6B]/20",
+  parent: "bg-[#6C5CE7]/10 text-[#6C5CE7] border-[#6C5CE7]/20",
+  sibling: "bg-[#A29BFE]/10 text-[#A29BFE] border-[#A29BFE]/20",
+  close_friend: "bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20",
+  friend: "bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20",
+  colleague: "bg-[#FDCB6E]/10 text-[#D4A620] border-[#FDCB6E]/20",
+  boss: "bg-[#FDCB6E]/10 text-[#D4A620] border-[#FDCB6E]/20",
+  acquaintance: "bg-muted text-muted-foreground border-border",
+  in_law: "bg-[#6C5CE7]/10 text-[#6C5CE7] border-[#6C5CE7]/20",
+  child: "bg-[#FF6B6B]/10 text-[#FF6B6B] border-[#FF6B6B]/20",
+  mentor: "bg-[#6C5CE7]/10 text-[#6C5CE7] border-[#6C5CE7]/20",
+  new_relationship: "bg-[#FFB8B8]/10 text-[#FF6B6B] border-[#FFB8B8]/20",
+};
+
+// Keep old export for backwards compat
+export const RELATIONSHIP_COLORS = RELATIONSHIP_AVATAR_COLORS;
+
+export const FILTER_GROUPS: { label: string; types: string[] }[] = [
+  { label: "All", types: [] },
+  { label: "Partners", types: ["partner", "new_relationship"] },
+  { label: "Family", types: ["parent", "sibling", "child", "in_law"] },
+  { label: "Friends", types: ["close_friend", "friend"] },
+  { label: "Colleagues", types: ["colleague", "boss", "mentor", "acquaintance"] },
+];
 
 export interface ImportantDate {
   label: string;
