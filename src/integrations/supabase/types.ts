@@ -47,6 +47,63 @@ export type Database = {
         }
         Relationships: []
       }
+      recipients: {
+        Row: {
+          age_range: Database["public"]["Enums"]["age_range"] | null
+          created_at: string
+          cultural_context:
+            | Database["public"]["Enums"]["cultural_context"]
+            | null
+          gender: Database["public"]["Enums"]["gender_option"] | null
+          id: string
+          important_dates: Json | null
+          interests: string[] | null
+          last_gift_date: string | null
+          name: string
+          notes: string | null
+          relationship_depth: Database["public"]["Enums"]["relationship_depth"]
+          relationship_type: Database["public"]["Enums"]["relationship_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age_range?: Database["public"]["Enums"]["age_range"] | null
+          created_at?: string
+          cultural_context?:
+            | Database["public"]["Enums"]["cultural_context"]
+            | null
+          gender?: Database["public"]["Enums"]["gender_option"] | null
+          id?: string
+          important_dates?: Json | null
+          interests?: string[] | null
+          last_gift_date?: string | null
+          name: string
+          notes?: string | null
+          relationship_depth?: Database["public"]["Enums"]["relationship_depth"]
+          relationship_type: Database["public"]["Enums"]["relationship_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age_range?: Database["public"]["Enums"]["age_range"] | null
+          created_at?: string
+          cultural_context?:
+            | Database["public"]["Enums"]["cultural_context"]
+            | null
+          gender?: Database["public"]["Enums"]["gender_option"] | null
+          id?: string
+          important_dates?: Json | null
+          interests?: string[] | null
+          last_gift_date?: string | null
+          name?: string
+          notes?: string | null
+          relationship_depth?: Database["public"]["Enums"]["relationship_depth"]
+          relationship_type?: Database["public"]["Enums"]["relationship_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -55,7 +112,29 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      age_range: "under_18" | "18_25" | "25_35" | "35_50" | "50_65" | "65_plus"
+      cultural_context:
+        | "indian_hindu"
+        | "indian_muslim"
+        | "indian_christian"
+        | "western"
+        | "mixed"
+        | "other"
+      gender_option: "male" | "female" | "non_binary" | "prefer_not_to_say"
+      relationship_depth: "very_close" | "close" | "acquaintance"
+      relationship_type:
+        | "partner"
+        | "parent"
+        | "sibling"
+        | "close_friend"
+        | "friend"
+        | "colleague"
+        | "boss"
+        | "acquaintance"
+        | "in_law"
+        | "child"
+        | "mentor"
+        | "new_relationship"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -182,6 +261,32 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      age_range: ["under_18", "18_25", "25_35", "35_50", "50_65", "65_plus"],
+      cultural_context: [
+        "indian_hindu",
+        "indian_muslim",
+        "indian_christian",
+        "western",
+        "mixed",
+        "other",
+      ],
+      gender_option: ["male", "female", "non_binary", "prefer_not_to_say"],
+      relationship_depth: ["very_close", "close", "acquaintance"],
+      relationship_type: [
+        "partner",
+        "parent",
+        "sibling",
+        "close_friend",
+        "friend",
+        "colleague",
+        "boss",
+        "acquaintance",
+        "in_law",
+        "child",
+        "mentor",
+        "new_relationship",
+      ],
+    },
   },
 } as const
