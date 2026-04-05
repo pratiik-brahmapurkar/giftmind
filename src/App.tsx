@@ -25,6 +25,7 @@ import AdminOverview from "@/pages/admin/AdminOverview";
 import AdminPlaceholder from "@/pages/admin/AdminPlaceholder";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminCredits from "@/pages/admin/AdminCredits";
+import AdminGiftAnalytics from "@/pages/admin/AdminGiftAnalytics";
 
 const queryClient = new QueryClient();
 
