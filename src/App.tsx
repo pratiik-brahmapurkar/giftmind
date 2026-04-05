@@ -19,6 +19,10 @@ import Credits from "./pages/Credits";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import AdminGuard from "@/components/admin/AdminGuard";
+import AdminLayout from "@/components/admin/AdminLayout";
+import AdminOverview from "@/pages/admin/AdminOverview";
+import AdminPlaceholder from "@/pages/admin/AdminPlaceholder";
 
 const queryClient = new QueryClient();
 
