@@ -38,6 +38,7 @@ import BlogCategory from "@/pages/BlogCategory";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
 import RefundPolicy from "@/pages/RefundPolicy";
+import CookieConsent from "@/components/CookieConsent";
 
 const queryClient = new QueryClient();
 
