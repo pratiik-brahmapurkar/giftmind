@@ -54,25 +54,14 @@ export default function AdminBlogEditor() {
   const [ctaOccasion, setCtaOccasion] = useState("");
 
   // UI state
-  const [mediaPicker, setMediaPicker] = useState(false);
-  const [mediaForContent, setMediaForContent] = useState(false);
-  const [aiModal, setAiModal] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
-
-  // Unsaved changes blocker
-  const blocker = useBlocker(dirty);
+  // Warn on browser close/refresh with unsaved changes
   useEffect(() => {
-    if (blocker.state === "blocked") {
-      if (window.confirm("You have unsaved changes. Leave anyway?")) {
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    }
-  }, [blocker]);
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   // Mark dirty on changes
   useEffect(() => { setDirty(true); }, [title, slug, excerpt, content, status, categoryId, tags, featuredImage, metaTitle, metaDescription]);
