@@ -31,6 +31,9 @@ import AdminBlogCategories from "@/pages/admin/AdminBlogCategories";
 import AdminMediaLibrary from "@/pages/admin/AdminMediaLibrary";
 import AdminBlogAnalytics from "@/pages/admin/AdminBlogAnalytics";
 import AdminBlogEditor from "@/pages/admin/AdminBlogEditor";
+import BlogListing from "@/pages/BlogListing";
+import BlogPost from "@/pages/BlogPost";
+import BlogCategory from "@/pages/BlogCategory";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +58,10 @@ const App = () => (
             <Route path="/credits" element={<AuthGuard><Credits /></AuthGuard>} />
             <Route path="/profile" element={<AuthGuard><Profile /></AuthGuard>} />
             <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+            {/* Public blog */}
+            <Route path="/blog" element={<BlogListing />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
+            <Route path="/blog/category/:slug" element={<BlogCategory />} />
             {/* Admin routes */}
             <Route path="/admin" element={<AuthGuard><AdminGuard><AdminLayout><AdminOverview /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/users" element={<AuthGuard><AdminGuard><AdminLayout><AdminUsers /></AdminLayout></AdminGuard></AuthGuard>} />
