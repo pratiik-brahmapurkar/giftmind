@@ -468,6 +468,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_post_views: { Args: { post_slug: string }; Returns: undefined }
     }
     Enums: {
       age_range: "under_18" | "18_25" | "25_35" | "35_50" | "50_65" | "65_plus"
