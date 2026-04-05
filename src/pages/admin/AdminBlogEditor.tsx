@@ -133,7 +133,8 @@ export default function AdminBlogEditor() {
   });
 
   // Save logic
-  const savePost = async (overrideStatus?: string) => {
+  type PostStatus = "draft" | "published" | "scheduled" | "archived";
+  const savePost = async (overrideStatus?: PostStatus) => {
     if (!user) return;
     setSaving(true);
     const payload = {

@@ -11,7 +11,7 @@ interface PublishCardProps {
   lastSaved: Date | null;
   saving: boolean;
   slug: string;
-  onStatusChange: (v: string) => void;
+  onStatusChange: (v: "draft" | "published" | "scheduled" | "archived") => void;
   onScheduledAtChange: (v: string) => void;
   onSaveDraft: () => void;
   onPublish: () => void;
