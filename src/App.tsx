@@ -58,6 +58,10 @@ const App = () => (
             <Route path="/credits" element={<AuthGuard><Credits /></AuthGuard>} />
             <Route path="/profile" element={<AuthGuard><Profile /></AuthGuard>} />
             <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+            {/* Public blog */}
+            <Route path="/blog" element={<BlogListing />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
+            <Route path="/blog/category/:slug" element={<BlogCategory />} />
             {/* Admin routes */}
             <Route path="/admin" element={<AuthGuard><AdminGuard><AdminLayout><AdminOverview /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/users" element={<AuthGuard><AdminGuard><AdminLayout><AdminUsers /></AdminLayout></AdminGuard></AuthGuard>} />
