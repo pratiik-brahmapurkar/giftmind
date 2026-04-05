@@ -147,6 +147,15 @@ const GiftHistory = () => {
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-heading font-bold text-foreground">Your Gift History</h1>
+          {limits.hasExport ? (
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-1" /> Export History
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => setExportUpgradeOpen(true)}>
+              <Lock className="w-3.5 h-3.5 mr-1" /> Export History
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
