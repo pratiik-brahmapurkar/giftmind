@@ -93,7 +93,7 @@ export default function TermsOfService() {
     <div className="min-h-screen bg-background">
       <BlogSeo title="Terms of Service" description="GiftMind Terms of Service — your agreement when using our platform." />
       <Navbar />
-      <main className="max-w-[720px] mx-auto px-4 py-12">
+      <main className="max-w-[720px] mx-auto px-4 pt-24 pb-12">
         <h1 className="text-3xl font-bold font-['Clash_Display',sans-serif] mb-2">Terms of Service</h1>
         <p className="text-sm text-muted-foreground mb-8">Last updated: {UPDATED}</p>
         <article className="prose prose-lg max-w-none prose-headings:font-bold prose-headings:text-foreground prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-3 prose-p:text-base prose-p:leading-relaxed prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground prose-a:text-primary">

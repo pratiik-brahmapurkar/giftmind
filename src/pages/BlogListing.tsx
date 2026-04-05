@@ -55,7 +55,7 @@ export default function BlogListing() {
     <div className="min-h-screen bg-background">
       <BlogSeo />
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 py-12">
+      <main className="max-w-7xl mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-bold font-['Clash_Display',sans-serif]">The GiftMind Blog</h1>

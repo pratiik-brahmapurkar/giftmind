@@ -114,7 +114,7 @@ export default function BlogPost() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="max-w-3xl mx-auto px-4 py-20 text-center text-muted-foreground">Loading...</div>
+        <div className="max-w-3xl mx-auto px-4 pt-24 pb-20 text-center text-muted-foreground">Loading...</div>
         <Footer />
       </div>
     );
@@ -124,7 +124,7 @@ export default function BlogPost() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+        <div className="max-w-3xl mx-auto px-4 pt-24 pb-20 text-center">
           <h1 className="text-2xl font-bold mb-2">Post not found</h1>
           <Button asChild><Link to="/blog">Back to Blog</Link></Button>
         </div>
@@ -144,7 +144,7 @@ export default function BlogPost() {
         url={url}
       />
       <Navbar />
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="max-w-3xl mx-auto px-4 pt-24 pb-8">
         {/* Breadcrumb */}
         <nav className="text-xs text-muted-foreground mb-6 flex items-center gap-1">
           <Link to="/blog" className="hover:text-primary">Blog</Link>
