@@ -1,61 +1,7 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
-
-const plans = [
-  {
-    name: "Starter",
-    priceINR: 249,
-    priceUSD: 2.99,
-    credits: 25,
-    validity: "30 days",
-    features: ["25 gift recommendations", "Confidence scores", "Buy links", "30-day access"],
-    cta: "Get Started",
-    dark: false,
-    badge: null,
-    highlighted: false,
-    crossedPerSession: null,
-    perSession: null,
-  },
-  {
-    name: "Popular",
-    priceINR: 499,
-    priceUSD: 5.99,
-    credits: 75,
-    validity: "60 days",
-    features: ["75 gift recommendations", "Signal interpretation", "Cultural insights", "Priority support", "60-day access"],
-    cta: "Get Started",
-    dark: false,
-    badge: "Best Value ⭐",
-    highlighted: true,
-    crossedPerSession: "₹9.96",
-    perSession: "₹6.65/session",
-  },
-  {
-    name: "Pro",
-    priceINR: 1299,
-    priceUSD: 15.99,
-    credits: 200,
-    validity: "90 days",
-    features: ["200 gift recommendations", "Full analysis reports", "Occasion calendar", "API access", "90-day access"],
-    cta: "Get Started",
-    dark: true,
-    badge: "Power Gifter 🚀",
-    highlighted: false,
-    crossedPerSession: "₹9.96",
-    perSession: "₹6.50/session",
-  },
-];
+import PricingCards from "@/components/pricing/PricingCards";
 
 const Pricing = () => {
-  const [showUSD, setShowUSD] = useState(false);
-
-  const formatPrice = (plan: (typeof plans)[0]) => {
-    if (showUSD) return `$${plan.priceUSD}`;
-    return `₹${plan.priceINR.toLocaleString("en-IN")}`;
-  };
-
   return (
     <section className="py-24 gradient-mesh">
       <div className="container mx-auto px-4">
@@ -65,111 +11,15 @@ const Pricing = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold font-heading mb-4">
             Simple, Honest <span className="text-primary">Pricing</span>
           </h2>
-          <p className="text-muted-foreground text-lg mb-6">
+          <p className="text-muted-foreground text-lg">
             Pay per use. No subscriptions. No surprises.
           </p>
-
-          <button
-            onClick={() => setShowUSD(!showUSD)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span className={!showUSD ? "text-primary font-semibold" : ""}>₹ INR</span>
-            <div className={`w-10 h-5 rounded-full relative transition-colors ${showUSD ? "bg-primary" : "bg-border"}`}>
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-card transition-transform ${showUSD ? "translate-x-5" : "translate-x-0.5"}`} />
-            </div>
-            <span className={showUSD ? "text-primary font-semibold" : ""}>$ USD</span>
-          </button>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-end">
-          {plans.map((plan, i) => (
-            <motion.div
-              key={plan.name}
-              className={`rounded-2xl p-8 flex flex-col transition-all duration-300 hover:-translate-y-1 ${
-                plan.dark
-                  ? "bg-foreground text-background"
-                  : plan.highlighted
-                  ? "relative z-10 pricing-gradient-border"
-                  : "bg-card card-shadow"
-              }`}
-              style={plan.highlighted ? { minHeight: "110%" } : undefined}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.15 }}
-            >
-              {plan.badge && (
-                <div className={`inline-block self-center px-4 py-1 rounded-full text-xs font-semibold mb-2 ${
-                  plan.dark ? "bg-destructive/20 text-destructive" : "bg-primary/10 text-primary"
-                }`}>
-                  {plan.badge}
-                </div>
-              )}
-              {plan.highlighted && (
-                <p className="text-xs text-muted-foreground text-center mb-3">Most chosen by gifters</p>
-              )}
-
-              <h3 className="text-xl font-bold mb-1 text-center">{plan.name}</h3>
-              <p className={`text-sm mb-4 text-center ${plan.dark ? "text-background/60" : "text-muted-foreground"}`}>
-                {plan.credits} credits · {plan.validity}
-              </p>
-
-              <div className="mb-2 text-center">
-                <span className="text-4xl font-bold font-mono tracking-tight">{formatPrice(plan)}</span>
-              </div>
-
-              {plan.crossedPerSession && !showUSD && (
-                <p className="text-center text-xs mb-4">
-                  <span className="line-through text-muted-foreground">{plan.crossedPerSession}</span>{" "}
-                  <span className="text-primary font-semibold">{plan.perSession}</span>
-                </p>
-              )}
-              {!plan.crossedPerSession && <div className="mb-4" />}
-
-              <ul className="space-y-3 mb-8 flex-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
-                    <Check className={`w-4 h-4 flex-shrink-0 ${plan.dark ? "text-accent" : "text-primary"}`} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                variant={plan.dark ? "heroGhost" : plan.highlighted ? "hero" : "outline"}
-                className={`w-full rounded-lg py-5 ${plan.dark ? "border-background/30 text-background hover:bg-background/10" : ""}`}
-              >
-                {plan.cta}
-              </Button>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Comparison row */}
-        <motion.div
-          className="max-w-5xl mx-auto mt-8 text-center"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.5 }}
-        >
-          <p className="text-sm text-muted-foreground bg-muted/50 rounded-full px-6 py-3 inline-block">
-            All plans include: AI recommendations · Confidence scores · Buy links · Cultural intelligence
-          </p>
-        </motion.div>
-
-        <motion.p
-          className="text-center mt-6 text-muted-foreground"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.6 }}
-        >
-          🎁 Start with 3 free credits — no card needed
-        </motion.p>
+        <PricingCards />
       </div>
     </section>
   );
