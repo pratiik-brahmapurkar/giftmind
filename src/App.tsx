@@ -23,6 +23,7 @@ import AdminGuard from "@/components/admin/AdminGuard";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AdminOverview from "@/pages/admin/AdminOverview";
 import AdminPlaceholder from "@/pages/admin/AdminPlaceholder";
+import AdminUsers from "@/pages/admin/AdminUsers";
 
 const queryClient = new QueryClient();
 
