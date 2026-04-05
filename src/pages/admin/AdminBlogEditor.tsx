@@ -53,7 +53,14 @@ export default function AdminBlogEditor() {
   const [ctaUrl, setCtaUrl] = useState("/gift-flow");
   const [ctaOccasion, setCtaOccasion] = useState("");
 
-  // UI state
+  const [mediaPicker, setMediaPicker] = useState(false);
+  const [mediaForContent, setMediaForContent] = useState(false);
+  const [aiModal, setAiModal] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+
   // Warn on browser close/refresh with unsaved changes
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
