@@ -300,6 +300,54 @@ export type Database = {
           },
         ]
       }
+      marketplace_config: {
+        Row: {
+          affiliate_tag: string | null
+          brand_color: string | null
+          categories: string[] | null
+          country: string
+          created_at: string
+          domain: string
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          priority: number | null
+          search_url_pattern: string | null
+          store_name: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_tag?: string | null
+          brand_color?: string | null
+          categories?: string[] | null
+          country?: string
+          created_at?: string
+          domain: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          priority?: number | null
+          search_url_pattern?: string | null
+          store_name: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_tag?: string | null
+          brand_color?: string | null
+          categories?: string[] | null
+          country?: string
+          created_at?: string
+          domain?: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          priority?: number | null
+          search_url_pattern?: string | null
+          store_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

@@ -31,6 +31,7 @@ import AdminBlogCategories from "@/pages/admin/AdminBlogCategories";
 import AdminMediaLibrary from "@/pages/admin/AdminMediaLibrary";
 import AdminBlogAnalytics from "@/pages/admin/AdminBlogAnalytics";
 import AdminBlogEditor from "@/pages/admin/AdminBlogEditor";
+import AdminMarketplaces from "@/pages/admin/AdminMarketplaces";
 import BlogListing from "@/pages/BlogListing";
 import BlogPost from "@/pages/BlogPost";
 import BlogCategory from "@/pages/BlogCategory";
@@ -73,7 +74,7 @@ const App = () => (
             <Route path="/admin/blog/categories" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogCategories /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/media" element={<AuthGuard><AdminGuard><AdminLayout><AdminMediaLibrary /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog/analytics" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogAnalytics /></AdminLayout></AdminGuard></AuthGuard>} />
-            <Route path="/admin/marketplaces" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
+            <Route path="/admin/marketplaces" element={<AuthGuard><AdminGuard><AdminLayout><AdminMarketplaces /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/settings" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
