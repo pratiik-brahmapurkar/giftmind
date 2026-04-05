@@ -14,6 +14,7 @@ import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import MyPeople from "./pages/MyPeople";
 import GiftFlow from "./pages/GiftFlow";
+import GiftHistory from "./pages/GiftHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
