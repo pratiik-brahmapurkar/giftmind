@@ -21,6 +21,8 @@ export default function UpgradeModal({
   onOpenChange,
   highlightPlan = "popular",
   reason,
+  defaultCurrency,
+  onSelectPlan,
 }: UpgradeModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
