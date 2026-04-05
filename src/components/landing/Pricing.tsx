@@ -46,9 +46,9 @@ const plans = [
 const Pricing = () => {
   const [showUSD, setShowUSD] = useState(false);
 
-  const formatPrice = (inr: number) => {
-    if (showUSD) return `$${Math.round(inr * INR_TO_USD)}`;
-    return `₹${inr.toLocaleString("en-IN")}`;
+  const formatPrice = (plan: typeof plans[0]) => {
+    if (showUSD) return `$${plan.priceUSD}`;
+    return `₹${plan.priceINR.toLocaleString("en-IN")}`;
   };
 
   return (
