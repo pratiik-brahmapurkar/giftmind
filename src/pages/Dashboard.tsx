@@ -22,6 +22,8 @@ const confidenceColor = (score: number) => {
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { limits } = useUserPlan();
+  const [batchUpgradeOpen, setBatchUpgradeOpen] = useState(false);
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
 
   // Fetch real data
