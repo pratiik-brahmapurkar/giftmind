@@ -24,6 +24,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import AdminOverview from "@/pages/admin/AdminOverview";
 import AdminPlaceholder from "@/pages/admin/AdminPlaceholder";
 import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminCredits from "@/pages/admin/AdminCredits";
 
 const queryClient = new QueryClient();
 
