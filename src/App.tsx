@@ -66,6 +66,10 @@ const App = () => (
             <Route path="/blog" element={<BlogListing />} />
             <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/blog/category/:slug" element={<BlogCategory />} />
+            {/* Legal pages */}
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
             {/* Admin routes */}
             <Route path="/admin" element={<AuthGuard><AdminGuard><AdminLayout><AdminOverview /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/users" element={<AuthGuard><AdminGuard><AdminLayout><AdminUsers /></AdminLayout></AdminGuard></AuthGuard>} />
