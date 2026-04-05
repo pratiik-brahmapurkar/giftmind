@@ -40,6 +40,7 @@ interface RecipientFormModalProps {
   onSubmit: (data: RecipientFormData) => void;
   initialData?: RecipientFormData;
   loading?: boolean;
+  reminderNote?: string;
 }
 
 const RecipientFormModal = ({
