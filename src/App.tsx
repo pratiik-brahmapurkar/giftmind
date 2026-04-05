@@ -31,6 +31,9 @@ import AdminBlogCategories from "@/pages/admin/AdminBlogCategories";
 import AdminMediaLibrary from "@/pages/admin/AdminMediaLibrary";
 import AdminBlogAnalytics from "@/pages/admin/AdminBlogAnalytics";
 import AdminBlogEditor from "@/pages/admin/AdminBlogEditor";
+import BlogListing from "@/pages/BlogListing";
+import BlogPost from "@/pages/BlogPost";
+import BlogCategory from "@/pages/BlogCategory";
 
 const queryClient = new QueryClient();
 
