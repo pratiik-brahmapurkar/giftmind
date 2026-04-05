@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Gift } from "lucide-react";
+import PricingCards from "@/components/pricing/PricingCards";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import GiftFlowStepper from "@/components/gift-flow/GiftFlowStepper";
