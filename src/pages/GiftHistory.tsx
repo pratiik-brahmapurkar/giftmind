@@ -339,6 +339,13 @@ const GiftHistory = () => {
         }}
         isSubmitting={feedbackMutation.isPending}
       />
+
+      <UpgradeModal
+        open={exportUpgradeOpen}
+        onOpenChange={setExportUpgradeOpen}
+        highlightPlan="pro"
+        reason="Export your gift history as PDF/CSV with Pro."
+      />
     </DashboardLayout>
   );
 };
