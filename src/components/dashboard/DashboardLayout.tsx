@@ -31,6 +31,7 @@ const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "My People", path: "/my-people", icon: Users },
   { label: "Gift History", path: "/gift-history", icon: History },
+  { label: "Credits", path: "/credits", icon: CreditCard },
 ];
 
 // Mock credit data – will be replaced with real data later
