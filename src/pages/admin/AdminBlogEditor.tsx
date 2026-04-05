@@ -142,7 +142,7 @@ export default function AdminBlogEditor() {
       slug: slug || slugify(title || "untitled"),
       excerpt,
       content,
-      status: overrideStatus || status,
+      status: (overrideStatus || status) as PostStatus,
       scheduled_at: status === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       published_at: (overrideStatus || status) === "published" ? new Date().toISOString() : post?.published_at || null,
       category_id: categoryId || null,
