@@ -41,6 +41,8 @@ const App = () => (
             <Route path="/gift-flow" element={<AuthGuard><GiftFlow /></AuthGuard>} />
             <Route path="/gift-history" element={<AuthGuard><GiftHistory /></AuthGuard>} />
             <Route path="/credits" element={<AuthGuard><Credits /></AuthGuard>} />
+            <Route path="/profile" element={<AuthGuard><Profile /></AuthGuard>} />
+            <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
