@@ -19,6 +19,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           full_name: string | null
+          has_completed_onboarding: boolean
           id: string
           referral_code: string | null
           updated_at: string
@@ -28,6 +29,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
+          has_completed_onboarding?: boolean
           id?: string
           referral_code?: string | null
           updated_at?: string
@@ -37,6 +39,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
+          has_completed_onboarding?: boolean
           id?: string
           referral_code?: string | null
           updated_at?: string
