@@ -34,6 +34,7 @@ const App = () => (
             <Route path="/onboarding" element={<AuthGuard><Onboarding /></AuthGuard>} />
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/my-people" element={<AuthGuard><MyPeople /></AuthGuard>} />
+            <Route path="/gift-flow" element={<AuthGuard><GiftFlow /></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
