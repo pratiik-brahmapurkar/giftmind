@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RefreshCw, ArrowLeft, ShoppingCart, MessageCircle, Check } from "lucide-react";
 import { CURRENCIES } from "./constants";
+import AffiliateDisclaimer from "@/components/AffiliateDisclaimer";
 
 interface StepResultsProps {
   currency: string;
@@ -128,6 +129,8 @@ const StepResults = ({ currency, onRegenerate, onBack, onChoose }: StepResultsPr
           );
         })}
       </div>
+
+      <AffiliateDisclaimer />
 
       {/* Bottom actions */}
       <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
