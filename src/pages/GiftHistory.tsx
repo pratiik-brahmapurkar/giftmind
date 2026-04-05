@@ -9,24 +9,19 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Gift, MoreVertical, Sparkles, Calendar, Filter, X } from "lucide-react";
+import { Gift, MoreVertical, Sparkles, Calendar, Filter, X, Download, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { OCCASIONS } from "@/components/gift-flow/constants";
 import { RELATIONSHIP_COLORS } from "@/components/recipients/constants";
 import GiftDetailPanel from "@/components/gift-history/GiftDetailPanel";
 import FeedbackModal from "@/components/gift-history/FeedbackModal";
+import UpgradeModal from "@/components/pricing/UpgradeModal";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import type { Tables } from "@/integrations/supabase/types";
 
 type GiftSession = Tables<"gift_sessions"> & {
@@ -37,11 +32,13 @@ const GiftHistory = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { limits } = useUserPlan();
 
   const [selectedSession, setSelectedSession] = useState<GiftSession | null>(null);
   const [feedbackSession, setFeedbackSession] = useState<GiftSession | null>(null);
   const [filterOccasion, setFilterOccasion] = useState<string>("all");
   const [filterRecipient, setFilterRecipient] = useState<string>("all");
+  const [exportUpgradeOpen, setExportUpgradeOpen] = useState(false);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ["gift-sessions"],
@@ -150,6 +147,15 @@ const GiftHistory = () => {
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-heading font-bold text-foreground">Your Gift History</h1>
+          {limits.hasExport ? (
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-1" /> Export History
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => setExportUpgradeOpen(true)}>
+              <Lock className="w-3.5 h-3.5 mr-1" /> Export History
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -332,6 +338,13 @@ const GiftHistory = () => {
           feedbackMutation.mutate({ sessionId: feedbackSession.id, rating, notes });
         }}
         isSubmitting={feedbackMutation.isPending}
+      />
+
+      <UpgradeModal
+        open={exportUpgradeOpen}
+        onOpenChange={setExportUpgradeOpen}
+        highlightPlan="pro"
+        reason="Export your gift history as PDF/CSV with Pro."
       />
     </DashboardLayout>
   );

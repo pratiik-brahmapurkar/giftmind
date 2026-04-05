@@ -40,6 +40,7 @@ interface RecipientFormModalProps {
   onSubmit: (data: RecipientFormData) => void;
   initialData?: RecipientFormData;
   loading?: boolean;
+  reminderNote?: string;
 }
 
 const RecipientFormModal = ({
@@ -48,6 +49,7 @@ const RecipientFormModal = ({
   onSubmit,
   initialData,
   loading,
+  reminderNote,
 }: RecipientFormModalProps) => {
   const [form, setForm] = useState<RecipientFormData>(defaultFormData);
   const [customInterest, setCustomInterest] = useState("");
@@ -261,6 +263,9 @@ const RecipientFormModal = ({
               <Button type="button" variant="outline" size="sm" onClick={addDate} className="h-8 text-xs">
                 <Plus className="w-3 h-3 mr-1" /> Add Date
               </Button>
+              {reminderNote && (
+                <p className="text-xs text-muted-foreground mt-1">{reminderNote}</p>
+              )}
             </div>
 
             <Separator />

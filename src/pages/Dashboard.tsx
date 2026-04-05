@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -6,8 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ArrowRight, Gift, Coins, Users, Clock } from "lucide-react";
+import { Sparkles, ArrowRight, Gift, Coins, Users, Clock, Lock } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import UpgradeModal from "@/components/pricing/UpgradeModal";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import { motion } from "framer-motion";
 
 const confidenceColor = (score: number) => {
@@ -19,6 +22,8 @@ const confidenceColor = (score: number) => {
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { limits } = useUserPlan();
+  const [batchUpgradeOpen, setBatchUpgradeOpen] = useState(false);
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
 
   // Fetch real data
@@ -223,7 +228,34 @@ const Dashboard = () => {
             })}
           </div>
         </div>
+
+        {/* Batch mode card */}
+        {!limits.hasBatchMode && (
+          <Card
+            className="border-border/50 border-dashed cursor-pointer hover:bg-muted/30 transition-colors"
+            onClick={() => setBatchUpgradeOpen(true)}
+          >
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <Lock className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Batch Mode</p>
+                <p className="text-xs text-muted-foreground">
+                  Find gifts for your entire Diwali list in one session. Available on Popular and above.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      <UpgradeModal
+        open={batchUpgradeOpen}
+        onOpenChange={setBatchUpgradeOpen}
+        highlightPlan="popular"
+        reason="Batch mode is available on Popular and above. Find gifts for your entire Diwali list in one session."
+      />
     </DashboardLayout>
   );
 };
