@@ -16,6 +16,8 @@ import MyPeople from "./pages/MyPeople";
 import GiftFlow from "./pages/GiftFlow";
 import GiftHistory from "./pages/GiftHistory";
 import Credits from "./pages/Credits";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
