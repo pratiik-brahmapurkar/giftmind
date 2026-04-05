@@ -31,6 +31,7 @@ import AdminBlogCategories from "@/pages/admin/AdminBlogCategories";
 import AdminMediaLibrary from "@/pages/admin/AdminMediaLibrary";
 import AdminBlogAnalytics from "@/pages/admin/AdminBlogAnalytics";
 import AdminBlogEditor from "@/pages/admin/AdminBlogEditor";
+import AdminMarketplaces from "@/pages/admin/AdminMarketplaces";
 import BlogListing from "@/pages/BlogListing";
 import BlogPost from "@/pages/BlogPost";
 import BlogCategory from "@/pages/BlogCategory";
