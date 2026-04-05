@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -6,8 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ArrowRight, Gift, Coins, Users, Clock } from "lucide-react";
+import { Sparkles, ArrowRight, Gift, Coins, Users, Clock, Lock } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import UpgradeModal from "@/components/pricing/UpgradeModal";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import { motion } from "framer-motion";
 
 const confidenceColor = (score: number) => {
