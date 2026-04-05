@@ -43,7 +43,7 @@ export default function BlogCategory() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+        <div className="max-w-3xl mx-auto px-4 pt-24 pb-20 text-center">
           <h1 className="text-2xl font-bold mb-2">Category not found</h1>
           <Button asChild><Link to="/blog">Back to Blog</Link></Button>
         </div>
