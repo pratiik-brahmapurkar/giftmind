@@ -65,7 +65,7 @@ const App = () => (
             <Route path="/admin/blog/edit/:id" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogEditor /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/blog/categories" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogCategories /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/media" element={<AuthGuard><AdminGuard><AdminLayout><AdminMediaLibrary /></AdminLayout></AdminGuard></AuthGuard>} />
-            <Route path="/admin/blog/analytics" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
+            <Route path="/admin/blog/analytics" element={<AuthGuard><AdminGuard><AdminLayout><AdminBlogAnalytics /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/marketplaces" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="/admin/settings" element={<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>} />
             <Route path="*" element={<NotFound />} />
