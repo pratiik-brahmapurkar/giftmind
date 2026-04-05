@@ -113,8 +113,8 @@ const GiftFlow = () => {
   if (noCredits) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="max-w-md text-center space-y-6 p-8">
+        <div className="max-w-5xl mx-auto py-8 space-y-6">
+          <div className="text-center space-y-3">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
               <Gift className="w-8 h-8 text-primary" />
             </div>
@@ -124,14 +124,12 @@ const GiftFlow = () => {
             <p className="text-muted-foreground">
               Get more credits to keep finding perfect gifts.
             </p>
-            <div className="flex flex-col gap-3">
-              <Button variant="hero" size="lg" onClick={() => navigate("/credits")}>
-                Buy More Credits
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-muted-foreground">
-                ← Go back to dashboard
-              </Button>
-            </div>
+          </div>
+          <PricingCards compact />
+          <div className="text-center">
+            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-muted-foreground">
+              ← Go back to dashboard
+            </Button>
           </div>
         </div>
       </DashboardLayout>
