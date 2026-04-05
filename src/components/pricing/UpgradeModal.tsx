@@ -37,7 +37,7 @@ export default function UpgradeModal({
             </DialogDescription>
           )}
         </DialogHeader>
-        <PricingCards highlightPlan={highlightPlan} compact />
+        <PricingCards highlightPlan={highlightPlan} compact defaultCurrency={defaultCurrency} onSelectPlan={onSelectPlan} />
       </DialogContent>
     </Dialog>
   );
