@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -15,6 +15,13 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +31,8 @@ const Login = () => {
     if (error) {
       setError(error.message);
       setLoading(false);
+      triggerShake();
     } else {
-      // Check onboarding status
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
@@ -51,6 +58,7 @@ const Login = () => {
     });
     if (result.error) {
       setError(result.error.message || "Google sign-in failed");
+      triggerShake();
     }
     if (!result.redirected && !result.error) {
       navigate("/dashboard");
@@ -59,7 +67,7 @@ const Login = () => {
 
   return (
     <AuthLayout>
-      <Card className="border-border/50 shadow-lg">
+      <Card ref={cardRef} className={`border-border/50 shadow-lg transition-transform ${shake ? "animate-shake" : ""}`}>
         <CardHeader className="text-center">
           <CardTitle className="text-xl font-heading">Welcome back</CardTitle>
           <CardDescription>Sign in to your GiftMind account</CardDescription>
@@ -76,7 +84,9 @@ const Login = () => {
           </Button>
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+            <div className="relative flex justify-center text-xs text-muted-foreground">
+              <span className="bg-card px-3">or continue with email</span>
+            </div>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
