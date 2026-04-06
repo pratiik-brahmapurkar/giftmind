@@ -12,8 +12,8 @@ const faqs = [
     a: "ChatGPT gives you a generic list. GiftMind gives you 3 specific recommendations with confidence scores, explains WHY each works for YOUR recipient, tells you what the gift communicates about your relationship, and links you directly to stores in your country. It's a gift strategist, not a chatbot.",
   },
   {
-    q: "Which countries and stores do you support?",
-    a: "GiftMind works worldwide. We auto-detect your location and show relevant stores — Amazon, Etsy, Flipkart, Myntra, Uncommon Goods, and more depending on your region. Prices display in your local currency.",
+    q: "Which stores do you link to?",
+    a: "We auto-detect your country and show relevant local stores. For example: Amazon, Flipkart, Myntra in India · Amazon, Etsy, Uncommon Goods in the US · Amazon, John Lewis, NOTHS in the UK · Amazon, Fnac, Cdiscount in France — and many more across 12 regions. New stores are added regularly.",
   },
   {
     q: "What happens when my credits expire?",
@@ -30,6 +30,10 @@ const faqs = [
   {
     q: "Can I use GiftMind for Diwali, Eid, Christmas, and other cultural occasions?",
     a: "Absolutely. GiftMind understands cultural gifting norms — auspicious symbols for Diwali, halal considerations for Eid, stocking stuffer budgets for Christmas, shagun amounts for Indian weddings. The AI adjusts recommendations based on the occasion's cultural context.",
+  },
+  {
+    q: "Can I send a gift to someone in another country?",
+    a: "Yes! Just tell us where your recipient is located, and we'll show you stores that deliver to their country with culturally appropriate recommendations. Perfect for diaspora gifting — whether you're in London gifting to parents in Delhi, or in Dubai gifting to a friend in New York.",
   },
 ];
 

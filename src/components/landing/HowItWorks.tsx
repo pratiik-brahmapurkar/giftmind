@@ -17,7 +17,7 @@ const steps = [
   {
     icon: ShoppingCart,
     title: "Buy with one click",
-    description: "Direct links to Amazon, Flipkart, Etsy — compare prices and buy instantly.",
+    description: "Get direct links to top stores in your region — compare prices and buy instantly.",
     step: "03",
   },
 ];
@@ -42,7 +42,6 @@ const HowItWorks = () => {
         </motion.div>
 
         <div className="relative max-w-5xl mx-auto">
-          {/* Dashed connector line — desktop only */}
           <div className="hidden md:block absolute top-[4.5rem] left-[16.67%] right-[16.67%] border-t-2 border-dashed border-primary/20 z-0" />
 
           <div className="grid md:grid-cols-3 gap-8">
