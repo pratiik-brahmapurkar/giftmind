@@ -246,6 +246,7 @@ export type Database = {
           id: string
           occasion: string | null
           occasion_date: string | null
+          recipient_country: string | null
           recipient_id: string | null
           results: Json | null
           status: string
@@ -265,6 +266,7 @@ export type Database = {
           id?: string
           occasion?: string | null
           occasion_date?: string | null
+          recipient_country?: string | null
           recipient_id?: string | null
           results?: Json | null
           status?: string
@@ -284,6 +286,7 @@ export type Database = {
           id?: string
           occasion?: string | null
           occasion_date?: string | null
+          recipient_country?: string | null
           recipient_id?: string | null
           results?: Json | null
           status?: string
@@ -405,6 +408,7 @@ export type Database = {
       recipients: {
         Row: {
           age_range: Database["public"]["Enums"]["age_range"] | null
+          country: string | null
           created_at: string
           cultural_context:
             | Database["public"]["Enums"]["cultural_context"]
@@ -423,6 +427,7 @@ export type Database = {
         }
         Insert: {
           age_range?: Database["public"]["Enums"]["age_range"] | null
+          country?: string | null
           created_at?: string
           cultural_context?:
             | Database["public"]["Enums"]["cultural_context"]
@@ -441,6 +446,7 @@ export type Database = {
         }
         Update: {
           age_range?: Database["public"]["Enums"]["age_range"] | null
+          country?: string | null
           created_at?: string
           cultural_context?:
             | Database["public"]["Enums"]["cultural_context"]
