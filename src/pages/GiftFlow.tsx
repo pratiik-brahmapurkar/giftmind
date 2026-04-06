@@ -223,6 +223,8 @@ const GiftFlow = () => {
               {step === 4 && (
                 <StepResults
                   currency={flow.currency}
+                  recipientCountry={flow.recipientCountry}
+                  sessionId={sessionId}
                   onRegenerate={() => toast.info("Regeneration coming soon!")}
                   onBack={goBack}
                   onChoose={handleChooseGift}
