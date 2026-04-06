@@ -309,7 +309,7 @@ const StepResults = ({ currency, recipientCountry, sessionId, onRegenerate, onBa
   const [regenCount, setRegenCount] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState("");
-  const [upgradeHighlight, setUpgradeHighlight] = useState<"popular" | "pro">("popular");
+  const [upgradeHighlight, setUpgradeHighlight] = useState<"starter" | "popular" | "pro">("popular");
 
   const storeCountry = recipientCountry || "US";
   const stores = getStoresForCountry(storeCountry);
