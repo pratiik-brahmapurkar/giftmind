@@ -1,11 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Star, ChevronDown } from "lucide-react";
+import { Check, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /* ─── Currency config ─── */
-export type CurrencyKey = "INR" | "USD" | "GBP" | "AED";
+export type CurrencyKey = "INR" | "USD" | "EUR" | "GBP" | "AED" | "CAD" | "AUD" | "SGD";
 
 interface CurrencyOption {
   key: CurrencyKey;
@@ -17,9 +24,15 @@ interface CurrencyOption {
 const CURRENCIES: CurrencyOption[] = [
   { key: "INR", flag: "🇮🇳", symbol: "₹", label: "INR" },
   { key: "USD", flag: "🇺🇸", symbol: "$", label: "USD" },
+  { key: "EUR", flag: "🇪🇺", symbol: "€", label: "EUR" },
   { key: "GBP", flag: "🇬🇧", symbol: "£", label: "GBP" },
   { key: "AED", flag: "🇦🇪", symbol: "د.إ", label: "AED" },
+  { key: "CAD", flag: "🇨🇦", symbol: "C$", label: "CAD" },
+  { key: "AUD", flag: "🇦🇺", symbol: "A$", label: "AUD" },
+  { key: "SGD", flag: "🇸🇬", symbol: "S$", label: "SGD" },
 ];
+
+const LS_KEY = "gm_currency";
 
 /* ─── Plan data ─── */
 interface PlanFeature {
@@ -36,11 +49,8 @@ interface Plan {
   name: string;
   subtitle: string;
   prices: Record<CurrencyKey, number>;
-  /** Per-session cost per currency */
   perSession: Record<CurrencyKey, string>;
-  /** Crossed-out old rate (null for starter) */
   crossedPerSession: Record<CurrencyKey, string> | null;
-  savePill: string | null;
   badge: string | null;
   badgeStyle: string;
   features: PlanFeature[];
@@ -53,10 +63,12 @@ const PLANS: Plan[] = [
     key: "starter",
     name: "Starter",
     subtitle: "5 people · 30 days",
-    prices: { INR: 299, USD: 4.99, GBP: 3.99, AED: 18.99 },
-    perSession: { INR: "₹9.97/session", USD: "$0.17/session", GBP: "£0.13/session", AED: "د.إ0.63/session" },
+    prices: { INR: 299, USD: 4.99, EUR: 4.49, GBP: 3.99, AED: 18.99, CAD: 6.99, AUD: 7.49, SGD: 6.99 },
+    perSession: {
+      INR: "₹9.97/session", USD: "$0.17/session", EUR: "€0.15/session", GBP: "£0.13/session",
+      AED: "د.إ0.63/session", CAD: "C$0.23/session", AUD: "A$0.25/session", SGD: "S$0.23/session",
+    },
     crossedPerSession: null,
-    savePill: null,
     badge: null,
     badgeStyle: "",
     sessions: 30,
@@ -75,10 +87,15 @@ const PLANS: Plan[] = [
     key: "popular",
     name: "Popular",
     subtitle: "15 people · 60 days",
-    prices: { INR: 599, USD: 9.99, GBP: 7.99, AED: 36.99 },
-    perSession: { INR: "₹7.49/session", USD: "$0.12/session", GBP: "£0.10/session", AED: "د.إ0.46/session" },
-    crossedPerSession: { INR: "₹9.97", USD: "$0.17", GBP: "£0.13", AED: "د.إ0.63" },
-    savePill: null, // dynamic per currency
+    prices: { INR: 599, USD: 9.99, EUR: 8.99, GBP: 7.99, AED: 36.99, CAD: 12.99, AUD: 14.99, SGD: 12.99 },
+    perSession: {
+      INR: "₹7.49/session", USD: "$0.12/session", EUR: "€0.11/session", GBP: "£0.10/session",
+      AED: "د.إ0.46/session", CAD: "C$0.16/session", AUD: "A$0.19/session", SGD: "S$0.16/session",
+    },
+    crossedPerSession: {
+      INR: "₹9.97", USD: "$0.17", EUR: "€0.15", GBP: "£0.13",
+      AED: "د.إ0.63", CAD: "C$0.23", AUD: "A$0.25", SGD: "S$0.23",
+    },
     badge: "Best Value ⭐",
     badgeStyle: "bg-gradient-to-r from-[hsl(249,76%,64%)] to-[hsl(0,100%,70%)] text-white",
     sessions: 80,
@@ -97,10 +114,15 @@ const PLANS: Plan[] = [
     key: "pro",
     name: "Pro",
     subtitle: "Unlimited people · 90 days",
-    prices: { INR: 1499, USD: 24.99, GBP: 19.99, AED: 89.99 },
-    perSession: { INR: "₹6.66/session", USD: "$0.11/session", GBP: "£0.09/session", AED: "د.إ0.40/session" },
-    crossedPerSession: { INR: "₹9.97", USD: "$0.17", GBP: "£0.13", AED: "د.إ0.63" },
-    savePill: null,
+    prices: { INR: 1499, USD: 24.99, EUR: 22.99, GBP: 19.99, AED: 89.99, CAD: 32.99, AUD: 37.99, SGD: 32.99 },
+    perSession: {
+      INR: "₹6.66/session", USD: "$0.11/session", EUR: "€0.10/session", GBP: "£0.09/session",
+      AED: "د.إ0.40/session", CAD: "C$0.15/session", AUD: "A$0.17/session", SGD: "S$0.15/session",
+    },
+    crossedPerSession: {
+      INR: "₹9.97", USD: "$0.17", EUR: "€0.15", GBP: "£0.13",
+      AED: "د.إ0.63", CAD: "C$0.23", AUD: "A$0.25", SGD: "S$0.23",
+    },
     badge: "Power Gifter 🚀",
     badgeStyle: "border border-white/30 bg-transparent text-white",
     sessions: 225,
@@ -119,18 +141,24 @@ const PLANS: Plan[] = [
   },
 ];
 
-const SAVE_PERCENT: Record<string, Record<CurrencyKey, string>> = {
-  popular: { INR: "Save 25%", USD: "Save 30%", GBP: "Save 25%", AED: "Save 27%" },
-  pro: { INR: "Save 33%", USD: "Save 35%", GBP: "Save 33%", AED: "Save 37%" },
+const SAVE_LABEL: Record<string, string> = {
+  popular: "Save 25%",
+  pro: "Save 33%",
 };
 
 /* ─── Helpers ─── */
 function detectCurrency(): CurrencyKey {
+  const stored = localStorage.getItem(LS_KEY);
+  if (stored && CURRENCIES.some((c) => c.key === stored)) return stored as CurrencyKey;
+
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz?.startsWith("Asia/Kolkata") || tz?.startsWith("Asia/Calcutta")) return "INR";
-    if (tz?.startsWith("Europe/London")) return "GBP";
-    if (tz?.startsWith("Asia/Dubai")) return "AED";
+    const lang = navigator.language || "";
+    if (lang.startsWith("hi") || lang === "en-IN") return "INR";
+    if (["fr", "de", "it", "es", "nl"].some((l) => lang.startsWith(l))) return "EUR";
+    if (lang === "en-GB") return "GBP";
+    if (lang === "en-AU") return "AUD";
+    if (lang === "en-CA") return "CAD";
+    if (lang.startsWith("ar")) return "AED";
   } catch {}
   return "USD";
 }
@@ -138,7 +166,6 @@ function detectCurrency(): CurrencyKey {
 function formatPrice(amount: number, currency: CurrencyKey): string {
   const c = CURRENCIES.find((c) => c.key === currency)!;
   if (currency === "INR") return `${c.symbol}${amount.toLocaleString("en-IN")}`;
-  if (currency === "AED") return `${c.symbol}${amount.toFixed(2)}`;
   return `${c.symbol}${amount.toFixed(2)}`;
 }
 
@@ -167,49 +194,24 @@ function AnimatedPrice({ amount, currency }: { amount: number; currency: Currenc
   return <span>{formatPrice(rounded, currency)}</span>;
 }
 
-/* ─── Currency dropdown ─── */
+/* ─── Currency selector (shadcn Select) ─── */
 function CurrencySelector({ value, onChange }: { value: CurrencyKey; onChange: (c: CurrencyKey) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const selected = CURRENCIES.find((c) => c.key === value)!;
-
   return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80 transition-colors"
-      >
-        <span>{selected.flag}</span>
-        <span>{selected.symbol} {selected.label}</span>
-        <ChevronDown className={cn("w-4 h-4 transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 z-50 bg-popover border border-border rounded-xl shadow-lg py-1 min-w-[160px]">
-          {CURRENCIES.map((c) => (
-            <button
-              key={c.key}
-              onClick={() => { onChange(c.key); setOpen(false); }}
-              className={cn(
-                "w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-accent transition-colors",
-                c.key === value && "bg-accent font-semibold"
-              )}
-            >
+    <Select value={value} onValueChange={(v) => onChange(v as CurrencyKey)}>
+      <SelectTrigger className="w-auto h-9 rounded-lg border-border gap-2 px-3 text-sm font-medium">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {CURRENCIES.map((c) => (
+          <SelectItem key={c.key} value={c.key}>
+            <span className="flex items-center gap-2">
               <span>{c.flag}</span>
               <span>{c.symbol} {c.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -225,11 +227,16 @@ export interface PricingCardsProps {
 export default function PricingCards({ highlightPlan, compact = false, defaultCurrency, onSelectPlan }: PricingCardsProps) {
   const [currency, setCurrency] = useState<CurrencyKey>(defaultCurrency ?? detectCurrency());
 
+  const handleCurrencyChange = (c: CurrencyKey) => {
+    setCurrency(c);
+    localStorage.setItem(LS_KEY, c);
+  };
+
   return (
     <div className="space-y-8">
       {/* Currency selector */}
       <div className="flex justify-center">
-        <CurrencySelector value={currency} onChange={setCurrency} />
+        <CurrencySelector value={currency} onChange={handleCurrencyChange} />
       </div>
 
       {/* Cards */}
@@ -241,7 +248,7 @@ export default function PricingCards({ highlightPlan, compact = false, defaultCu
           const price = plan.prices[currency];
           const perSession = plan.perSession[currency];
           const crossed = plan.crossedPerSession?.[currency] ?? null;
-          const save = SAVE_PERCENT[plan.key]?.[currency] ?? null;
+          const save = SAVE_LABEL[plan.key] ?? null;
 
           return (
             <motion.div
@@ -445,7 +452,7 @@ export default function PricingCards({ highlightPlan, compact = false, defaultCu
               Start Free →
             </Link>
             <p className="text-xs text-muted-foreground italic mt-2">
-              Prices auto-adjusted for your region. Store links match your country — Amazon, Etsy, and 10+ stores worldwide.
+              Store links auto-match your country — Amazon, Etsy, and 50+ stores across 12 regions.
             </p>
           </motion.div>
         </>

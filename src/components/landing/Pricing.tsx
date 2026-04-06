@@ -15,7 +15,7 @@ const Pricing = () => {
             Simple, Honest <span className="text-primary">Pricing</span>
           </h2>
           <p className="text-muted-foreground text-lg">
-            Pay per use. No subscriptions. No surprises.
+            Pay per use. No monthly subscriptions. Prices adjusted for your region.
           </p>
         </motion.div>
 

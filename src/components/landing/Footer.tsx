@@ -42,8 +42,9 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 text-center space-y-1">
-          <p className="text-sm text-muted-foreground">Built with 💜 in India</p>
+          <p className="text-sm text-muted-foreground">Built with 💜 in India, for gifters everywhere 🌍</p>
           <p className="text-xs text-muted-foreground">Some links may be affiliate links.</p>
+          <p className="text-xs text-muted-foreground mt-2">🌐 English</p>
         </div>
       </div>
     </footer>
