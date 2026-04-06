@@ -7,10 +7,12 @@ import { RELATIONSHIP_TYPES } from "@/components/recipients/constants";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import RecipientFormModal from "@/components/recipients/RecipientFormModal";
+import CrossBorderSection from "./CrossBorderSection";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { RecipientFormData } from "@/components/recipients/constants";
+import { detectUserCountry } from "./constants";
 
 const AVATAR_COLORS: Record<string, string> = {
   partner: "bg-[hsl(0,73%,71%)]",
@@ -26,9 +28,11 @@ const AVATAR_COLORS: Record<string, string> = {
 interface StepRecipientProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
+  recipientCountry: string;
+  onRecipientCountryChange: (country: string) => void;
 }
 
-const StepRecipient = ({ selectedId, onSelect }: StepRecipientProps) => {
+const StepRecipient = ({ selectedId, onSelect, recipientCountry, onRecipientCountryChange }: StepRecipientProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [inlineFormOpen, setInlineFormOpen] = useState(false);
@@ -38,13 +42,37 @@ const StepRecipient = ({ selectedId, onSelect }: StepRecipientProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipients")
-        .select("id, name, relationship_type, interests")
+        .select("id, name, relationship_type, interests, country")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!user,
   });
+
+  // When a recipient is selected and they have a saved country, auto-populate
+  const selectedRecipient = recipients.find((r: any) => r.id === selectedId);
+
+  const handleSelect = (id: string) => {
+    onSelect(id);
+    const recipient = recipients.find((r: any) => r.id === id);
+    if (recipient?.country) {
+      onRecipientCountryChange(recipient.country);
+    } else {
+      onRecipientCountryChange(detectUserCountry());
+    }
+  };
+
+  const handleCountryChange = async (country: string) => {
+    onRecipientCountryChange(country);
+    // Persist to recipient profile
+    if (selectedId) {
+      await supabase
+        .from("recipients")
+        .update({ country } as any)
+        .eq("id", selectedId);
+    }
+  };
 
   const addMutation = useMutation({
     mutationFn: async (form: RecipientFormData) => {
@@ -68,7 +96,7 @@ const StepRecipient = ({ selectedId, onSelect }: StepRecipientProps) => {
       return data;
     },
     onSuccess: (data) => {
-      onSelect(data.id);
+      handleSelect(data.id);
       setInlineFormOpen(false);
       queryClient.invalidateQueries({ queryKey: ["recipients"] });
       toast.success("Person added!");
@@ -135,7 +163,7 @@ const StepRecipient = ({ selectedId, onSelect }: StepRecipientProps) => {
                     ? "border-primary shadow-md bg-primary/5"
                     : "border-border/50 hover:border-primary/30"
                 )}
-                onClick={() => onSelect(r.id)}
+                onClick={() => handleSelect(r.id)}
               >
                 {isSelected && (
                   <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -175,6 +203,15 @@ const StepRecipient = ({ selectedId, onSelect }: StepRecipientProps) => {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Cross-border section — only visible when a recipient is selected */}
+      {selectedId && selectedRecipient && (
+        <CrossBorderSection
+          recipientName={selectedRecipient.name}
+          recipientCountry={recipientCountry}
+          onCountryChange={handleCountryChange}
+        />
       )}
 
       <RecipientFormModal

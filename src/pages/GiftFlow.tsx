@@ -15,7 +15,7 @@ import StepOccasion from "@/components/gift-flow/StepOccasion";
 import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
 import StepResults from "@/components/gift-flow/StepResults";
-import { defaultGiftFlowState, type GiftFlowState } from "@/components/gift-flow/constants";
+import { defaultGiftFlowState, detectCurrencyFromLocale, detectUserCountry, type GiftFlowState } from "@/components/gift-flow/constants";
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 200 : -200, opacity: 0 }),
@@ -33,7 +33,15 @@ const GiftFlow = () => {
   const [flow, setFlow] = useState<GiftFlowState>(() => {
     const occasion = searchParams.get("occasion") || "";
     const recipientId = searchParams.get("recipient") || null;
-    return { ...defaultGiftFlowState, occasion, recipientId };
+    const detectedCurrency = detectCurrencyFromLocale();
+    const detectedCountry = detectUserCountry();
+    return {
+      ...defaultGiftFlowState,
+      occasion,
+      recipientId,
+      currency: detectedCurrency,
+      recipientCountry: detectedCountry,
+    };
   });
   const [sessionId, setSessionId] = useState<string | null>(null);
 
@@ -50,6 +58,21 @@ const GiftFlow = () => {
       return data;
     },
     enabled: !!user,
+  });
+
+  // Fetch selected recipient's relationship type for budget insights
+  const { data: selectedRecipient } = useQuery({
+    queryKey: ["recipient-detail", flow.recipientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipients")
+        .select("relationship_type, country")
+        .eq("id", flow.recipientId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!flow.recipientId,
   });
 
   const credits = profile?.credits ?? 0;
@@ -82,6 +105,7 @@ const GiftFlow = () => {
           currency: flow.currency,
           context_tags: flow.contextTags,
           extra_notes: flow.extraNotes || null,
+          recipient_country: flow.recipientCountry || null,
           status: "completed",
         } as any)
         .select("id")
@@ -156,6 +180,8 @@ const GiftFlow = () => {
                 <StepRecipient
                   selectedId={flow.recipientId}
                   onSelect={(id) => update("recipientId", id)}
+                  recipientCountry={flow.recipientCountry}
+                  onRecipientCountryChange={(c) => update("recipientCountry", c)}
                 />
               )}
               {step === 1 && (
@@ -174,6 +200,8 @@ const GiftFlow = () => {
                   onMinChange={(v) => update("budgetMin", v)}
                   onMaxChange={(v) => update("budgetMax", v)}
                   onCurrencyChange={(v) => update("currency", v)}
+                  recipientRelationship={selectedRecipient?.relationship_type}
+                  recipientCountry={flow.recipientCountry}
                 />
               )}
               {step === 3 && (
