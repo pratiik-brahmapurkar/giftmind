@@ -351,6 +351,50 @@ export type Database = {
         }
         Relationships: []
       }
+      product_clicks: {
+        Row: {
+          clicked_at: string
+          country: string | null
+          gift_concept_name: string
+          id: string
+          is_search_link: boolean | null
+          product_url: string
+          session_id: string | null
+          store: string
+          user_id: string
+        }
+        Insert: {
+          clicked_at?: string
+          country?: string | null
+          gift_concept_name: string
+          id?: string
+          is_search_link?: boolean | null
+          product_url: string
+          session_id?: string | null
+          store: string
+          user_id: string
+        }
+        Update: {
+          clicked_at?: string
+          country?: string | null
+          gift_concept_name?: string
+          id?: string
+          is_search_link?: boolean | null
+          product_url?: string
+          session_id?: string | null
+          store?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_clicks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "gift_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
