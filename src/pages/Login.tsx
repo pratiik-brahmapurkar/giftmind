@@ -59,10 +59,25 @@ const Login = () => {
     if (result.error) {
       setError(result.error.message || "Google sign-in failed");
       triggerShake();
+      return;
     }
-    if (!result.redirected && !result.error) {
-      navigate("/dashboard");
+    if (result.redirected) {
+      return;
     }
+    // Session is set — check onboarding status
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("has_completed_onboarding")
+        .eq("user_id", user.id)
+        .single();
+      if (profile && !profile.has_completed_onboarding) {
+        navigate("/onboarding");
+        return;
+      }
+    }
+    navigate("/dashboard");
   };
 
   return (
