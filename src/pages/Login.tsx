@@ -11,12 +11,30 @@ import AuthLayout from "@/components/AuthLayout";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { user: authUser, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // Redirect if already authenticated (e.g. after OAuth callback)
+  useEffect(() => {
+    if (authLoading || !authUser) return;
+    supabase
+      .from("profiles")
+      .select("has_completed_onboarding")
+      .eq("user_id", authUser.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && !data.has_completed_onboarding) {
+          navigate("/onboarding", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      });
+  }, [authUser, authLoading, navigate]);
 
   const triggerShake = () => {
     setShake(true);
