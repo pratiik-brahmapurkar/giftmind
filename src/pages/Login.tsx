@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +12,30 @@ import { trackEvent } from "@/lib/posthog";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { user: authUser, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // Redirect if already authenticated (e.g. after OAuth callback)
+  useEffect(() => {
+    if (authLoading || !authUser) return;
+    supabase
+      .from("profiles")
+      .select("has_completed_onboarding")
+      .eq("user_id", authUser.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && !data.has_completed_onboarding) {
+          navigate("/onboarding", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      });
+  }, [authUser, authLoading, navigate]);
 
   const triggerShake = () => {
     setShake(true);
@@ -68,7 +87,28 @@ const Login = () => {
     if (error) {
       setError(error.message || "Google sign-in failed");
       triggerShake();
+      return;
     }
+<<<<<<< HEAD
+=======
+    if (result.redirected) {
+      return;
+    }
+    // Session is set — check onboarding status
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("has_completed_onboarding")
+        .eq("user_id", user.id)
+        .single();
+      if (profile && !profile.has_completed_onboarding) {
+        navigate("/onboarding");
+        return;
+      }
+    }
+    navigate("/dashboard");
+>>>>>>> 6d949aeedde292c7f2def0ae9ed0873103bb90db
   };
 
   return (
