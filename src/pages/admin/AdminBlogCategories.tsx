@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { captureError } from "@/lib/sentry";
 
 interface CategoryForm {
   id?: string;
@@ -93,6 +95,10 @@ const AdminBlogCategories = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-blog-categories"] });
       setEditCat(null);
     } catch (err: any) {
+      captureError(
+        err instanceof Error ? err : new Error("Failed to save blog category"),
+        { action: "admin-save-blog-category", category_id: editCat?.id ?? null },
+      );
       toast.error(err.message || "Failed to save");
     } finally {
       setSaving(false);
@@ -112,6 +118,7 @@ const AdminBlogCategories = () => {
 
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-heading font-bold text-foreground">Blog Categories</h1>
@@ -145,10 +152,10 @@ const AdminBlogCategories = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => openEdit(cat)}>
+                    <Button variant="ghost" size="icon" className="w-7 h-7" aria-label="Edit category" onClick={() => openEdit(cat)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="w-7 h-7 text-destructive" onClick={() => setDeleteId(cat.id)}>
+                    <Button variant="ghost" size="icon" className="w-7 h-7 text-destructive" aria-label="Delete category" onClick={() => setDeleteId(cat.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>

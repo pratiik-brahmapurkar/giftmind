@@ -38,7 +38,7 @@ const TransactionsTab = () => {
     queryKey: ["admin-users-map"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("users")
         .select("user_id, full_name");
       if (error) throw error;
       return data || [];

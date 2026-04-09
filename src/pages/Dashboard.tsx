@@ -7,11 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, ArrowRight, Gift, Coins, Users, Clock, Lock } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { motion } from "framer-motion";
+import { SEOHead } from "@/components/common/SEOHead";
 
 const confidenceColor = (score: number) => {
   if (score >= 85) return "bg-success/10 text-success border-success/20";
@@ -27,17 +29,17 @@ const Dashboard = () => {
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
 
   // Fetch real data
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase.from("profiles").select("credits").eq("user_id", user.id).single();
+      const { data } = await supabase.from("users").select("credits_balance").eq("id", user.id).single();
       return data;
     },
     enabled: !!user,
   });
 
-  const { data: recipients = [] } = useQuery({
+  const { data: recipients = [], isLoading: recipientsLoading } = useQuery({
     queryKey: ["dashboard-recipients", user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -47,7 +49,7 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  const { data: sessions = [] } = useQuery({
+  const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
     queryKey: ["dashboard-sessions", user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -62,17 +64,43 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  const credits = profile?.credits ?? 0;
+  const credits = profile?.credits_balance ?? 0;
   const recipientCount = recipients.length;
   const sessionCount = sessions.length;
+  const isDashboardLoading = profileLoading || recipientsLoading || sessionsLoading;
 
   // Build a lookup of recipient names
   const recipientMap = Object.fromEntries(recipients.map((r: any) => [r.id, r.name]));
+
+  if (isDashboardLoading) {
+    return (
+      <DashboardLayout>
+        <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
+        <div className="max-w-5xl mx-auto space-y-6 pb-20 md:pb-0">
+          <Skeleton className="h-10 w-96 max-w-full rounded-lg" />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map((idx) => (
+              <Skeleton key={idx} className="h-[120px] w-full rounded-xl" />
+            ))}
+          </div>
+
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-48 rounded-md" />
+            {[1, 2, 3].map((idx) => (
+              <Skeleton key={idx} className="h-[88px] w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   /* ── State: No recipients ── */
   if (recipientCount === 0) {
     return (
       <DashboardLayout>
+        <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
         <div className="max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 pb-20 md:pb-0">
           <div className="w-20 h-20 rounded-2xl gradient-primary flex items-center justify-center animate-gift-bounce">
             <Gift className="w-10 h-10 text-primary-foreground" />
@@ -95,6 +123,7 @@ const Dashboard = () => {
   if (sessionCount === 0) {
     return (
       <DashboardLayout>
+        <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
         <div className="max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 pb-20 md:pb-0">
           <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
             <Users className="w-10 h-10 text-primary" />
@@ -120,6 +149,7 @@ const Dashboard = () => {
   /* ── State: Normal dashboard ── */
   return (
     <DashboardLayout>
+      <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
       <div className="max-w-5xl mx-auto space-y-6 pb-20 md:pb-0">
         {/* Welcome */}
         <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">

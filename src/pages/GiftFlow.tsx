@@ -16,6 +16,14 @@ import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
 import StepResults from "@/components/gift-flow/StepResults";
 import { defaultGiftFlowState, detectCurrencyFromLocale, detectUserCountry, type GiftFlowState } from "@/components/gift-flow/constants";
+import { useGiftSession } from "@/hooks/useGiftSession";
+import type { SignalCheckContext } from "@/hooks/useGiftSession";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { useCredits } from "@/hooks/useCredits";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { SEOHead } from "@/components/common/SEOHead";
+import { trackEvent } from "@/lib/posthog";
+import { sanitizeArray, sanitizeString } from "@/lib/validation";
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 200 : -200, opacity: 0 }),
@@ -27,6 +35,7 @@ const GiftFlow = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { plan } = useUserPlan();
 
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
@@ -43,30 +52,22 @@ const GiftFlow = () => {
       recipientCountry: detectedCountry,
     };
   });
-  const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // Check credits
-  const { data: profile } = useQuery({
-    queryKey: ["profile-credits", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("credits")
-        .eq("user_id", user!.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+  const giftSession = useGiftSession();
 
-  // Fetch selected recipient's relationship type for budget insights
+  // Realtime credit awareness — isEmpty triggers the no-credits gate
+  const { isEmpty: noCredits, isLoading: creditsLoading, balance: creditsBalance, refresh: refreshCredits } = useCredits();
+  const planLimits = usePlanLimits();
+
+  // Fetch full recipient object (all fields needed for AI prompt)
   const { data: selectedRecipient } = useQuery({
-    queryKey: ["recipient-detail", flow.recipientId],
+    queryKey: ["recipient-full", flow.recipientId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipients")
-        .select("relationship_type, country")
+        .select(
+          "id, name, relationship_type, relationship_depth, age_range, gender, interests, cultural_context, country, notes"
+        )
         .eq("id", flow.recipientId!)
         .single();
       if (error) throw error;
@@ -75,13 +76,65 @@ const GiftFlow = () => {
     enabled: !!flow.recipientId,
   });
 
-  const credits = profile?.credits ?? 0;
-  const noCredits = profile !== undefined && credits < 1;
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("users").select("country").eq("id", user!.id).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Build signal check context from the current flow + recipient
+  const signalCheckContext: SignalCheckContext | null = selectedRecipient
+    ? {
+        recipientName: (selectedRecipient as any).name,
+        recipientRelationship: (selectedRecipient as any).relationship_type,
+        recipientRelationshipDepth: (selectedRecipient as any).relationship_depth,
+        occasion: flow.occasion,
+        relationshipStage: (selectedRecipient as any).relationship_depth,
+        currency: flow.currency,
+      }
+    : null;
+
+  // Browser back button → go to previous step instead of leaving the flow
+  useEffect(() => {
+    const handlePop = () => {
+      setDir(-1);
+      setStep((s) => Math.max(s - 1, 0));
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
+
+  useEffect(() => {
+    if (step === 0) {
+      trackEvent('gift_flow_started', { occasion: null });
+    }
+  }, [step]);
+
+  const handleSignalCheck = async (gift: any) => {
+    trackEvent('signal_check_used', { gift_name: gift.name, plan: plan });
+    if (!planLimits.canUseSignalCheck()) return;
+    if (!signalCheckContext) return;
+    await giftSession.handleSignalCheck(gift, signalCheckContext, refreshCredits);
+  };
+
 
   const update = <K extends keyof GiftFlowState>(key: K, val: GiftFlowState[K]) =>
     setFlow((p) => ({ ...p, [key]: val }));
 
-  const goNext = () => { setDir(1); setStep((s) => Math.min(s + 1, 4)); };
+  const cleanContextTags = sanitizeArray(flow.contextTags, 10);
+  const cleanExtraNotes = sanitizeString(flow.extraNotes, 300);
+
+  const stepNames = ['recipient', 'occasion', 'budget', 'context', 'results'];
+  const goNext = () => {
+    window.history.pushState({ step: step + 1 }, '');
+    trackEvent('gift_flow_step', { step: step + 1, step_name: stepNames[step] });
+    setDir(1);
+    setStep((s) => Math.min(s + 1, 4));
+  };
   const goBack = () => { setDir(-1); setStep((s) => Math.max(s - 1, 0)); };
 
   const canProceed = () => {
@@ -91,6 +144,7 @@ const GiftFlow = () => {
     return true;
   };
 
+  // Create the DB session row, then trigger AI generation
   const saveMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase
@@ -103,40 +157,111 @@ const GiftFlow = () => {
           budget_min: flow.budgetMin,
           budget_max: flow.budgetMax,
           currency: flow.currency,
-          context_tags: flow.contextTags,
-          extra_notes: flow.extraNotes || null,
+          context_tags: cleanContextTags,
+          extra_notes: cleanExtraNotes || null,
           recipient_country: flow.recipientCountry || null,
-          status: "completed",
+          status: "active",
         } as any)
         .select("id")
         .single();
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => setSessionId(data.id),
+    onSuccess: async (data) => {
+      const sessionId = data.id;
+      giftSession.setSessionId(sessionId);
+
+      // Now we have a session + recipient — fire the AI
+      if (selectedRecipient) {
+        try {
+          await giftSession.generateGifts({
+            recipient: {
+              name: (selectedRecipient as any).name,
+              relationship_type: (selectedRecipient as any).relationship_type,
+              relationship_depth: (selectedRecipient as any).relationship_depth,
+              age_range: (selectedRecipient as any).age_range,
+              gender: (selectedRecipient as any).gender,
+              interests: (selectedRecipient as any).interests,
+              cultural_context: (selectedRecipient as any).cultural_context,
+              country: (selectedRecipient as any).country,
+              notes: (selectedRecipient as any).notes,
+            },
+            occasion: flow.occasion,
+            occasionDate: flow.occasionDate || null,
+            budgetMin: flow.budgetMin,
+            budgetMax: flow.budgetMax,
+            currency: flow.currency,
+            recipientCountry: flow.recipientCountry || null,
+            specialContext: cleanExtraNotes || null,
+            contextTags: cleanContextTags,
+            userPlan: plan,
+            sessionId,
+          });
+        } catch {
+          // Error is stored in giftSession.error — StepResults will show retry UI
+        }
+      }
+    },
     onError: () => toast.error("Failed to save session"),
   });
 
   const handleProceedToResults = () => {
     goNext();
-    if (!sessionId) saveMutation.mutate();
-  };
-
-  const handleChooseGift = async (gift: any) => {
-    if (sessionId) {
-      await supabase
-        .from("gift_sessions")
-        .update({ chosen_gift: gift } as any)
-        .eq("id", sessionId);
+    // Only create session once
+    if (!giftSession.sessionId) {
+      saveMutation.mutate();
     }
-    toast.success("Great choice! 🎉");
-    navigate("/dashboard");
   };
 
-  // No credits overlay
-  if (noCredits) {
+  const handleChooseGift = async (gift: any, index: number) => {
+    trackEvent('gift_selected', {
+      gift_name: gift.name,
+      confidence_score: gift.confidence_score,
+      occasion: flow.occasion
+    });
+    // selectGift handles the DB update (chosen_gift, selected_gift_name, selected_gift_index, status)
+    // and fires the referral credit award — no duplicate update needed here
+    await giftSession.selectGift(index, gift);
+    toast.success("Great choice! 🎉");
+  };
+
+  const handleRegenerate = async () => {
+    if (!selectedRecipient || !giftSession.sessionId) return;
+    trackEvent('gift_regenerated', { regen_count: giftSession.regenerationCount + 1 });
+    try {
+      await giftSession.regenerate({
+        recipient: {
+          name: (selectedRecipient as any).name,
+          relationship_type: (selectedRecipient as any).relationship_type,
+          relationship_depth: (selectedRecipient as any).relationship_depth,
+          age_range: (selectedRecipient as any).age_range,
+          gender: (selectedRecipient as any).gender,
+          interests: (selectedRecipient as any).interests,
+          cultural_context: (selectedRecipient as any).cultural_context,
+          country: (selectedRecipient as any).country,
+          notes: (selectedRecipient as any).notes,
+        },
+        occasion: flow.occasion,
+        occasionDate: flow.occasionDate || null,
+        budgetMin: flow.budgetMin,
+        budgetMax: flow.budgetMax,
+        currency: flow.currency,
+        recipientCountry: flow.recipientCountry || null,
+        specialContext: cleanExtraNotes || null,
+        contextTags: cleanContextTags,
+        userPlan: plan,
+        sessionId: giftSession.sessionId,
+      });
+    } catch {
+      // Error shown in StepResults
+    }
+  };
+
+  // No credits overlay — only after balance has loaded
+  if (noCredits && !creditsLoading) {
     return (
       <DashboardLayout>
+        <SEOHead title="Find the Perfect Gift" description="AI-powered gift recommendations" noIndex={true} />
         <div className="max-w-5xl mx-auto py-8 space-y-6">
           <div className="text-center space-y-3">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
@@ -162,8 +287,16 @@ const GiftFlow = () => {
 
   return (
     <DashboardLayout>
+      <SEOHead title="Find the Perfect Gift" description="AI-powered gift recommendations" noIndex={true} />
       <div className="max-w-2xl mx-auto pb-20 md:pb-0">
-        <GiftFlowStepper currentStep={step} />
+        <div className="flex items-start justify-between">
+          <GiftFlowStepper currentStep={step} />
+          {!creditsLoading && (
+            <span className="shrink-0 text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1.5 flex items-center gap-1 mt-4 ml-2">
+              🪙 {creditsBalance} credit{creditsBalance !== 1 ? 's' : ''} remaining
+            </span>
+          )}
+        </div>
 
         <div className="mt-8 min-h-[400px]">
           <AnimatePresence mode="wait" custom={dir}>
@@ -190,6 +323,11 @@ const GiftFlow = () => {
                   onSelect={(v) => update("occasion", v)}
                   occasionDate={flow.occasionDate}
                   onDateChange={(v) => update("occasionDate", v)}
+                  targetCountry={
+                    (selectedRecipient as any)?.country && (selectedRecipient as any).country !== ""
+                      ? (selectedRecipient as any).country
+                      : (profile as any)?.country || detectUserCountry() || "US"
+                  }
                 />
               )}
               {step === 2 && (
@@ -200,7 +338,7 @@ const GiftFlow = () => {
                   onMinChange={(v) => update("budgetMin", v)}
                   onMaxChange={(v) => update("budgetMax", v)}
                   onCurrencyChange={(v) => update("currency", v)}
-                  recipientRelationship={selectedRecipient?.relationship_type}
+                  recipientRelationship={(selectedRecipient as any)?.relationship_type}
                   recipientCountry={flow.recipientCountry}
                 />
               )}
@@ -210,13 +348,16 @@ const GiftFlow = () => {
                   onToggleTag={(tag) =>
                     update(
                       "contextTags",
-                      flow.contextTags.includes(tag)
-                        ? flow.contextTags.filter((t) => t !== tag)
-                        : [...flow.contextTags, tag]
+                      sanitizeArray(
+                        flow.contextTags.includes(tag)
+                          ? flow.contextTags.filter((t) => t !== tag)
+                          : [...flow.contextTags, sanitizeString(tag, 100)],
+                        10,
+                      )
                     )
                   }
                   notes={flow.extraNotes}
-                  onNotesChange={(v) => update("extraNotes", v)}
+                  onNotesChange={(v) => update("extraNotes", sanitizeString(v, 300))}
                   onSkip={handleProceedToResults}
                 />
               )}
@@ -224,10 +365,37 @@ const GiftFlow = () => {
                 <StepResults
                   currency={flow.currency}
                   recipientCountry={flow.recipientCountry}
-                  sessionId={sessionId}
-                  onRegenerate={() => toast.info("Regeneration coming soon!")}
+                  recipientName={(selectedRecipient as any)?.name ?? null}
+                  occasion={flow.occasion}
+                  sessionId={giftSession.sessionId}
+                  // Real AI data
+                  isGenerating={giftSession.isGenerating || saveMutation.isPending}
+                  isSearchingProducts={giftSession.isSearchingProducts}
+                  recommendations={giftSession.recommendations}
+                  productResults={giftSession.productResults}
+                  occasionInsight={giftSession.occasionInsight}
+                  budgetAssessment={giftSession.budgetAssessment}
+                  culturalNote={giftSession.culturalNote}
+                  error={giftSession.error}
+                  regenerationCount={giftSession.regenerationCount}
+                  // Signal Check
+                  signalCheckResults={giftSession.signalCheckResults}
+                  signalCheckLoading={giftSession.signalCheckLoading}
+                  signalCheckContext={signalCheckContext}
+                  onSignalCheck={handleSignalCheck}
+                  // Actions
+                  onRegenerate={handleRegenerate}
                   onBack={goBack}
                   onChoose={handleChooseGift}
+                  onTrackClick={(product) => {
+                    trackEvent('product_clicked', { 
+                      store: product.store_name, 
+                      gift_name: product.gift_name, 
+                      is_search_link: true,
+                      country: flow.recipientCountry 
+                    });
+                    giftSession.trackClick(product, giftSession.sessionId);
+                  }}
                 />
               )}
             </motion.div>

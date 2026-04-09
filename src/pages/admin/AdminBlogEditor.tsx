@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -5,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import MDEditor from "@uiw/react-md-editor";
+import DOMPurify from "dompurify";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +23,8 @@ import PublishCard from "@/components/blog-editor/PublishCard";
 import SeoCard from "@/components/blog-editor/SeoCard";
 import MediaPickerModal from "@/components/blog-editor/MediaPickerModal";
 import AiDraftModal from "@/components/blog-editor/AiDraftModal";
+import { captureError } from "@/lib/sentry";
+import { sanitizeArray, sanitizeString } from "@/lib/validation";
 
 function slugify(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80);
@@ -60,6 +64,14 @@ export default function AdminBlogEditor() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const editorPreviewRef = useRef<HTMLDivElement>(null);
+
+  const markdownSanitizeOptions = {
+    ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "p", "a", "img", "ul", "ol", "li",
+      "strong", "em", "blockquote", "code", "pre", "br", "hr",
+      "table", "thead", "tbody", "tr", "th", "td"],
+    ALLOWED_ATTR: ["href", "src", "alt", "class", "id", "target", "rel"],
+  };
 
   // Warn on browser close/refresh with unsaved changes
   useEffect(() => {
@@ -90,6 +102,15 @@ export default function AdminBlogEditor() {
   useEffect(() => {
     if (!metaDescription) setMetaDescription(excerpt);
   }, [excerpt]);
+
+  useEffect(() => {
+    const previewNodes = editorPreviewRef.current?.querySelectorAll(".wmde-markdown");
+    previewNodes?.forEach((node) => {
+      if (node instanceof HTMLElement) {
+        node.innerHTML = DOMPurify.sanitize(node.innerHTML, markdownSanitizeOptions);
+      }
+    });
+  }, [content]);
 
   // Load existing post
   const { data: post, isLoading: loadingPost } = useQuery({
@@ -134,18 +155,18 @@ export default function AdminBlogEditor() {
     if (!user) return;
     setSaving(true);
     const payload = {
-      title: title || "Untitled",
-      slug: slug || slugify(title || "untitled"),
-      excerpt,
+      title: sanitizeString(title, 120) || "Untitled",
+      slug: sanitizeString(slug, 80) || slugify(sanitizeString(title, 120) || "untitled"),
+      excerpt: sanitizeString(excerpt, 200),
       content,
       status: (overrideStatus || status) as PostStatus,
       scheduled_at: status === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       published_at: (overrideStatus || status) === "published" ? new Date().toISOString() : post?.published_at || null,
       category_id: categoryId || null,
-      tags,
-      featured_image: featuredImage || null,
-      meta_title: metaTitle || null,
-      meta_description: metaDescription || null,
+      tags: sanitizeArray(tags, 8),
+      featured_image: sanitizeString(featuredImage, 500) || null,
+      meta_title: sanitizeString(metaTitle, 120) || null,
+      meta_description: sanitizeString(metaDescription, 200) || null,
       author_id: user.id,
     };
     try {
@@ -162,6 +183,10 @@ export default function AdminBlogEditor() {
       queryClient.invalidateQueries({ queryKey: ["blog-posts"] });
       toast.success(overrideStatus === "published" ? "Post published!" : "Post saved!");
     } catch (e: any) {
+      captureError(
+        e instanceof Error ? e : new Error("Failed to save blog post"),
+        { action: "admin-save-blog-post", is_edit: isEdit, post_id: id },
+      );
       toast.error("Save failed: " + (e.message || "Unknown error"));
     } finally {
       setSaving(false);
@@ -173,7 +198,7 @@ export default function AdminBlogEditor() {
 
   // Tag management
   const addTag = () => {
-    const t = tagInput.trim();
+    const t = sanitizeString(tagInput, 50);
     if (t && tags.length < 8 && !tags.includes(t)) {
       setTags([...tags, t]);
       setTagInput("");
@@ -195,9 +220,10 @@ export default function AdminBlogEditor() {
 
   return (
     <div className="space-y-4">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/admin/blog")}>
+        <Button variant="ghost" size="icon" aria-label="Back to blog posts" onClick={() => navigate("/admin/blog")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl font-bold">{isEdit ? "Edit Post" : "New Post"}</h1>
@@ -245,7 +271,7 @@ export default function AdminBlogEditor() {
           </div>
 
           {/* Content Editor */}
-          <div data-color-mode="light">
+          <div data-color-mode="light" ref={editorPreviewRef}>
             <div className="flex items-center justify-between mb-1">
               <Label className="text-xs">Content</Label>
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => { setMediaForContent(true); setMediaPicker(true); }}>
@@ -379,7 +405,15 @@ export default function AdminBlogEditor() {
             <CardContent className="space-y-2 pt-0">
               {featuredImage ? (
                 <div className="relative group">
-                  <img src={featuredImage} alt={featuredImageAlt} className="w-full aspect-video object-cover rounded-md" />
+                  <img
+                    src={featuredImage}
+                    alt={featuredImageAlt || "Featured image preview"}
+                    loading="lazy"
+                    decoding="async"
+                    width={1200}
+                    height={675}
+                    className="w-full aspect-video object-cover rounded-md"
+                  />
                   <Button
                     variant="destructive"
                     size="sm"

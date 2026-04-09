@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { captureError } from "@/lib/sentry";
 
 interface AiDraftResult {
   title: string;
@@ -41,6 +42,10 @@ export default function AiDraftModal({ open, onClose, onInsert }: AiDraftModalPr
       if (error) throw error;
       setResult(data as AiDraftResult);
     } catch (e: any) {
+      captureError(
+        e instanceof Error ? e : new Error("Failed to generate blog draft"),
+        { action: "generate-blog-draft", tone, word_count: parseInt(length) },
+      );
       toast.error("Failed to generate draft: " + (e.message || "Unknown error"));
     } finally {
       setLoading(false);

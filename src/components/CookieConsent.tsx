@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { initPosthog } from "@/lib/posthog";
 
 const COOKIE_KEY = "gm_cookie_consent";
 
@@ -9,17 +10,13 @@ const CookieConsent = () => {
   useEffect(() => {
     const saved = localStorage.getItem(COOKIE_KEY);
     if (!saved) setVisible(true);
-    if (saved === "accepted") loadPosthog();
+    if (saved === "accepted") initPosthog();
   }, []);
-
-  const loadPosthog = () => {
-    // Posthog init placeholder — replace with real key when ready
-  };
 
   const accept = () => {
     localStorage.setItem(COOKIE_KEY, "accepted");
     setVisible(false);
-    loadPosthog();
+    initPosthog();
   };
 
   const decline = () => {

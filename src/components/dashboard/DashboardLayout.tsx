@@ -1,8 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useCredits } from "@/hooks/useCredits";
 import {
   Gift,
   LayoutDashboard,
@@ -72,7 +71,12 @@ const bottomNavItems = [
 ];
 
 /* ── Credit Pill ── */
-const CreditPill = ({ credits }: { credits: number }) => {
+interface CreditPillProps {
+  credits: number;
+  nearestExpiry: { credits: number; daysLeft: number } | null;
+}
+
+const CreditPill = ({ credits, nearestExpiry }: CreditPillProps) => {
   const pillClass = credits === 0
     ? "bg-destructive/10 text-destructive"
     : credits <= 3
@@ -85,31 +89,30 @@ const CreditPill = ({ credits }: { credits: number }) => {
         <button className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer", pillClass)}>
           <Coins className="w-4 h-4" />
           <span>{credits}</span>
+          {nearestExpiry && (
+            <span className="text-[10px] font-normal opacity-80">
+              · {nearestExpiry.credits} expiring
+            </span>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-4">
-        <p className="text-sm font-medium text-foreground mb-3">Active credit batches</p>
+        <p className="text-sm font-medium text-foreground mb-3">Your credits</p>
         {credits > 0 ? (
           <div className="space-y-3">
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">{Math.min(credits, 15)} credits</span>
-                <span className="text-muted-foreground">expires Apr 20</span>
-              </div>
-              <Progress value={70} className="h-1.5" />
+            <div className="flex justify-between items-center">
+              <span className="text-2xl font-bold text-foreground">{credits}</span>
+              <span className="text-xs text-muted-foreground">available</span>
             </div>
-            {credits > 15 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">{credits - 15} credits</span>
-                  <span className="text-muted-foreground">expires May 15</span>
-                </div>
-                <Progress value={90} className="h-1.5" />
+            {nearestExpiry && (
+              <div className="rounded-md bg-warning/10 border border-warning/20 px-3 py-2 text-xs text-warning">
+                ⏳ {nearestExpiry.credits} credit{nearestExpiry.credits !== 1 ? "s" : ""} expiring
+                in {nearestExpiry.daysLeft} day{nearestExpiry.daysLeft !== 1 ? "s" : ""}
               </div>
             )}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No active credits</p>
+          <p className="text-sm text-muted-foreground">No credits remaining</p>
         )}
         <div className="border-t border-border mt-3 pt-3">
           <Link to="/credits" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">
@@ -135,18 +138,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const name = user?.user_metadata?.full_name || "User";
   const initials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
-  // Fetch profile credits
-  const { data: profile } = useQuery({
-    queryKey: ["profile-credits", user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data } = await supabase.from("profiles").select("credits").eq("user_id", user.id).single();
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const credits = profile?.credits ?? 0;
+  // Realtime credit balance (updates live without polling)
+  const { balance: credits, nearestExpiry } = useCredits();
 
   const handleSignOut = async () => {
     await signOut();
@@ -235,7 +228,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           {/* Right section */}
           <div className="flex items-center gap-3">
-            <CreditPill credits={credits} />
+            <CreditPill credits={credits} nearestExpiry={nearestExpiry} />
             {credits === 0 && (
               <Link to="/credits" className="text-xs text-destructive font-medium hover:underline hidden sm:block">Top up</Link>
             )}

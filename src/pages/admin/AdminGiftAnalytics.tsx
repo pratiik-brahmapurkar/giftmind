@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,7 +84,7 @@ const AdminGiftAnalytics = () => {
     queryKey: ["admin-profiles-names"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("users")
         .select("user_id, full_name");
       if (error) throw error;
       return data || [];
@@ -309,6 +310,7 @@ const AdminGiftAnalytics = () => {
 
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">Gift Analytics</h1>
         <p className="text-sm text-muted-foreground mt-1">Insights into gift sessions, recommendations, and user behaviour</p>
@@ -584,7 +586,7 @@ const AdminGiftAnalytics = () => {
                         </TableCell>
                         <TableCell>
                           <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="w-6 h-6">
+                            <Button variant="ghost" size="icon" className="w-6 h-6" aria-label="Toggle row details">
                               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedRow === s.id ? "rotate-180" : ""}`} />
                             </Button>
                           </CollapsibleTrigger>

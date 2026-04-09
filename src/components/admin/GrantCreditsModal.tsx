@@ -11,6 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { captureError } from "@/lib/sentry";
 
 interface GrantCreditsModalProps {
   userId: string | null;
@@ -34,37 +35,27 @@ const GrantCreditsModal = ({ userId, open, onClose, onSuccess }: GrantCreditsMod
     }
     setLoading(true);
     try {
-      // Get current balance
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("credits")
-        .eq("user_id", userId)
-        .single();
-
-      const currentBalance = profile?.credits || 0;
-      const newBalance = currentBalance + Number(amount);
-
-      // Insert transaction
-      const { error: txError } = await supabase.from("credit_transactions").insert({
-        user_id: userId,
-        type: "admin_grant",
-        amount: Number(amount),
-        balance_after: newBalance,
-        details: `${reason}${customReason ? `: ${customReason}` : ""}`,
+      const response = await supabase.functions.invoke("admin-grant-credits", {
+        body: {
+          target_user_id: userId,
+          amount: Number(amount),
+          reason,
+          notes: customReason,
+        },
       });
-      if (txError) throw txError;
 
-      // Update profile credits
-      const { error: profError } = await supabase
-        .from("profiles")
-        .update({ credits: newBalance })
-        .eq("user_id", userId);
-      if (profError) throw profError;
+      if (response.error || !response.data?.success) {
+        throw new Error(response.error?.message || response.data?.error || "Failed to grant credits");
+      }
 
       toast.success(`Granted ${amount} credits`);
       setAmount(""); setReason(""); setCustomReason("");
       onSuccess();
     } catch (err: any) {
+      captureError(
+        err instanceof Error ? err : new Error("Failed to grant credits"),
+        { action: "admin-grant-credits", target_user_id: userId },
+      );
       toast.error(err.message || "Failed to grant credits");
     } finally {
       setLoading(false);

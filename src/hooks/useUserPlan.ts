@@ -74,9 +74,9 @@ export function useUserPlan() {
     queryKey: ["user-plan-profile", user?.id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("credits")
-        .eq("user_id", user!.id)
+        .from("users")
+        .select("credits_balance")
+        .eq("id", user!.id)
         .single();
       return data;
     },
@@ -96,7 +96,7 @@ export function useUserPlan() {
     enabled: !!user,
   });
 
-  const credits = profile?.credits ?? 0;
+  const credits = profile?.credits_balance ?? 0;
   const plan = derivePlan(credits, hasTx ?? false);
   const limits = PLAN_CONFIG[plan];
 

@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -145,6 +146,7 @@ const AdminMediaLibrary = () => {
 
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">Media Library</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage images for your blog</p>
@@ -166,6 +168,7 @@ const AdminMediaLibrary = () => {
         <input
           ref={fileInputRef}
           type="file"
+          aria-label="Upload media files"
           multiple
           accept="image/jpeg,image/png,image/webp,image/gif"
           className="hidden"
@@ -206,14 +209,22 @@ const AdminMediaLibrary = () => {
               onClick={() => { setSelectedMedia(m); setEditingAlt(m.alt_text || ""); }}
             >
               <div className="aspect-square bg-muted">
-                <img src={m.file_url} alt={m.alt_text || m.file_name} className="w-full h-full object-cover" loading="lazy" />
+                <img
+                  src={m.file_url}
+                  alt={m.alt_text || m.file_name}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={640}
+                  height={640}
+                />
               </div>
               {/* Hover overlay */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button size="icon" variant="ghost" className="w-8 h-8 text-white hover:text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); copyUrl(m.file_url); }}>
+                <Button size="icon" variant="ghost" className="w-8 h-8 text-white hover:text-white hover:bg-white/20" aria-label="Copy media URL" onClick={(e) => { e.stopPropagation(); copyUrl(m.file_url); }}>
                   <Copy className="w-4 h-4" />
                 </Button>
-                <Button size="icon" variant="ghost" className="w-8 h-8 text-white hover:text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setDeleteId(m.id); }}>
+                <Button size="icon" variant="ghost" className="w-8 h-8 text-white hover:text-white hover:bg-white/20" aria-label="Delete media item" onClick={(e) => { e.stopPropagation(); setDeleteId(m.id); }}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
@@ -236,7 +247,15 @@ const AdminMediaLibrary = () => {
           {selectedMedia && (
             <div className="mt-6 space-y-5">
               <div className="rounded-lg overflow-hidden border bg-muted">
-                <img src={selectedMedia.file_url} alt={selectedMedia.alt_text || selectedMedia.file_name} className="w-full max-h-72 object-contain" />
+                <img
+                  src={selectedMedia.file_url}
+                  alt={selectedMedia.alt_text || selectedMedia.file_name}
+                  className="w-full max-h-72 object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  width={1200}
+                  height={900}
+                />
               </div>
               <div className="space-y-3">
                 <div>
@@ -247,7 +266,7 @@ const AdminMediaLibrary = () => {
                   <Label className="text-xs text-muted-foreground">URL</Label>
                   <div className="flex items-center gap-2 mt-1">
                     <Input readOnly value={selectedMedia.file_url} className="text-xs font-mono" />
-                    <Button size="icon" variant="outline" className="shrink-0" onClick={() => copyUrl(selectedMedia.file_url)}>
+                    <Button size="icon" variant="outline" className="shrink-0" aria-label="Copy selected media URL" onClick={() => copyUrl(selectedMedia.file_url)}>
                       <Copy className="w-3.5 h-3.5" />
                     </Button>
                   </div>

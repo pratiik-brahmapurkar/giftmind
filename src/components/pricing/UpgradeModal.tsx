@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,6 +7,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import PricingCards, { CurrencyKey } from "./PricingCards";
+import { trackEvent } from "@/lib/posthog";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -24,6 +26,21 @@ export default function UpgradeModal({
   defaultCurrency,
   onSelectPlan,
 }: UpgradeModalProps) {
+  useEffect(() => {
+    if (open) {
+      if (reason) {
+        trackEvent('upgrade_nudge_shown', { 
+          trigger: reason.toLowerCase().includes('signal check') ? 'signal_check' : 'locked_feature',
+          recommended_plan: highlightPlan 
+        });
+      }
+      trackEvent('credit_purchase_started', { 
+        trigger: reason ? 'upgrade_nudge' : 'pricing_page',
+        current_plan: 'unknown' 
+      });
+    }
+  }, [open, highlightPlan, reason]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">

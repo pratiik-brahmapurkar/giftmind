@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { sanitizeString } from "@/lib/validation";
 
 type SortKey = "created_at" | "views" | "cta_clicks";
 const PAGE_SIZE = 25;
@@ -84,8 +86,9 @@ const AdminBlogPosts = () => {
     let list = posts;
     if (statusFilter !== "all") list = list.filter((p) => p.status === statusFilter);
     if (categoryFilter !== "all") list = list.filter((p) => p.category_id === categoryFilter);
-    if (search) {
-      const q = search.toLowerCase();
+    const cleanSearch = sanitizeString(search, 200).toLowerCase();
+    if (cleanSearch) {
+      const q = cleanSearch;
       list = list.filter((p) =>
         p.title.toLowerCase().includes(q) ||
         (p.tags as string[] || []).some((t) => t.toLowerCase().includes(q))
@@ -171,6 +174,7 @@ const AdminBlogPosts = () => {
 
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-heading font-bold text-foreground">Blog Posts</h1>
@@ -205,7 +209,7 @@ const AdminBlogPosts = () => {
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search by title or tag..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
+          <Input placeholder="Search by title or tag..." value={search} onChange={(e) => { setSearch(sanitizeString(e.target.value, 200)); setPage(0); }} className="pl-9" />
         </div>
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
           <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
@@ -289,7 +293,7 @@ const AdminBlogPosts = () => {
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="w-8 h-8"><MoreHorizontal className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Open post actions"><MoreHorizontal className="w-4 h-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => navigate(`/admin/blog/new?edit=${p.id}`)}>Edit</DropdownMenuItem>

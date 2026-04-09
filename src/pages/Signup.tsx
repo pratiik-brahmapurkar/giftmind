@@ -1,7 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +10,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import confetti from "canvas-confetti";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/posthog";
+import { checkRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rateLimiter";
+import { captureError } from "@/lib/sentry";
+import { sanitizeString, validateEmail } from "@/lib/validation";
 
 /* ── Password strength ── */
 function getStrength(pw: string): { level: number; label: string; color: string } {
@@ -31,12 +36,25 @@ const Signup = () => {
   const [searchParams] = useSearchParams();
   const refFromUrl = searchParams.get("ref") || "";
 
+  const [referralCode, setReferralCode] = useState(() => {
+    return sessionStorage.getItem("gm_referral_code") || refFromUrl;
+  });
+  const [showReferral, setShowReferral] = useState(!!referralCode);
+  const isReferred = !!referralCode;
+
+  // Persist referral code from URL
+  useEffect(() => {
+    if (refFromUrl) {
+      setReferralCode(refFromUrl);
+      setShowReferral(true);
+      sessionStorage.setItem("gm_referral_code", refFromUrl);
+    }
+  }, [refFromUrl]);
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [referralCode, setReferralCode] = useState(refFromUrl);
-  const [showReferral, setShowReferral] = useState(!!refFromUrl);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -59,13 +77,16 @@ const Signup = () => {
     setError("");
     setEmailError("");
 
+    const cleanEmail = sanitizeString(email, 320).toLowerCase();
+
     if (!agreed) { setError("You must agree to the Privacy Policy and Terms of Service."); return; }
+    if (!validateEmail(cleanEmail)) { setError("Enter a valid email address."); return; }
     if (password !== confirmPassword) { setError("Passwords do not match."); triggerShake(); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); triggerShake(); return; }
 
     setLoading(true);
     const { error: signupError } = await supabase.auth.signUp({
-      email,
+      email: cleanEmail,
       password,
       options: {
         data: { full_name: fullName, referral_code: referralCode || undefined },
@@ -82,10 +103,45 @@ const Signup = () => {
       setLoading(false);
       triggerShake();
     } else {
-      if (referralCode) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from("profiles").update({ referral_code: referralCode }).eq("user_id", user.id);
+      trackEvent('user_signup', { 
+        method: 'email',
+        has_referral: !!referralCode 
+      });
+      // If a referral code was provided, process it via the edge function.
+      // This is non-blocking — a referral failure won't prevent onboarding.
+      if (referralCode?.trim()) {
+        try {
+          // Wait briefly for the session to be available after signup
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const limit = checkRateLimit({
+              key: "referral_process",
+              maxRequests: 3,
+              windowMs: 3_600_000,
+            });
+
+            if (!limit.allowed) {
+              toast.error(RATE_LIMIT_MESSAGE);
+            } else {
+              const response = await supabase.functions.invoke("process-referral", {
+                body: { referral_code: referralCode.trim() },
+              });
+
+              if (response.error || response.data?.error === "RATE_LIMITED") {
+                toast.error(RATE_LIMIT_MESSAGE);
+              } else {
+                sessionStorage.removeItem("gm_referral_code");
+                toast.success("🎉 Bonus credits added!");
+              }
+            }
+          }
+        } catch (e) {
+          // Don't block signup if referral processing fails
+          console.log("Referral processing (non-blocking):", e);
+          captureError(
+            e instanceof Error ? e : new Error("Referral processing failed"),
+            { action: "process-referral", stage: "signup" },
+          );
         }
       }
       fireConfetti();
@@ -97,16 +153,23 @@ const Signup = () => {
     setError("");
     setEmailError("");
     if (!agreed) { setError("You must agree to the Privacy Policy and Terms of Service."); return; }
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+
+    trackEvent('user_signup', { method: 'google', has_referral: !!referralCode });
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
     });
-    if (result.error) {
-      setError(result.error.message || "Google sign-up failed");
+
+    if (error) {
+      setError(error.message || "Google sign-up failed");
       triggerShake();
-    }
-    if (!result.redirected && !result.error) {
-      fireConfetti();
-      setTimeout(() => navigate("/onboarding"), 2000);
     }
   };
 
@@ -122,6 +185,14 @@ const Signup = () => {
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
+          )}
+
+          {isReferred && (
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-center">
+              <p className="text-sm font-medium text-primary">
+                🎉 You were referred! Sign up to get 5 free credits instead of 3.
+              </p>
+            </div>
           )}
 
           {/* Google OAuth */}
@@ -192,8 +263,16 @@ const Signup = () => {
                 <Label htmlFor="referral">Referral Code</Label>
                 <div className="relative">
                   <Input id="referral" placeholder="e.g. abc123" value={referralCode}
-                    onChange={(e) => setReferralCode(e.target.value)}
-                    className={referralCode.length >= 4 ? "pr-8 border-success" : ""} />
+                    onChange={(e) => {
+                      setReferralCode(e.target.value);
+                      if (e.target.value) {
+                        sessionStorage.setItem("gm_referral_code", e.target.value);
+                      } else {
+                        sessionStorage.removeItem("gm_referral_code");
+                      }
+                    }}
+                    readOnly={!!refFromUrl}
+                    className={cn(referralCode.length >= 4 ? "pr-8 border-success" : "", !!refFromUrl && "bg-muted cursor-not-allowed")} />
                   {referralCode.length >= 4 && (
                     <CheckCircle2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-success animate-in zoom-in-50" />
                   )}

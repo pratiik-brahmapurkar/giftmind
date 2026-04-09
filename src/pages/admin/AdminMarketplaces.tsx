@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,11 +14,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Save, X, Store } from "lucide-react";
 
-const COUNTRIES = [
-  { value: "india", label: "India", flag: "🇮🇳" },
-  { value: "usa", label: "USA", flag: "🇺🇸" },
-  { value: "uk", label: "UK", flag: "🇬🇧" },
-  { value: "uae", label: "UAE", flag: "🇦🇪" },
+const ADMIN_COUNTRIES = [
+  { value: "IN", label: "India", flag: "🇮🇳" },
+  { value: "US", label: "USA", flag: "🇺🇸" },
+  { value: "GB", label: "UK", flag: "🇬🇧" },
+  { value: "AE", label: "UAE", flag: "🇦🇪" },
+  { value: "FR", label: "France", flag: "🇫🇷" },
+  { value: "DE", label: "Germany", flag: "🇩🇪" },
+  { value: "NL", label: "Netherlands", flag: "🇳🇱" },
+  { value: "CA", label: "Canada", flag: "🇨🇦" },
+  { value: "AU", label: "Australia", flag: "🇦🇺" },
+  { value: "SG", label: "Singapore", flag: "🇸🇬" },
+  { value: "OTHER", label: "Global", flag: "🌍" },
 ];
 
 const GIFT_CATEGORIES = [
@@ -28,25 +36,24 @@ const GIFT_CATEGORIES = [
 
 type Marketplace = {
   id: string;
-  country: string;
+  country_code: string;
   store_name: string;
   domain: string;
-  search_url_pattern: string | null;
-  affiliate_tag: string | null;
-  logo_url: string | null;
+  search_url: string;
+  affiliate_param: string;
   brand_color: string | null;
   categories: string[] | null;
   priority: number;
   is_active: boolean;
+  store_id: string;
 };
 
 const emptyForm = {
-  country: "india",
+  country_code: "IN",
   store_name: "",
   domain: "",
-  search_url_pattern: "",
-  affiliate_tag: "",
-  logo_url: "",
+  search_url: "",
+  affiliate_param: "",
   brand_color: "#6366f1",
   categories: [] as string[],
   priority: 0,
@@ -54,7 +61,7 @@ const emptyForm = {
 
 export default function AdminMarketplaces() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState("india");
+  const [tab, setTab] = useState("IN");
   const [addModal, setAddModal] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
   const [edits, setEdits] = useState<Record<string, Partial<Marketplace>>>({});
@@ -77,7 +84,7 @@ export default function AdminMarketplaces() {
       const { error } = await supabase
         .from("marketplace_config")
         .update({
-          affiliate_tag: updates.affiliate_tag ?? mp.affiliate_tag,
+          affiliate_param: updates.affiliate_param ?? mp.affiliate_param,
           is_active: updates.is_active ?? mp.is_active,
           categories: updates.categories ?? mp.categories,
           priority: updates.priority ?? mp.priority,
@@ -94,23 +101,24 @@ export default function AdminMarketplaces() {
 
   const addMutation = useMutation({
     mutationFn: async () => {
+      const storeId = form.store_name.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-" + Math.random().toString(36).substring(2, 6);
       const { error } = await supabase.from("marketplace_config").insert({
-        country: form.country,
+        country_code: form.country_code,
         store_name: form.store_name,
         domain: form.domain,
-        search_url_pattern: form.search_url_pattern || null,
-        affiliate_tag: form.affiliate_tag || "",
-        logo_url: form.logo_url || null,
+        search_url: form.search_url || "",
+        affiliate_param: form.affiliate_param || "",
         brand_color: form.brand_color || "#6366f1",
         categories: form.categories,
         priority: form.priority,
+        store_id: storeId,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["marketplace-config"] });
       setAddModal(false);
-      setForm({ ...emptyForm, country: tab });
+      setForm({ ...emptyForm, country_code: tab });
       toast.success("Marketplace added");
     },
     onError: (e: any) => toast.error("Add failed: " + e.message),
@@ -133,26 +141,32 @@ export default function AdminMarketplaces() {
     }));
   };
 
-  const filtered = marketplaces.filter((m) => m.country === tab);
+  const filtered = marketplaces.filter((m) => m.country_code === tab);
 
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Marketplace Config</h1>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          {COUNTRIES.map((c) => (
+        <TabsList className="flex flex-wrap h-auto gap-2 p-2">
+          {ADMIN_COUNTRIES.map((c) => (
             <TabsTrigger key={c.value} value={c.value}>{c.flag} {c.label}</TabsTrigger>
           ))}
         </TabsList>
 
-        {COUNTRIES.map((country) => (
+        {ADMIN_COUNTRIES.map((country) => (
           <TabsContent key={country.value} value={country.value} className="space-y-4 mt-4">
-            <Button onClick={() => { setForm({ ...emptyForm, country: country.value }); setAddModal(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Add Marketplace
-            </Button>
+            <div className="flex items-center justify-between">
+              <Button onClick={() => { setForm({ ...emptyForm, country_code: country.value }); setAddModal(true); }}>
+                <Plus className="h-4 w-4 mr-1" /> Add Marketplace
+              </Button>
+              <div className="text-sm font-medium text-muted-foreground">
+                {marketplaces.filter((m) => m.country_code === country.value && m.is_active).length} active stores
+              </div>
+            </div>
 
             {filtered.length === 0 && !isLoading && (
               <p className="text-muted-foreground text-center py-12">No marketplaces configured for {country.label}.</p>
@@ -163,7 +177,7 @@ export default function AdminMarketplaces() {
                 const e = getEdit(mp.id);
                 const cats = e.categories ?? mp.categories ?? [];
                 const active = e.is_active ?? mp.is_active;
-                const tag = e.affiliate_tag ?? mp.affiliate_tag ?? "";
+                const tag = e.affiliate_param ?? mp.affiliate_param ?? "";
                 const prio = e.priority ?? mp.priority;
 
                 return (
@@ -175,11 +189,7 @@ export default function AdminMarketplaces() {
                           className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
                           style={{ backgroundColor: mp.brand_color || "#6366f1" }}
                         >
-                          {mp.logo_url ? (
-                            <img src={mp.logo_url} alt={mp.store_name} className="w-full h-full object-contain rounded-lg" />
-                          ) : (
-                            mp.store_name.charAt(0).toUpperCase()
-                          )}
+                          {mp.store_name.charAt(0).toUpperCase()}
                         </div>
 
                         <div className="flex-1 space-y-3">
@@ -193,7 +203,7 @@ export default function AdminMarketplaces() {
                               <Label className="text-xs">Affiliate Tag</Label>
                               <Input
                                 value={tag}
-                                onChange={(ev) => setEdit(mp.id, { affiliate_tag: ev.target.value })}
+                                onChange={(ev) => setEdit(mp.id, { affiliate_param: ev.target.value })}
                                 className="h-8 text-xs"
                                 placeholder="e.g. giftmind-21"
                               />
@@ -233,9 +243,16 @@ export default function AdminMarketplaces() {
                           </div>
                         </div>
 
-                        <Button size="sm" className="shrink-0" onClick={() => saveMutation.mutate(mp)} disabled={saveMutation.isPending}>
-                          <Save className="h-3.5 w-3.5 mr-1" /> Save
-                        </Button>
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <Button size="sm" onClick={() => saveMutation.mutate(mp)} disabled={saveMutation.isPending}>
+                            <Save className="h-3.5 w-3.5 mr-1" /> Save
+                          </Button>
+                          {mp.search_url && (
+                            <Button size="sm" variant="outline" onClick={() => window.open(mp.search_url + encodeURIComponent("test gift"), "_blank")}>
+                              Test Link
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -260,10 +277,10 @@ export default function AdminMarketplaces() {
           <div className="space-y-3">
             <div>
               <Label className="text-xs">Country</Label>
-              <Select value={form.country} onValueChange={(v) => setForm((f) => ({ ...f, country: v }))}>
+              <Select value={form.country_code} onValueChange={(v) => setForm((f) => ({ ...f, country_code: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {COUNTRIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.flag} {c.label}</SelectItem>)}
+                  {ADMIN_COUNTRIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.flag} {c.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -279,23 +296,19 @@ export default function AdminMarketplaces() {
             </div>
             <div>
               <Label className="text-xs">Search URL Pattern</Label>
-              <Input value={form.search_url_pattern} onChange={(e) => setForm((f) => ({ ...f, search_url_pattern: e.target.value }))} placeholder="https://amazon.in/s?k=" />
+              <Input value={form.search_url} onChange={(e) => setForm((f) => ({ ...f, search_url: e.target.value }))} placeholder="https://amazon.in/s?k=" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Affiliate Tag</Label>
-                <Input value={form.affiliate_tag} onChange={(e) => setForm((f) => ({ ...f, affiliate_tag: e.target.value }))} placeholder="giftmind-21" />
+                <Input value={form.affiliate_param} onChange={(e) => setForm((f) => ({ ...f, affiliate_param: e.target.value }))} placeholder="giftmind-21" />
               </div>
               <div>
                 <Label className="text-xs">Priority</Label>
                 <Input type="number" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: parseInt(e.target.value) || 0 }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Logo URL</Label>
-                <Input value={form.logo_url} onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))} placeholder="https://..." />
-              </div>
+            <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label className="text-xs">Brand Color</Label>
                 <div className="flex gap-2">

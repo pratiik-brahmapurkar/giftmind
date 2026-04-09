@@ -16,132 +16,171 @@ export type Database = {
     Tables: {
       blog_categories: {
         Row: {
-          created_at: string
+          created_at: string | null
           description: string | null
           icon: string | null
           id: string
           name: string
+          post_count: number | null
           slug: string
-          sort_order: number
-          updated_at: string
+          sort_order: number | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           icon?: string | null
           id?: string
           name: string
+          post_count?: number | null
           slug: string
-          sort_order?: number
-          updated_at?: string
+          sort_order?: number | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           icon?: string | null
           id?: string
           name?: string
+          post_count?: number | null
           slug?: string
-          sort_order?: number
-          updated_at?: string
+          sort_order?: number | null
         }
         Relationships: []
       }
       blog_media: {
         Row: {
           alt_text: string | null
-          created_at: string
+          created_at: string | null
           file_name: string
-          file_size: number
-          file_type: string
+          file_size: number | null
+          file_type: string | null
           file_url: string
           id: string
-          uploaded_by: string
+          uploaded_by: string | null
         }
         Insert: {
           alt_text?: string | null
-          created_at?: string
+          created_at?: string | null
           file_name: string
-          file_size?: number
-          file_type?: string
+          file_size?: number | null
+          file_type?: string | null
           file_url: string
           id?: string
-          uploaded_by: string
+          uploaded_by?: string | null
         }
         Update: {
           alt_text?: string | null
-          created_at?: string
+          created_at?: string | null
           file_name?: string
-          file_size?: number
-          file_type?: string
+          file_size?: number | null
+          file_type?: string | null
           file_url?: string
           id?: string
-          uploaded_by?: string
+          uploaded_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "blog_media_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       blog_posts: {
         Row: {
-          author_id: string
+          author_id: string | null
+          canonical_url: string | null
           category_id: string | null
-          content: string | null
-          created_at: string
-          cta_clicks: number
+          content: string
+          created_at: string | null
+          cta_click_count: number | null
+          cta_occasion: string | null
+          cta_text: string | null
+          cta_type: string | null
+          cta_url: string | null
           excerpt: string | null
-          featured_image: string | null
+          featured_image_alt: string | null
+          featured_image_url: string | null
+          focus_keyword: string | null
           id: string
           meta_description: string | null
           meta_title: string | null
           published_at: string | null
           scheduled_at: string | null
+          seo_score: number | null
           slug: string
-          status: Database["public"]["Enums"]["blog_post_status"]
+          status: string | null
           tags: string[] | null
           title: string
-          updated_at: string
-          views: number
+          updated_at: string | null
+          view_count: number | null
         }
         Insert: {
-          author_id: string
+          author_id?: string | null
+          canonical_url?: string | null
           category_id?: string | null
-          content?: string | null
-          created_at?: string
-          cta_clicks?: number
+          content: string
+          created_at?: string | null
+          cta_click_count?: number | null
+          cta_occasion?: string | null
+          cta_text?: string | null
+          cta_type?: string | null
+          cta_url?: string | null
           excerpt?: string | null
-          featured_image?: string | null
+          featured_image_alt?: string | null
+          featured_image_url?: string | null
+          focus_keyword?: string | null
           id?: string
           meta_description?: string | null
           meta_title?: string | null
           published_at?: string | null
           scheduled_at?: string | null
+          seo_score?: number | null
           slug: string
-          status?: Database["public"]["Enums"]["blog_post_status"]
+          status?: string | null
           tags?: string[] | null
           title: string
-          updated_at?: string
-          views?: number
+          updated_at?: string | null
+          view_count?: number | null
         }
         Update: {
-          author_id?: string
+          author_id?: string | null
+          canonical_url?: string | null
           category_id?: string | null
-          content?: string | null
-          created_at?: string
-          cta_clicks?: number
+          content?: string
+          created_at?: string | null
+          cta_click_count?: number | null
+          cta_occasion?: string | null
+          cta_text?: string | null
+          cta_type?: string | null
+          cta_url?: string | null
           excerpt?: string | null
-          featured_image?: string | null
+          featured_image_alt?: string | null
+          featured_image_url?: string | null
+          focus_keyword?: string | null
           id?: string
           meta_description?: string | null
           meta_title?: string | null
           published_at?: string | null
           scheduled_at?: string | null
+          seo_score?: number | null
           slug?: string
-          status?: Database["public"]["Enums"]["blog_post_status"]
+          status?: string | null
           tags?: string[] | null
           title?: string
-          updated_at?: string
-          views?: number
+          updated_at?: string | null
+          view_count?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "blog_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "blog_posts_category_id_fkey"
             columns: ["category_id"]
@@ -151,47 +190,154 @@ export type Database = {
           },
         ]
       }
+      credit_batches: {
+        Row: {
+          created_at: string | null
+          credits_purchased: number
+          credits_remaining: number
+          currency: string | null
+          expires_at: string
+          id: string
+          is_expired: boolean | null
+          package_name: string
+          payment_id: string | null
+          payment_provider: string | null
+          price_paid: number | null
+          purchased_at: string | null
+          user_id: string
+          warning_sent: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits_purchased: number
+          credits_remaining: number
+          currency?: string | null
+          expires_at: string
+          id?: string
+          is_expired?: boolean | null
+          package_name: string
+          payment_id?: string | null
+          payment_provider?: string | null
+          price_paid?: number | null
+          purchased_at?: string | null
+          user_id: string
+          warning_sent?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          credits_purchased?: number
+          credits_remaining?: number
+          currency?: string | null
+          expires_at?: string
+          id?: string
+          is_expired?: boolean | null
+          package_name?: string
+          payment_id?: string | null
+          payment_provider?: string | null
+          price_paid?: number | null
+          purchased_at?: string | null
+          user_id?: string
+          warning_sent?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_packages: {
         Row: {
-          badge_text: string | null
-          created_at: string
+          badge: string | null
+          created_at: string | null
           credits: number
           features: string[] | null
+          has_batch_mode: boolean | null
+          has_history_export: boolean | null
+          has_priority_ai: boolean | null
+          has_signal_check: boolean | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
+          max_recipients: number | null
+          max_regenerations: number | null
+          max_reminders: number | null
           name: string
+          per_credit_cost: number | null
+          price_aed: number | null
+          price_aud: number | null
+          price_cad: number | null
+          price_eur: number | null
+          price_gbp: number | null
           price_inr: number
-          price_usd: number
-          sort_order: number
-          updated_at: string
+          price_sgd: number | null
+          price_usd: number | null
+          savings_percent: number | null
+          slug: string
+          sort_order: number | null
+          stores_level: string | null
           validity_days: number
         }
         Insert: {
-          badge_text?: string | null
-          created_at?: string
+          badge?: string | null
+          created_at?: string | null
           credits: number
           features?: string[] | null
+          has_batch_mode?: boolean | null
+          has_history_export?: boolean | null
+          has_priority_ai?: boolean | null
+          has_signal_check?: boolean | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
+          max_recipients?: number | null
+          max_regenerations?: number | null
+          max_reminders?: number | null
           name: string
-          price_inr?: number
-          price_usd?: number
-          sort_order?: number
-          updated_at?: string
-          validity_days?: number
+          per_credit_cost?: number | null
+          price_aed?: number | null
+          price_aud?: number | null
+          price_cad?: number | null
+          price_eur?: number | null
+          price_gbp?: number | null
+          price_inr: number
+          price_sgd?: number | null
+          price_usd?: number | null
+          savings_percent?: number | null
+          slug: string
+          sort_order?: number | null
+          stores_level?: string | null
+          validity_days: number
         }
         Update: {
-          badge_text?: string | null
-          created_at?: string
+          badge?: string | null
+          created_at?: string | null
           credits?: number
           features?: string[] | null
+          has_batch_mode?: boolean | null
+          has_history_export?: boolean | null
+          has_priority_ai?: boolean | null
+          has_signal_check?: boolean | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
+          max_recipients?: number | null
+          max_regenerations?: number | null
+          max_reminders?: number | null
           name?: string
+          per_credit_cost?: number | null
+          price_aed?: number | null
+          price_aud?: number | null
+          price_cad?: number | null
+          price_eur?: number | null
+          price_gbp?: number | null
           price_inr?: number
-          price_usd?: number
-          sort_order?: number
-          updated_at?: string
+          price_sgd?: number | null
+          price_usd?: number | null
+          savings_percent?: number | null
+          slug?: string
+          sort_order?: number | null
+          stores_level?: string | null
           validity_days?: number
         }
         Relationships: []
@@ -199,98 +345,176 @@ export type Database = {
       credit_transactions: {
         Row: {
           amount: number
-          balance_after: number
-          created_at: string
-          details: string | null
+          batch_id: string | null
+          created_at: string | null
           id: string
+          metadata: Json | null
           payment_id: string | null
-          provider: string | null
+          payment_provider: string | null
+          session_id: string | null
           type: string
           user_id: string
         }
         Insert: {
           amount: number
-          balance_after?: number
-          created_at?: string
-          details?: string | null
+          batch_id?: string | null
+          created_at?: string | null
           id?: string
+          metadata?: Json | null
           payment_id?: string | null
-          provider?: string | null
+          payment_provider?: string | null
+          session_id?: string | null
           type: string
           user_id: string
         }
         Update: {
           amount?: number
-          balance_after?: number
-          created_at?: string
-          details?: string | null
+          batch_id?: string | null
+          created_at?: string | null
           id?: string
+          metadata?: Json | null
           payment_id?: string | null
-          provider?: string | null
+          payment_provider?: string | null
+          session_id?: string | null
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "credit_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gift_feedback: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          recipient_reaction: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          recipient_reaction?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          recipient_reaction?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "gift_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gift_sessions: {
         Row: {
+          ai_model_used: string | null
+          ai_prompt_used: string | null
+          ai_response: Json | null
           budget_max: number | null
           budget_min: number | null
-          chosen_gift: Json | null
+          confidence_score: number | null
           context_tags: string[] | null
-          created_at: string
-          currency: string
-          extra_notes: string | null
-          feedback_notes: string | null
-          feedback_rating: string | null
+          created_at: string | null
+          credits_used: number | null
+          currency: string | null
           id: string
-          occasion: string | null
+          occasion: string
           occasion_date: string | null
+          product_results: Json | null
           recipient_country: string | null
           recipient_id: string | null
-          results: Json | null
-          status: string
-          updated_at: string
+          regeneration_count: number | null
+          relationship_stage: string | null
+          selected_gift_index: number | null
+          selected_gift_name: string | null
+          special_context: string | null
+          status: string | null
+          urgency: string | null
           user_id: string
         }
         Insert: {
+          ai_model_used?: string | null
+          ai_prompt_used?: string | null
+          ai_response?: Json | null
           budget_max?: number | null
           budget_min?: number | null
-          chosen_gift?: Json | null
+          confidence_score?: number | null
           context_tags?: string[] | null
-          created_at?: string
-          currency?: string
-          extra_notes?: string | null
-          feedback_notes?: string | null
-          feedback_rating?: string | null
+          created_at?: string | null
+          credits_used?: number | null
+          currency?: string | null
           id?: string
-          occasion?: string | null
+          occasion: string
           occasion_date?: string | null
+          product_results?: Json | null
           recipient_country?: string | null
           recipient_id?: string | null
-          results?: Json | null
-          status?: string
-          updated_at?: string
+          regeneration_count?: number | null
+          relationship_stage?: string | null
+          selected_gift_index?: number | null
+          selected_gift_name?: string | null
+          special_context?: string | null
+          status?: string | null
+          urgency?: string | null
           user_id: string
         }
         Update: {
+          ai_model_used?: string | null
+          ai_prompt_used?: string | null
+          ai_response?: Json | null
           budget_max?: number | null
           budget_min?: number | null
-          chosen_gift?: Json | null
+          confidence_score?: number | null
           context_tags?: string[] | null
-          created_at?: string
-          currency?: string
-          extra_notes?: string | null
-          feedback_notes?: string | null
-          feedback_rating?: string | null
+          created_at?: string | null
+          credits_used?: number | null
+          currency?: string | null
           id?: string
-          occasion?: string | null
+          occasion?: string
           occasion_date?: string | null
+          product_results?: Json | null
           recipient_country?: string | null
           recipient_id?: string | null
-          results?: Json | null
-          status?: string
-          updated_at?: string
+          regeneration_count?: number | null
+          relationship_stage?: string | null
+          selected_gift_index?: number | null
+          selected_gift_name?: string | null
+          special_context?: string | null
+          status?: string | null
+          urgency?: string | null
           user_id?: string
         }
         Relationships: [
@@ -301,89 +525,96 @@ export type Database = {
             referencedRelation: "recipients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "gift_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       marketplace_config: {
         Row: {
-          affiliate_tag: string | null
+          affiliate_param: string | null
           brand_color: string | null
           categories: string[] | null
-          country: string
-          created_at: string
+          country_code: string
+          created_at: string | null
           domain: string
           id: string
           is_active: boolean | null
-          logo_url: string | null
           priority: number | null
-          search_url_pattern: string | null
+          search_url: string
+          store_id: string
           store_name: string
-          updated_at: string
         }
         Insert: {
-          affiliate_tag?: string | null
+          affiliate_param?: string | null
           brand_color?: string | null
           categories?: string[] | null
-          country?: string
-          created_at?: string
+          country_code: string
+          created_at?: string | null
           domain: string
           id?: string
           is_active?: boolean | null
-          logo_url?: string | null
           priority?: number | null
-          search_url_pattern?: string | null
+          search_url: string
+          store_id: string
           store_name: string
-          updated_at?: string
         }
         Update: {
-          affiliate_tag?: string | null
+          affiliate_param?: string | null
           brand_color?: string | null
           categories?: string[] | null
-          country?: string
-          created_at?: string
+          country_code?: string
+          created_at?: string | null
           domain?: string
           id?: string
           is_active?: boolean | null
-          logo_url?: string | null
           priority?: number | null
-          search_url_pattern?: string | null
+          search_url?: string
+          store_id?: string
           store_name?: string
-          updated_at?: string
         }
         Relationships: []
       }
       product_clicks: {
         Row: {
-          clicked_at: string
+          clicked_at: string | null
           country: string | null
-          gift_concept_name: string
+          gift_concept_name: string | null
           id: string
           is_search_link: boolean | null
-          product_url: string
+          product_title: string | null
+          product_url: string | null
           session_id: string | null
-          store: string
-          user_id: string
+          store: string | null
+          user_id: string | null
         }
         Insert: {
-          clicked_at?: string
+          clicked_at?: string | null
           country?: string | null
-          gift_concept_name: string
+          gift_concept_name?: string | null
           id?: string
           is_search_link?: boolean | null
-          product_url: string
+          product_title?: string | null
+          product_url?: string | null
           session_id?: string | null
-          store: string
-          user_id: string
+          store?: string | null
+          user_id?: string | null
         }
         Update: {
-          clicked_at?: string
+          clicked_at?: string | null
           country?: string | null
-          gift_concept_name?: string
+          gift_concept_name?: string | null
           id?: string
           is_search_link?: boolean | null
-          product_url?: string
+          product_title?: string | null
+          product_url?: string | null
           session_id?: string | null
-          store?: string
-          user_id?: string
+          store?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -393,207 +624,199 @@ export type Database = {
             referencedRelation: "gift_sessions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_clicks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          country: string | null
-          created_at: string
-          credits: number
-          currency_preference: string | null
-          full_name: string | null
-          has_completed_onboarding: boolean
-          id: string
-          language: string | null
-          notify_credit_expiry: boolean | null
-          notify_gift_reminders: boolean | null
-          notify_tips: boolean | null
-          referral_code: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          country?: string | null
-          created_at?: string
-          credits?: number
-          currency_preference?: string | null
-          full_name?: string | null
-          has_completed_onboarding?: boolean
-          id?: string
-          language?: string | null
-          notify_credit_expiry?: boolean | null
-          notify_gift_reminders?: boolean | null
-          notify_tips?: boolean | null
-          referral_code?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          avatar_url?: string | null
-          country?: string | null
-          created_at?: string
-          credits?: number
-          currency_preference?: string | null
-          full_name?: string | null
-          has_completed_onboarding?: boolean
-          id?: string
-          language?: string | null
-          notify_credit_expiry?: boolean | null
-          notify_gift_reminders?: boolean | null
-          notify_tips?: boolean | null
-          referral_code?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       recipients: {
         Row: {
-          age_range: Database["public"]["Enums"]["age_range"] | null
+          age_range: string | null
           country: string | null
-          created_at: string
-          cultural_context:
-            | Database["public"]["Enums"]["cultural_context"]
-            | null
-          gender: Database["public"]["Enums"]["gender_option"] | null
+          created_at: string | null
+          cultural_context: string | null
+          gender: string | null
           id: string
           important_dates: Json | null
           interests: string[] | null
           last_gift_date: string | null
           name: string
           notes: string | null
-          relationship_depth: Database["public"]["Enums"]["relationship_depth"]
-          relationship_type: Database["public"]["Enums"]["relationship_type"]
-          updated_at: string
+          relationship: string | null
+          relationship_depth: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
-          age_range?: Database["public"]["Enums"]["age_range"] | null
+          age_range?: string | null
           country?: string | null
-          created_at?: string
-          cultural_context?:
-            | Database["public"]["Enums"]["cultural_context"]
-            | null
-          gender?: Database["public"]["Enums"]["gender_option"] | null
+          created_at?: string | null
+          cultural_context?: string | null
+          gender?: string | null
           id?: string
           important_dates?: Json | null
           interests?: string[] | null
           last_gift_date?: string | null
           name: string
           notes?: string | null
-          relationship_depth?: Database["public"]["Enums"]["relationship_depth"]
-          relationship_type: Database["public"]["Enums"]["relationship_type"]
-          updated_at?: string
+          relationship?: string | null
+          relationship_depth?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
-          age_range?: Database["public"]["Enums"]["age_range"] | null
+          age_range?: string | null
           country?: string | null
-          created_at?: string
-          cultural_context?:
-            | Database["public"]["Enums"]["cultural_context"]
-            | null
-          gender?: Database["public"]["Enums"]["gender_option"] | null
+          created_at?: string | null
+          cultural_context?: string | null
+          gender?: string | null
           id?: string
           important_dates?: Json | null
           interests?: string[] | null
           last_gift_date?: string | null
           name?: string
           notes?: string | null
-          relationship_depth?: Database["public"]["Enums"]["relationship_depth"]
-          relationship_type?: Database["public"]["Enums"]["relationship_type"]
-          updated_at?: string
+          relationship?: string | null
+          relationship_depth?: string | null
+          updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "recipients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       referrals: {
         Row: {
-          created_at: string
-          credits_awarded: number | null
+          created_at: string | null
+          credits_awarded: boolean | null
           id: string
-          referred_email: string
-          referrer_id: string
-          status: string
+          referral_code: string | null
+          referred_id: string | null
+          referrer_id: string | null
+          status: string | null
         }
         Insert: {
-          created_at?: string
-          credits_awarded?: number | null
+          created_at?: string | null
+          credits_awarded?: boolean | null
           id?: string
-          referred_email: string
-          referrer_id: string
-          status?: string
+          referral_code?: string | null
+          referred_id?: string | null
+          referrer_id?: string | null
+          status?: string | null
         }
         Update: {
-          created_at?: string
-          credits_awarded?: number | null
+          created_at?: string | null
+          credits_awarded?: boolean | null
           id?: string
-          referred_email?: string
-          referrer_id?: string
-          status?: string
+          referral_code?: string | null
+          referred_id?: string | null
+          referrer_id?: string | null
+          status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      user_roles: {
+      users: {
         Row: {
+          active_plan: string | null
+          avatar_url: string | null
+          country: string | null
+          created_at: string | null
+          credits_balance: number | null
+          currency_preference: string | null
+          email: string
+          full_name: string | null
+          has_completed_onboarding: boolean | null
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          language: string | null
+          last_active_at: string | null
+          notification_prefs: Json | null
+          referral_code: string | null
+          referred_by: string | null
+          role: string | null
+          updated_at: string | null
         }
         Insert: {
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          active_plan?: string | null
+          avatar_url?: string | null
+          country?: string | null
+          created_at?: string | null
+          credits_balance?: number | null
+          currency_preference?: string | null
+          email: string
+          full_name?: string | null
+          has_completed_onboarding?: boolean | null
+          id: string
+          language?: string | null
+          last_active_at?: string | null
+          notification_prefs?: Json | null
+          referral_code?: string | null
+          referred_by?: string | null
+          role?: string | null
+          updated_at?: string | null
         }
         Update: {
+          active_plan?: string | null
+          avatar_url?: string | null
+          country?: string | null
+          created_at?: string | null
+          credits_balance?: number | null
+          currency_preference?: string | null
+          email?: string
+          full_name?: string | null
+          has_completed_onboarding?: boolean | null
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          language?: string | null
+          last_active_at?: string | null
+          notification_prefs?: Json | null
+          referral_code?: string | null
+          referred_by?: string | null
+          role?: string | null
+          updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      increment_post_views: { Args: { post_slug: string }; Returns: undefined }
+      [_ in never]: never
     }
     Enums: {
-      age_range: "under_18" | "18_25" | "25_35" | "35_50" | "50_65" | "65_plus"
-      app_role: "superadmin" | "admin" | "user"
-      blog_post_status: "draft" | "published" | "scheduled" | "archived"
-      cultural_context:
-        | "indian_hindu"
-        | "indian_muslim"
-        | "indian_christian"
-        | "western"
-        | "mixed"
-        | "other"
-      gender_option: "male" | "female" | "non_binary" | "prefer_not_to_say"
-      relationship_depth: "very_close" | "close" | "acquaintance"
-      relationship_type:
-        | "partner"
-        | "parent"
-        | "sibling"
-        | "close_friend"
-        | "friend"
-        | "colleague"
-        | "boss"
-        | "acquaintance"
-        | "in_law"
-        | "child"
-        | "mentor"
-        | "new_relationship"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -720,34 +943,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      age_range: ["under_18", "18_25", "25_35", "35_50", "50_65", "65_plus"],
-      app_role: ["superadmin", "admin", "user"],
-      blog_post_status: ["draft", "published", "scheduled", "archived"],
-      cultural_context: [
-        "indian_hindu",
-        "indian_muslim",
-        "indian_christian",
-        "western",
-        "mixed",
-        "other",
-      ],
-      gender_option: ["male", "female", "non_binary", "prefer_not_to_say"],
-      relationship_depth: ["very_close", "close", "acquaintance"],
-      relationship_type: [
-        "partner",
-        "parent",
-        "sibling",
-        "close_friend",
-        "friend",
-        "colleague",
-        "boss",
-        "acquaintance",
-        "in_law",
-        "child",
-        "mentor",
-        "new_relationship",
-      ],
-    },
+    Enums: {},
   },
 } as const

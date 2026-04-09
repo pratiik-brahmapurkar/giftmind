@@ -1,13 +1,13 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import AuthLayout from "@/components/AuthLayout";
+import { trackEvent } from "@/lib/posthog";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -33,12 +33,13 @@ const Login = () => {
       setLoading(false);
       triggerShake();
     } else {
+      trackEvent('user_login', { method: 'email' });
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
-          .from("profiles")
+          .from("users")
           .select("has_completed_onboarding")
-          .eq("user_id", user.id)
+          .eq("id", user.id)
           .single();
         if (profile && !profile.has_completed_onboarding) {
           navigate("/onboarding");
@@ -53,15 +54,20 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     setError("");
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    trackEvent('user_login', { method: 'google' });
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
     });
-    if (result.error) {
-      setError(result.error.message || "Google sign-in failed");
+    if (error) {
+      setError(error.message || "Google sign-in failed");
       triggerShake();
-    }
-    if (!result.redirected && !result.error) {
-      navigate("/dashboard");
     }
   };
 

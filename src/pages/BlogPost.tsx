@@ -1,8 +1,9 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import MDEditor from "@uiw/react-md-editor";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +11,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Share2, Copy, ArrowRight } from "lucide-react";
 import BlogPostCard from "@/components/blog/BlogPostCard";
-import BlogSeo from "@/components/blog/BlogSeo";
+import { SEOHead } from "@/components/common/SEOHead";
+import { trackEvent } from "@/lib/posthog";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
@@ -21,6 +23,16 @@ function estimateReadTime(content: string): number {
 export default function BlogPost() {
   const { slug } = useParams();
   const viewTracked = useRef(false);
+
+  const markdownSanitizeOptions = useMemo(
+    () => ({
+      ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "p", "a", "img", "ul", "ol", "li",
+        "strong", "em", "blockquote", "code", "pre", "br", "hr",
+        "table", "thead", "tbody", "tr", "th", "td"],
+      ALLOWED_ATTR: ["href", "src", "alt", "class", "id", "target", "rel"],
+    }),
+    [],
+  );
 
   const { data: post, isLoading } = useQuery({
     queryKey: ["blog-post-public", slug],
@@ -60,13 +72,15 @@ export default function BlogPost() {
     if (last && Date.now() - parseInt(last) < 30000) return;
     viewTracked.current = true;
     sessionStorage.setItem(key, Date.now().toString());
+    // @ts-ignore
     supabase.rpc("increment_post_views", { post_slug: slug }).then();
   }, [slug]);
 
   // CTA click tracking
   const handleCtaClick = async () => {
+    trackEvent('blog_cta_clicked', { slug: post?.slug, occasion: null });
     if (!post) return;
-    await supabase.from("blog_posts").update({ cta_clicks: (post.cta_clicks || 0) + 1 }).eq("id", post.id);
+    await supabase.from("blog_posts").update({ cta_click_count: (post.cta_click_count || 0) + 1 }).eq("id", post.id);
   };
 
   const readTime = estimateReadTime(post?.content || "");
@@ -90,6 +104,15 @@ export default function BlogPost() {
     const after = lines.slice(3).join("\n\n");
     return { before, after };
   }, [post]);
+
+  const beforeHtml = useMemo(
+    () => DOMPurify.sanitize(marked.parse(contentParts.before || "") as string, markdownSanitizeOptions),
+    [contentParts.before, markdownSanitizeOptions],
+  );
+  const afterHtml = useMemo(
+    () => DOMPurify.sanitize(marked.parse(contentParts.after || "") as string, markdownSanitizeOptions),
+    [contentParts.after, markdownSanitizeOptions],
+  );
 
   const share = (platform: string) => {
     const text = `Check this out: ${post?.title} - ${url}`;
@@ -137,11 +160,14 @@ export default function BlogPost() {
 
   return (
     <div className="min-h-screen bg-background">
-      <BlogSeo
+      <SEOHead
         title={post.meta_title || post.title}
-        description={post.meta_description || post.excerpt || undefined}
-        image={post.featured_image || undefined}
-        url={url}
+        description={post.meta_description || post.excerpt}
+        image={post.featured_image_url || undefined}
+        type="article"
+        publishedAt={post.published_at}
+        author="GiftMind"
+        keywords={post.tags}
       />
       <Navbar />
       <main className="max-w-3xl mx-auto px-4 pt-24 pb-8">
@@ -159,10 +185,14 @@ export default function BlogPost() {
         </nav>
 
         {/* Featured image */}
-        {post.featured_image && (
+        {post.featured_image_url && (
           <img
-            src={post.featured_image}
+            src={post.featured_image_url}
             alt={post.title}
+            loading="lazy"
+            decoding="async"
+            width={1200}
+            height={675}
             className="w-full max-h-[400px] object-cover rounded-lg mb-6"
           />
         )}
@@ -195,7 +225,7 @@ export default function BlogPost() {
           prose-code:bg-muted prose-code:rounded prose-code:px-1
           prose-li:marker:text-primary
         " data-color-mode="light">
-          <MDEditor.Markdown source={contentParts.before} />
+          <div dangerouslySetInnerHTML={{ __html: beforeHtml }} />
 
           {/* In-article CTA */}
           <Card className="my-8 bg-primary/5 border-primary/20">
@@ -210,7 +240,7 @@ export default function BlogPost() {
             </CardContent>
           </Card>
 
-          <MDEditor.Markdown source={contentParts.after} />
+          <div dangerouslySetInnerHTML={{ __html: afterHtml }} />
         </article>
 
         {/* Share bar */}
@@ -235,7 +265,7 @@ export default function BlogPost() {
                   slug={p.slug}
                   title={p.title}
                   excerpt={p.excerpt}
-                  featured_image={p.featured_image}
+                  featured_image={p.featured_image_url}
                   category_name={(p.blog_categories as any)?.name}
                   published_at={p.published_at}
                   content={p.content}

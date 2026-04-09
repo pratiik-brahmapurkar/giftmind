@@ -107,6 +107,7 @@ export interface RecipientFormData {
   gender: string;
   interests: string[];
   cultural_context: string;
+  country: string;
   notes: string;
   important_dates: ImportantDate[];
 }
@@ -119,6 +120,23 @@ export const defaultFormData: RecipientFormData = {
   gender: "",
   interests: [],
   cultural_context: "",
+  country: "",
   notes: "",
   important_dates: [],
 };
+
+export const COUNTRY_OPTIONS = [
+  { value: "IN", label: "India", flag: "🇮🇳" },
+  { value: "US", label: "United States", flag: "🇺🇸" },
+  { value: "GB", label: "United Kingdom", flag: "🇬🇧" },
+  { value: "AE", label: "United Arab Emirates", flag: "🇦🇪" },
+  { value: "FR", label: "France", flag: "🇫🇷" },
+  { value: "DE", label: "Germany", flag: "🇩🇪" },
+  { value: "IT", label: "Italy", flag: "🇮🇹" },
+  { value: "ES", label: "Spain", flag: "🇪🇸" },
+  { value: "NL", label: "Netherlands", flag: "🇳🇱" },
+  { value: "CA", label: "Canada", flag: "🇨🇦" },
+  { value: "AU", label: "Australia", flag: "🇦🇺" },
+  { value: "SG", label: "Singapore", flag: "🇸🇬" },
+  { value: "OTHER", label: "Other country", flag: "🌍" },
+];

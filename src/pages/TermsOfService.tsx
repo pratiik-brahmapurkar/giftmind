@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import BlogSeo from "@/components/blog/BlogSeo";
@@ -91,6 +92,7 @@ function markdownToHtml(md: string): string {
 export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title="Terms of Service" description="Terms of Service for GiftMind." noIndex={true} />
       <BlogSeo title="Terms of Service" description="GiftMind Terms of Service — your agreement when using our platform." />
       <Navbar />
       <main className="max-w-[720px] mx-auto px-4 pt-24 pb-12">

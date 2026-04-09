@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,6 +106,7 @@ const typeBadgeMap: Record<string, { label: string; className: string }> = {
 const AdminOverview = () => {
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <h1 className="text-2xl font-heading font-bold text-foreground">Overview</h1>
 
       {/* Stat cards */}

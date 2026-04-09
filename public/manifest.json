@@ -1,0 +1,28 @@
+{
+  "name": "GiftMind — AI Gift Recommendations",
+  "short_name": "GiftMind",
+  "description": "AI-powered gift recommendations with confidence scores, cultural intelligence, and buy links for your region.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#6C5CE7",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "lifestyle"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

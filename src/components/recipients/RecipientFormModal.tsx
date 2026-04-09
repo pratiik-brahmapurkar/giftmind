@@ -20,8 +20,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, X, CalendarDays } from "lucide-react";
+import { Plus, X, CalendarDays, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/posthog";
+import { sanitizeArray, sanitizeString, validateCountryCode, validateRelationship } from "@/lib/validation";
 import {
   RELATIONSHIP_TYPES,
   RELATIONSHIP_DEPTHS,
@@ -29,6 +34,7 @@ import {
   GENDER_OPTIONS,
   CULTURAL_CONTEXTS,
   INTEREST_SUGGESTIONS,
+  COUNTRY_OPTIONS,
   type RecipientFormData,
   type ImportantDate,
   defaultFormData,
@@ -53,12 +59,15 @@ const RecipientFormModal = ({
 }: RecipientFormModalProps) => {
   const [form, setForm] = useState<RecipientFormData>(defaultFormData);
   const [customInterest, setCustomInterest] = useState("");
+  const [countryOpen, setCountryOpen] = useState(false);
+  const [error, setError] = useState("");
   const isEdit = !!initialData;
 
   useEffect(() => {
     if (open) {
       setForm(initialData || defaultFormData);
       setCustomInterest("");
+      setError("");
     }
   }, [open, initialData]);
 
@@ -99,13 +108,40 @@ const RecipientFormModal = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.relationship_type) return;
-    onSubmit({
+    const cleanData: RecipientFormData = {
       ...form,
-      name: form.name.trim().slice(0, 100),
-      notes: form.notes.slice(0, 1000),
-      important_dates: form.important_dates.filter((d) => d.label && d.date),
-    });
+      name: sanitizeString(form.name, 100),
+      relationship_type: validateRelationship(form.relationship_type) ? form.relationship_type : "",
+      interests: sanitizeArray(form.interests, 15),
+      notes: sanitizeString(form.notes, 500),
+      cultural_context: sanitizeString(form.cultural_context, 50),
+      country: validateCountryCode(form.country) ? form.country.toUpperCase() : "",
+      important_dates: form.important_dates
+        .map((date) => ({
+          label: sanitizeString(date.label, 50),
+          date: sanitizeString(date.date, 5),
+          recurring: !!date.recurring,
+        }))
+        .filter((date) => date.label && date.date),
+    };
+
+    if (!cleanData.name || cleanData.name.length < 1) {
+      setError("Name is required");
+      return;
+    }
+
+    if (!cleanData.relationship_type) {
+      setError("Please select a valid relationship");
+      return;
+    }
+
+    setError("");
+
+    if (!isEdit) {
+      trackEvent('recipient_added', { relationship: cleanData.relationship_type });
+    }
+
+    onSubmit(cleanData);
   };
 
   return (
@@ -119,6 +155,7 @@ const RecipientFormModal = ({
 
         <ScrollArea className="px-6 pb-6 max-h-[calc(90vh-80px)]">
           <form onSubmit={handleSubmit} className="space-y-6 pr-2">
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
             {/* ── Section 1: Basic Info ── */}
             <div className="space-y-4">
@@ -223,17 +260,76 @@ const RecipientFormModal = ({
 
             <Separator />
 
-            {/* ── Section 3: Cultural Context ── */}
-            <div className="space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cultural Context</p>
-              <Select value={form.cultural_context} onValueChange={(v) => update("cultural_context", v)}>
-                <SelectTrigger><SelectValue placeholder="Select context" /></SelectTrigger>
-                <SelectContent>
-                  {CULTURAL_CONTEXTS.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* ── Section 3: Cultural Context & Country ── */}
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cultural Context</p>
+                <Select value={form.cultural_context} onValueChange={(v) => update("cultural_context", v)}>
+                  <SelectTrigger><SelectValue placeholder="Select context" /></SelectTrigger>
+                  <SelectContent>
+                    {CULTURAL_CONTEXTS.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Where do they live?</Label>
+                <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={countryOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {form.country
+                        ? COUNTRY_OPTIONS.find((c) => c.value === form.country)?.flag + " " + COUNTRY_OPTIONS.find((c) => c.value === form.country)?.label
+                        : "Same as my country"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search country..." />
+                      <CommandList>
+                        <CommandEmpty>No country found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="empty"
+                            onSelect={() => {
+                              update("country", "");
+                              setCountryOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", form.country === "" ? "opacity-100" : "opacity-0")} />
+                            Same as my country
+                          </CommandItem>
+                          {COUNTRY_OPTIONS.map((country) => (
+                            <CommandItem
+                              key={country.value}
+                              value={country.label}
+                              onSelect={() => {
+                                update("country", country.value);
+                                setCountryOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", form.country === country.value ? "opacity-100" : "opacity-0")} />
+                              {country.flag} {country.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {form.country && form.country !== "" && (
+                  <p className="text-xs text-muted-foreground">
+                    Gift recommendations and store links will be tailored for {COUNTRY_OPTIONS.find((c) => c.value === form.country)?.label} {COUNTRY_OPTIONS.find((c) => c.value === form.country)?.flag}
+                  </p>
+                )}
+              </div>
             </div>
 
             <Separator />

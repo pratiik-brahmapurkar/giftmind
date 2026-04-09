@@ -138,6 +138,8 @@ export const CONTEXT_TAGS = [
   { label: "Keep it simple", emoji: "🙂" },
   { label: "Eco-friendly preferred", emoji: "🌿" },
   { label: "Handmade preferred", emoji: "🎨" },
+  { label: "Prefer experiences over things", emoji: "🎭" },
+  { label: "They prefer practical gifts", emoji: "🔧" },
 ];
 
 export const STEP_LABELS = [

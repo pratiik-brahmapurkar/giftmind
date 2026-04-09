@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { Gift, Users, Sparkles, ShoppingBag, ArrowRight, Coins } from "lucide-react";
+import { trackEvent } from "@/lib/posthog";
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 300 : -300, opacity: 0 }),
@@ -24,7 +25,7 @@ const HowItWorksIcons = () => {
   const items = [
     { icon: Users, label: "Tell us about them" },
     { icon: Sparkles, label: "Get confident picks" },
-    { icon: ShoppingBag, label: "Buy with one click" },
+    { icon: ShoppingBag, label: "Direct links to top stores in your country. Compare and buy instantly." },
   ];
   return (
     <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-2">
@@ -39,7 +40,7 @@ const HowItWorksIcons = () => {
             <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
               <item.icon className="w-7 h-7 text-primary" />
             </div>
-            <span className="text-xs text-muted-foreground leading-tight text-center">{item.label}</span>
+            <span className="text-xs text-muted-foreground leading-tight text-center max-w-[120px]">{item.label}</span>
           </motion.div>
           {i < 2 && (
             <ArrowRight className="hidden md:block w-4 h-4 text-muted-foreground/40 shrink-0" />
@@ -101,9 +102,9 @@ const Onboarding = () => {
   useEffect(() => {
     if (!user) return;
     supabase
-      .from("profiles")
+      .from("users")
       .select("has_completed_onboarding")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .single()
       .then(({ data }) => {
         if (data?.has_completed_onboarding) {
@@ -117,9 +118,10 @@ const Onboarding = () => {
   const complete = async () => {
     if (user) {
       await supabase
-        .from("profiles")
+        .from("users")
         .update({ has_completed_onboarding: true } as any)
-        .eq("user_id", user.id);
+        .eq("id", user.id);
+      trackEvent('onboarding_completed');
     }
   };
 
@@ -219,9 +221,14 @@ const Onboarding = () => {
                   You have 3 free credits 🎉
                 </h2>
                 <CoinDrop />
-                <p className="text-muted-foreground text-xs mb-8">
-                  No credit card needed to start.
-                </p>
+                <div className="flex flex-col gap-2 items-center mb-8">
+                  <p className="text-muted-foreground text-xs">
+                    No credit card needed to start.
+                  </p>
+                  <div className="bg-primary/10 text-primary text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                    🌍 Works in 50+ countries with local store links
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <Button
                     variant="hero"

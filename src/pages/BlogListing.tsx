@@ -4,9 +4,10 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight } from "lucide-react";
 import BlogPostCard from "@/components/blog/BlogPostCard";
-import BlogSeo from "@/components/blog/BlogSeo";
+import { SEOHead } from "@/components/common/SEOHead";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 
@@ -16,7 +17,7 @@ export default function BlogListing() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const { data: posts = [] } = useQuery({
+  const { data: posts = [], isLoading: postsLoading } = useQuery({
     queryKey: ["public-blog-posts"],
     queryFn: async () => {
       const { data } = await supabase
@@ -28,7 +29,7 @@ export default function BlogListing() {
     },
   });
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["public-blog-categories"],
     queryFn: async () => {
       const { data } = await supabase.from("blog_categories").select("*").order("sort_order");
@@ -42,6 +43,7 @@ export default function BlogListing() {
   }, [posts, selectedCategory]);
 
   const visible = filtered.slice(0, visibleCount);
+  const isLoading = postsLoading || categoriesLoading;
 
   const popularPosts = useMemo(() => [...posts].sort((a: any, b: any) => (b.views || 0) - (a.views || 0)).slice(0, 5), [posts]);
 
@@ -53,7 +55,11 @@ export default function BlogListing() {
 
   return (
     <div className="min-h-screen bg-background">
-      <BlogSeo />
+      <SEOHead 
+        title="Blog — Gift Ideas & Guides"
+        description="Gift ideas, guides, and the psychology of thoughtful giving. Cultural tips for Diwali, Christmas, Eid, and every occasion."
+        keywords={['gift ideas', 'gift guide', 'what to gift', 'gifting tips']}
+      />
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 pt-24 pb-12">
         {/* Header */}
@@ -85,24 +91,36 @@ export default function BlogListing() {
           {/* Post grid */}
           <div className="flex-1">
             <div className="grid md:grid-cols-2 gap-6">
-              {visible.map((p: any) => (
-                <BlogPostCard
-                  key={p.id}
-                  slug={p.slug}
-                  title={p.title}
-                  excerpt={p.excerpt}
-                  featured_image={p.featured_image}
-                  category_name={(p.blog_categories as any)?.name}
-                  category_slug={(p.blog_categories as any)?.slug}
-                  published_at={p.published_at}
-                  content={p.content}
-                />
-              ))}
+              {isLoading
+                ? [1, 2, 3, 4].map((idx) => (
+                    <Card key={idx}>
+                      <Skeleton className="h-48 w-full rounded-t-xl rounded-b-none" />
+                      <CardContent className="space-y-3 p-4">
+                        <Skeleton className="h-4 w-1/3 rounded-md" />
+                        <Skeleton className="h-6 w-5/6 rounded-md" />
+                        <Skeleton className="h-4 w-full rounded-md" />
+                        <Skeleton className="h-4 w-4/5 rounded-md" />
+                      </CardContent>
+                    </Card>
+                  ))
+                : visible.map((p: any) => (
+                    <BlogPostCard
+                      key={p.id}
+                      slug={p.slug}
+                      title={p.title}
+                      excerpt={p.excerpt}
+                      featured_image={p.featured_image}
+                      category_name={(p.blog_categories as any)?.name}
+                      category_slug={(p.blog_categories as any)?.slug}
+                      published_at={p.published_at}
+                      content={p.content}
+                    />
+                  ))}
             </div>
-            {visible.length === 0 && (
+            {!isLoading && visible.length === 0 && (
               <p className="text-center text-muted-foreground py-16">No posts yet. Check back soon!</p>
             )}
-            {visibleCount < filtered.length && (
+            {!isLoading && visibleCount < filtered.length && (
               <div className="text-center mt-8">
                 <Button variant="outline" onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}>Load more</Button>
               </div>

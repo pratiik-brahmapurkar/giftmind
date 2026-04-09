@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -8,6 +9,7 @@ const AdminPlaceholder = () => {
 
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <h1 className="text-2xl font-heading font-bold text-foreground">{title}</h1>
       <Card>
         <CardContent className="p-12 text-center">

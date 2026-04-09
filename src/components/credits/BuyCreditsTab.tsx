@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import {
   Accordion,
@@ -9,6 +9,7 @@ import {
 import { Coins, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PricingCards from "@/components/pricing/PricingCards";
+import { trackEvent } from "@/lib/posthog";
 
 const FAQ_ITEMS = [
   {
@@ -35,6 +36,10 @@ interface Props {
 }
 
 const BuyCreditsTab = ({ credits }: Props) => {
+  useEffect(() => {
+    trackEvent('credit_purchase_started', { trigger: 'pricing_page', current_plan: 'unknown' });
+  }, []);
+
   const balanceTint =
     credits === 0
       ? "border-destructive/30 bg-destructive/5"

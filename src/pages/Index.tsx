@@ -12,10 +12,16 @@ import Pricing from "@/components/landing/Pricing";
 import FAQ from "@/components/landing/FAQ";
 import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
+import { SEOHead } from "@/components/common/SEOHead";
 
 const Index = () => {
   return (
     <div className="min-h-screen">
+      <SEOHead 
+        title="AI Gift Recommendations with Confidence"
+        description="Stop guessing. Get 3 AI-powered gift recommendations with confidence scores, cultural intelligence, and buy links for your region. Start free."
+        keywords={['gift ideas', 'AI gift finder', 'gift recommendations', 'what to gift']}
+      />
       <Navbar />
       <Hero />
       <div id="how">
@@ -28,7 +34,9 @@ const Index = () => {
       <div id="pricing">
         <Pricing />
       </div>
-      <FAQ />
+      <div id="faq">
+        <FAQ />
+      </div>
       <FinalCTA />
       <Footer />
     </div>

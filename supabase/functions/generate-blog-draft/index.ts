@@ -1,15 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { parseJsonBody, sanitizeString } from "../_shared/validate.ts";
 
+// TODO: Before production, change Access-Control-Allow-Origin to:
+// 'https://giftmind.in' (or your production domain)
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+const VALID_TONES = ["informative", "casual", "listicle"];
+const VALID_WORD_COUNTS = [800, 1200, 2000];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const { topic, tone, wordCount } = await req.json();
+    const parsedBody = await parseJsonBody<{ topic?: string; tone?: string; wordCount?: number }>(req, json);
+    if (parsedBody.response) return parsedBody.response;
+
+    const cleanTopic = sanitizeString(parsedBody.data?.topic || "", 200);
+    const tone = sanitizeString(parsedBody.data?.tone || "informative", 20);
+    const wordCount = parsedBody.data?.wordCount ?? 1200;
+
+    if (!cleanTopic) return json({ error: "Missing required field: topic" }, 400);
+    if (!VALID_TONES.includes(tone)) return json({ error: "Invalid tone" }, 400);
+    if (!VALID_WORD_COUNTS.includes(wordCount)) return json({ error: "Invalid wordCount" }, 400);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -25,7 +49,7 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Write a blog post about: ${topic}` },
+          { role: "user", content: `Write a blog post about: ${cleanTopic}` },
         ],
         tools: [{
           type: "function",
@@ -52,8 +76,8 @@ serve(async (req) => {
 
     if (!response.ok) {
       const status = response.status;
-      if (status === 429) return new Response(JSON.stringify({ error: "Rate limited, try again later" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (status === 402) return new Response(JSON.stringify({ error: "Credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (status === 429) return json({ error: "Rate limited, try again later" }, 429);
+      if (status === 402) return json({ error: "Credits exhausted" }, 402);
       throw new Error(`AI gateway error: ${status}`);
     }
 
@@ -62,12 +86,9 @@ serve(async (req) => {
     if (!toolCall) throw new Error("No tool call in response");
 
     const result = JSON.parse(toolCall.function.arguments);
-    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return json(result);
   } catch (e) {
     console.error("generate-blog-draft error:", e);
-    return new Response(JSON.stringify({ error: e.message || "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: e.message || "Unknown error" }, 500);
   }
 });

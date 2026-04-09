@@ -1,14 +1,9 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Allow: /blog
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /gift-flow
+Disallow: /settings
+Disallow: /profile
+Sitemap: https://giftmind.in/sitemap.xml

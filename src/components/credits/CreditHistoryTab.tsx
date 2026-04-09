@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -106,6 +107,14 @@ const CreditHistoryTab = () => {
       </div>
 
       {/* Empty state */}
+      {isLoading && (
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((idx) => (
+            <Skeleton key={idx} className="h-11 w-full rounded-md" />
+          ))}
+        </div>
+      )}
+
       {!isLoading && rows.length === 0 && (
         <div className="text-center py-16">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
@@ -178,6 +187,7 @@ const CreditHistoryTab = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  aria-label="Previous page"
                   disabled={page === 0}
                   onClick={() => setPage((p) => p - 1)}
                 >
@@ -186,6 +196,7 @@ const CreditHistoryTab = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  aria-label="Next page"
                   disabled={page >= totalPages - 1}
                   onClick={() => setPage((p) => p + 1)}
                 >

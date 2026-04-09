@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Gift, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,9 +20,13 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-8">
           <a href="#how" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
           <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          <Button variant="hero" size="sm" className="rounded-lg">
-            Get Started Free
-          </Button>
+          <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link>
+          <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Log In</Link>
+          <Link to="/signup">
+            <Button variant="hero" size="sm" className="rounded-lg">
+              Get Started Free
+            </Button>
+          </Link>
         </div>
 
         {/* Mobile toggle */}
@@ -35,9 +40,13 @@ const Navbar = () => {
         <div className="md:hidden bg-background border-b border-border p-4 space-y-4">
           <a href="#how" className="block text-sm text-muted-foreground" onClick={() => setOpen(false)}>How It Works</a>
           <a href="#pricing" className="block text-sm text-muted-foreground" onClick={() => setOpen(false)}>Pricing</a>
-          <Button variant="hero" size="sm" className="w-full rounded-lg">
-            Get Started Free
-          </Button>
+          <Link to="/blog" className="block text-sm text-muted-foreground" onClick={() => setOpen(false)}>Blog</Link>
+          <Link to="/login" className="block text-sm text-muted-foreground" onClick={() => setOpen(false)}>Log In</Link>
+          <Link to="/signup" onClick={() => setOpen(false)}>
+            <Button variant="hero" size="sm" className="w-full rounded-lg">
+              Get Started Free
+            </Button>
+          </Link>
         </div>
       )}
     </nav>

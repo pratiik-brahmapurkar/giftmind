@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Tables } from "@/integrations/supabase/types";
+import { trackEvent } from "@/lib/posthog";
 
 type GiftSession = Tables<"gift_sessions"> & {
   recipients?: Tables<"recipients"> | null;
@@ -46,6 +47,7 @@ const FeedbackModal = ({ session, onClose, onSubmit, isSubmitting }: Props) => {
   }, [session]);
 
   const handleSubmit = () => {
+    trackEvent('feedback_submitted', { reaction: rating });
     onSubmit(rating, notes);
     setSubmitted(true);
     if (rating === "loved_it") {

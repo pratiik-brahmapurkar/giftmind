@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,16 +23,17 @@ import UserDetailSheet from "@/components/admin/UserDetailSheet";
 import GrantCreditsModal from "@/components/admin/GrantCreditsModal";
 import ChangeRoleDialog from "@/components/admin/ChangeRoleDialog";
 import DisableAccountDialog from "@/components/admin/DisableAccountDialog";
+import { sanitizeString } from "@/lib/validation";
 
-type SortField = "full_name" | "created_at" | "credits" | "updated_at";
+type SortField = "full_name" | "created_at" | "credits_balance" | "updated_at";
 type SortDir = "asc" | "desc";
 
 interface UserRow {
-  user_id: string;
+  id: string;
   full_name: string | null;
   avatar_url: string | null;
   country: string | null;
-  credits: number;
+  credits_balance: number;
   created_at: string;
   updated_at: string;
   has_completed_onboarding: boolean;
@@ -59,8 +61,8 @@ const AdminUsers = () => {
     queryKey: ["admin-users"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, avatar_url, country, credits, created_at, updated_at, has_completed_onboarding");
+        .from("users")
+        .select("id, full_name, avatar_url, country, credits_balance, created_at, updated_at, has_completed_onboarding");
       if (error) throw error;
       return data || [];
     },
@@ -123,18 +125,19 @@ const AdminUsers = () => {
 
     return profiles.map((p) => ({
       ...p,
-      role: roleMap[p.user_id] || "user",
-      sessions_count: sessMap[p.user_id] || 0,
-      referrals_count: refMap[p.user_id] || 0,
+      role: roleMap[p.id] || "user",
+      sessions_count: sessMap[p.id] || 0,
+      referrals_count: refMap[p.id] || 0,
     }));
   }, [profiles, roles, sessionCounts, referralCounts]);
 
   // Filter & sort
   const filtered = useMemo(() => {
     let list = users;
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((u) => (u.full_name || "").toLowerCase().includes(q) || u.user_id.toLowerCase().includes(q));
+    const cleanSearch = sanitizeString(search, 200).toLowerCase();
+    if (cleanSearch) {
+      const q = cleanSearch;
+      list = list.filter((u) => (u.full_name || "").toLowerCase().includes(q) || u.id.toLowerCase().includes(q));
     }
     if (roleFilter !== "all") {
       list = list.filter((u) => u.role === roleFilter);
@@ -159,7 +162,7 @@ const AdminUsers = () => {
   const handleExportCSV = () => {
     const headers = ["Name", "User ID", "Role", "Credits", "Sessions", "Referrals", "Signup Date"];
     const rows = filtered.map((u) => [
-      u.full_name || "", u.user_id, u.role, u.credits, u.sessions_count, u.referrals_count,
+      u.full_name || "", u.id, u.role, u.credits_balance, u.sessions_count, u.referrals_count,
       format(new Date(u.created_at), "yyyy-MM-dd"),
     ]);
     const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
@@ -187,10 +190,11 @@ const AdminUsers = () => {
     }
   };
 
-  const selectedUser = users.find((u) => u.user_id === selectedUserId);
+  const selectedUser = users.find((u) => u.id === selectedUserId);
 
   return (
     <div className="space-y-6">
+      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
       <div>
         <h1 className="text-2xl font-heading font-bold text-foreground">Users</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage all platform users</p>
@@ -203,7 +207,7 @@ const AdminUsers = () => {
           <Input
             placeholder="Search by name or ID..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            onChange={(e) => { setSearch(sanitizeString(e.target.value, 200)); setPage(0); }}
             className="pl-9"
           />
         </div>
@@ -263,11 +267,11 @@ const AdminUsers = () => {
                 </TableCell>
               </TableRow>
             ) : paged.map((u) => (
-              <TableRow key={u.user_id}>
+              <TableRow key={u.id}>
                 <TableCell>
                   <button
                     className="flex items-center gap-3 text-left hover:underline"
-                    onClick={() => setSelectedUserId(u.user_id)}
+                    onClick={() => setSelectedUserId(u.id)}
                   >
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={u.avatar_url || undefined} />
@@ -285,7 +289,7 @@ const AdminUsers = () => {
                     {u.role === "superadmin" ? "SuperAdmin" : u.role === "admin" ? "Admin" : "User"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm">{u.credits}</TableCell>
+                <TableCell className="text-right font-mono text-sm">{u.credits_balance}</TableCell>
                 <TableCell className="text-right hidden md:table-cell text-sm">{u.sessions_count}</TableCell>
                 <TableCell className="text-right hidden lg:table-cell text-sm">{u.referrals_count}</TableCell>
                 <TableCell className="text-sm text-muted-foreground hidden sm:table-cell">
@@ -297,24 +301,24 @@ const AdminUsers = () => {
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="w-8 h-8">
+                      <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Open user actions">
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSelectedUserId(u.user_id)}>
+                      <DropdownMenuItem onClick={() => setSelectedUserId(u.id)}>
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setGrantCreditsUserId(u.user_id)}>
+                      <DropdownMenuItem onClick={() => setGrantCreditsUserId(u.id)}>
                         Grant Credits
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setChangeRoleUser({ userId: u.user_id, currentRole: u.role })}>
+                      <DropdownMenuItem onClick={() => setChangeRoleUser({ userId: u.id, currentRole: u.role })}>
                         Change Role
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => setDisableUserId(u.user_id)}
+                        onClick={() => setDisableUserId(u.id)}
                       >
                         Disable Account
                       </DropdownMenuItem>

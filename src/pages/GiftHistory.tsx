@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -198,6 +199,16 @@ const GiftHistory = () => {
         </div>
 
         {/* Empty state */}
+        {isLoading && (
+          <div className="space-y-4 py-2">
+            {[1, 2, 3].map((idx) => (
+              <div key={idx} className="pl-8">
+                <Skeleton className="h-[110px] w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {!isLoading && sessions.length === 0 && (
           <div className="text-center py-20">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -285,7 +296,7 @@ const GiftHistory = () => {
                         {/* Menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Open session actions">
                               <MoreVertical className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>

@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import BlogSeo from "@/components/blog/BlogSeo";
@@ -76,6 +77,7 @@ We aim to respond within 48 hours.
 export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title="Privacy Policy" description="Privacy Policy of GiftMind." noIndex={true} />
       <BlogSeo title="Privacy Policy" description="GiftMind Privacy Policy — how we collect, use, and protect your data." />
       <Navbar />
       <main className="max-w-[720px] mx-auto px-4 pt-24 pb-12">

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { captureError } from "@/lib/sentry";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -44,6 +45,10 @@ const ChangeRoleDialog = ({ userId, currentRole, open, onClose, onSuccess }: Cha
       toast.success(`Role changed to ${newRole}`);
       onSuccess();
     } catch (err: any) {
+      captureError(
+        err instanceof Error ? err : new Error("Failed to change user role"),
+        { action: "admin-change-user-role", target_user_id: userId, new_role: newRole },
+      );
       toast.error(err.message || "Failed to change role");
     } finally {
       setLoading(false);

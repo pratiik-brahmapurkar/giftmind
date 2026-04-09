@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -20,11 +20,11 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
-import { Bell, Download, Trash2, Shield } from "lucide-react";
+import { Bell, Download, Trash2, Shield, AlertTriangle, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 const Settings = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -35,9 +35,9 @@ const Settings = () => {
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("users")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("id", user!.id)
         .single();
       if (error) throw error;
       return data;
@@ -48,13 +48,14 @@ const Settings = () => {
   const notifyReminders = (profile as any)?.notify_gift_reminders ?? true;
   const notifyCreditExpiry = (profile as any)?.notify_credit_expiry ?? true;
   const notifyTips = (profile as any)?.notify_tips ?? false;
+  const hasExportAccess = (profile as any)?.active_plan === "pro";
 
   const updateNotif = useMutation({
     mutationFn: async (updates: Record<string, boolean>) => {
       const { error } = await supabase
-        .from("profiles")
+        .from("users")
         .update(updates as any)
-        .eq("user_id", user!.id);
+        .eq("id", user!.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -63,52 +64,72 @@ const Settings = () => {
     },
   });
 
-  const handleDownloadData = async () => {
-    try {
-      const [profileRes, recipientsRes, sessionsRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", user!.id).single(),
-        supabase.from("recipients").select("*").eq("user_id", user!.id),
-        supabase.from("gift_sessions").select("*").eq("user_id", user!.id),
-      ]);
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const response = await supabase.functions.invoke("export-user-data", {
+        body: {},
+      });
 
-      const exportData = {
-        exported_at: new Date().toISOString(),
-        profile: profileRes.data,
-        recipients: recipientsRes.data,
-        gift_sessions: sessionsRes.data,
-      };
+      if (response.error) {
+        throw response.error;
+      }
 
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      if (!response.data || response.data.error) {
+        throw new Error(response.data?.error || "Failed to export user data");
+      }
+
+      return response.data;
+    },
+    onSuccess: (data) => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `giftmind-data-${new Date().toISOString().split("T")[0]}.json`;
+      a.download = `giftmind-data-export-${new Date().toISOString().split("T")[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Data downloaded!");
-    } catch {
-      toast.error("Failed to download data");
-    }
-  };
+      toast.success("Your data export is ready.");
+    },
+    onError: (error: any) => {
+      const message = error?.message || "";
+      if (message.includes("Pro plan")) {
+        toast.error("Data export is available on Pro plan");
+        return;
+      }
+      toast.error("Failed to download data. Please try again.");
+    },
+  });
 
-  const handleDeleteAccount = async () => {
-    if (deleteConfirm !== "DELETE") return;
-    try {
-      // Delete user data in order
-      await supabase.from("gift_sessions").delete().eq("user_id", user!.id);
-      await supabase.from("recipients").delete().eq("user_id", user!.id);
-      await supabase.from("referrals").delete().eq("referrer_id", user!.id);
-      await supabase.from("credit_transactions").delete().eq("user_id", user!.id);
-      await supabase.from("profiles").delete().eq("user_id", user!.id);
-      await signOut();
-      navigate("/");
-      toast.success("Account deleted");
-    } catch {
-      toast.error("Failed to delete account. Please contact support.");
-    }
-  };
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const response = await supabase.functions.invoke("delete-account", {
+        body: { confirmation: "DELETE" },
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || "Failed to delete account");
+      }
+
+      return response.data;
+    },
+    onSuccess: async () => {
+      await supabase.auth.signOut({ scope: "local" });
+      queryClient.clear();
+      setDeleteOpen(false);
+      setDeleteConfirm("");
+      navigate("/", { replace: true });
+      toast.success("Your account has been deleted. We're sorry to see you go.");
+    },
+    onError: () => {
+      toast.error("Something went wrong. Please contact support.");
+    },
+  });
 
   const isGoogleUser = user?.app_metadata?.provider === "google";
 
@@ -202,32 +223,57 @@ const Settings = () => {
               <div>
                 <p className="text-sm font-medium text-foreground">Download my data</p>
                 <p className="text-xs text-muted-foreground">
-                  Get a copy of all your data as JSON
+                  Get a copy of your personal data as JSON
                 </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleDownloadData}>
-                <Download className="w-4 h-4 mr-2" /> Download
-              </Button>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-destructive">Delete my account</p>
-                <p className="text-xs text-muted-foreground">
-                  Permanently delete your account and all data
-                </p>
+                {!hasExportAccess && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <Lock className="w-3 h-3 inline mr-1" />
+                    Data export is available on Pro plan
+                  </p>
+                )}
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="border-destructive text-destructive hover:bg-destructive/5"
-                onClick={() => setDeleteOpen(true)}
+                onClick={() => exportMutation.mutate()}
+                disabled={!hasExportAccess || exportMutation.isPending}
               >
-                <Trash2 className="w-4 h-4 mr-2" /> Delete
+                <Download className="w-4 h-4 mr-2" />
+                {exportMutation.isPending ? "Preparing..." : hasExportAccess ? "Download" : "Pro only"}
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        <div className="rounded-xl border border-destructive/20 border-l-4 border-l-destructive bg-[#FFF5F5] p-6 space-y-5">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            <h2 className="text-lg font-heading font-semibold">Danger Zone</h2>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Delete your account</p>
+            <p className="text-sm text-muted-foreground">
+              This permanently deletes your account and all associated data including:
+            </p>
+            <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+              <li>Your profile and preferences</li>
+              <li>All saved recipients and their details</li>
+              <li>Gift session history and AI recommendations</li>
+              <li>Credit balance (non-refundable)</li>
+              <li>Referral history</li>
+            </ul>
+            <p className="text-sm font-medium text-foreground pt-1">This action cannot be undone.</p>
+          </div>
+
+          <Button
+            variant="outline"
+            className="border-destructive text-destructive hover:bg-destructive/5"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="w-4 h-4 mr-2" /> Delete My Account
+          </Button>
+        </div>
       </div>
 
       {/* Delete confirmation */}
@@ -235,39 +281,49 @@ const Settings = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-heading text-destructive">
-              Are you sure?
+              ⚠️ Are you absolutely sure?
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>This will permanently delete:</p>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li>Your profile and preferences</li>
-                <li>All saved recipients</li>
-                <li>Gift session history</li>
-                <li>Credit balance (non-refundable)</li>
-              </ul>
-              <p className="font-semibold text-foreground pt-2">This action cannot be undone.</p>
-              <div className="pt-3">
-                <Label htmlFor="delete-confirm" className="text-sm">
-                  Type <span className="font-mono font-bold">DELETE</span> to confirm
-                </Label>
-                <Input
-                  id="delete-confirm"
-                  value={deleteConfirm}
-                  onChange={(e) => setDeleteConfirm(e.target.value)}
-                  placeholder="DELETE"
-                  className="mt-1.5"
-                />
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>This will permanently delete:</p>
+                <ul className="list-disc pl-5 space-y-1 text-sm">
+                  <li>Your profile and all personal data</li>
+                  <li>All saved recipients</li>
+                  <li>Gift history and recommendations</li>
+                  <li>All remaining credits (non-refundable)</li>
+                  <li>Your referral link and history</li>
+                </ul>
+                <div className="pt-3">
+                  <Label htmlFor="delete-confirm" className="text-sm">
+                    Type <span className="font-mono font-bold">DELETE</span> to confirm:
+                  </Label>
+                  <Input
+                    id="delete-confirm"
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder="DELETE"
+                    className="mt-1.5"
+                  />
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteConfirm("")}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setDeleteConfirm("");
+                setDeleteOpen(false);
+              }}
+              disabled={deleteAccountMutation.isPending}
+            >
+              Cancel
+            </AlertDialogCancel>
             <Button
               variant="destructive"
-              disabled={deleteConfirm !== "DELETE"}
-              onClick={handleDeleteAccount}
+              disabled={deleteConfirm !== "DELETE" || deleteAccountMutation.isPending}
+              onClick={() => deleteAccountMutation.mutate()}
             >
-              Delete Everything
+              {deleteAccountMutation.isPending ? "Deleting your data..." : "Delete Everything"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

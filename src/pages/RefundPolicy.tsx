@@ -1,3 +1,4 @@
+import { SEOHead } from "@/components/common/SEOHead";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import BlogSeo from "@/components/blog/BlogSeo";
@@ -7,6 +8,7 @@ const UPDATED = "April 5, 2026";
 export default function RefundPolicy() {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title="Refund Policy" description="Refund Policy for GiftMind." noIndex={true} />
       <BlogSeo title="Refund Policy" description="GiftMind Credit Refund Policy — understand when and how you can request a refund." />
       <Navbar />
       <main className="max-w-[720px] mx-auto px-4 pt-24 pb-12">

@@ -12,6 +12,7 @@ import {
   RELATIONSHIP_TYPES,
   RELATIONSHIP_AVATAR_COLORS,
   RELATIONSHIP_BADGE_COLORS,
+  COUNTRY_OPTIONS,
 } from "./constants";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,9 @@ interface RecipientCardProps {
     interests: string[];
     last_gift_date: string | null;
     important_dates: any;
+    country?: string;
   };
+  userCountry?: string;
   onEdit: () => void;
   onDelete: () => void;
   onFindGift: () => void;
@@ -49,7 +52,7 @@ function formatMMDD(mmdd: string): string {
   return `${months[(mm || 1) - 1]} ${dd}`;
 }
 
-const RecipientCard = ({ recipient, onEdit, onDelete, onFindGift }: RecipientCardProps) => {
+const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }: RecipientCardProps) => {
   const initial = recipient.name.charAt(0).toUpperCase();
   const rel = RELATIONSHIP_TYPES.find((r) => r.value === recipient.relationship_type);
   const relLabel = rel?.label ?? recipient.relationship_type;
@@ -79,6 +82,9 @@ const RecipientCard = ({ recipient, onEdit, onDelete, onFindGift }: RecipientCar
             <div className="min-w-0">
               <h3 className="font-heading font-semibold text-lg text-foreground truncate leading-tight">
                 {recipient.name}
+                {recipient.country && recipient.country !== "" && recipient.country !== userCountry && (
+                  <span className="ml-1 text-[13px]">{COUNTRY_OPTIONS.find((c) => c.value === recipient.country)?.flag}</span>
+                )}
               </h3>
               <Badge variant="outline" className={cn("text-[10px] mt-1 border", badgeClass)}>
                 {relLabel}

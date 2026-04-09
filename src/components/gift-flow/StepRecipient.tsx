@@ -12,7 +12,9 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { RecipientFormData } from "@/components/recipients/constants";
-import { detectUserCountry } from "./constants";
+import { detectUserCountry, SUPPORTED_COUNTRIES } from "./constants";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import UpgradeModal from "@/components/pricing/UpgradeModal";
 
 const AVATAR_COLORS: Record<string, string> = {
   partner: "bg-[hsl(0,73%,71%)]",
@@ -36,6 +38,9 @@ const StepRecipient = ({ selectedId, onSelect, recipientCountry, onRecipientCoun
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [inlineFormOpen, setInlineFormOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const planLimits = usePlanLimits();
+  const userCountry = detectUserCountry();
 
   const { data: recipients = [], isLoading } = useQuery({
     queryKey: ["recipients", user?.id],
@@ -87,6 +92,7 @@ const StepRecipient = ({ selectedId, onSelect, recipientCountry, onRecipientCoun
           gender: form.gender ? (form.gender as any) : null,
           interests: form.interests,
           cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
+          country: form.country || null,
           notes: form.notes || null,
           important_dates: form.important_dates as any,
         })
@@ -179,10 +185,22 @@ const StepRecipient = ({ selectedId, onSelect, recipientCountry, onRecipientCoun
                   >
                     {r.name.charAt(0).toUpperCase()}
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate">{r.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-foreground truncate">{r.name}</p>
+                      {r.country && r.country !== userCountry && (
+                        <span className="shrink-0 text-sm leading-none" title={SUPPORTED_COUNTRIES.find(c => c.code === r.country)?.name}>
+                          {SUPPORTED_COUNTRIES.find(c => c.code === r.country)?.flag}
+                        </span>
+                      )}
+                    </div>
                     {relLabel && (
                       <Badge variant="outline" className="text-[9px] mt-0.5">{relLabel}</Badge>
+                    )}
+                    {r.interests && r.interests.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
+                        {(r.interests as string[]).slice(0, 3).join(", ")}
+                      </p>
                     )}
                   </div>
                 </CardContent>
@@ -193,7 +211,13 @@ const StepRecipient = ({ selectedId, onSelect, recipientCountry, onRecipientCoun
           {/* Add new card */}
           <Card
             className="cursor-pointer border-2 border-dashed border-border/50 hover:border-primary/30 transition-all"
-            onClick={() => setInlineFormOpen(true)}
+            onClick={() => {
+              if (!planLimits.canAddRecipient(recipients.length)) {
+                setUpgradeOpen(true);
+              } else {
+                setInlineFormOpen(true);
+              }
+            }}
           >
             <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[80px]">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
@@ -219,6 +243,13 @@ const StepRecipient = ({ selectedId, onSelect, recipientCountry, onRecipientCoun
         onOpenChange={setInlineFormOpen}
         onSubmit={(data) => addMutation.mutate(data)}
         loading={addMutation.isPending}
+      />
+
+      <UpgradeModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        highlightPlan={planLimits.getUpgradePlan("more_recipients") as any}
+        reason="Upgrade to add more people to your gifting list."
       />
     </div>
   );

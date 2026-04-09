@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { captureError } from "@/lib/sentry";
 
 interface PackageForm {
   id?: string;
@@ -96,6 +97,10 @@ const PackagesTab = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-packages"] });
       setEditPkg(null);
     } catch (err: any) {
+      captureError(
+        err instanceof Error ? err : new Error("Failed to save credit package"),
+        { action: "admin-save-credit-package", package_id: editPkg?.id ?? null },
+      );
       toast.error(err.message || "Failed to save package");
     } finally {
       setSaving(false);
@@ -137,7 +142,7 @@ const PackagesTab = () => {
                       checked={pkg.is_active}
                       onCheckedChange={(v) => toggleActive(pkg.id, v)}
                     />
-                    <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => openEdit(pkg)}>
+                    <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Edit package" onClick={() => openEdit(pkg)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
                   </div>

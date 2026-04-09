@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -23,6 +24,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { FILTER_GROUPS, type RecipientFormData } from "@/components/recipients/constants";
 import { useUserPlan } from "@/hooks/useUserPlan";
+import { sanitizeString } from "@/lib/validation";
 
 type SortOption = "recent" | "upcoming" | "most_gifted";
 
@@ -51,10 +53,22 @@ const MyPeople = () => {
     enabled: !!user,
   });
 
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("users").select("country").eq("id", user!.id).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+  const userCountry = (profile as any)?.country || "US";
+
   const filtered = useMemo(() => {
     let list = recipients as any[];
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    const cleanSearch = sanitizeString(search, 100).toLowerCase();
+    if (cleanSearch) {
+      const q = cleanSearch;
       list = list.filter((r) => r.name.toLowerCase().includes(q));
     }
     const group = FILTER_GROUPS[filterIdx];
@@ -84,6 +98,7 @@ const MyPeople = () => {
         gender: form.gender ? (form.gender as any) : null,
         interests: form.interests,
         cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
+        country: form.country || null,
         notes: form.notes || null,
         important_dates: form.important_dates as any,
       });
@@ -107,6 +122,7 @@ const MyPeople = () => {
         gender: form.gender ? (form.gender as any) : null,
         interests: form.interests,
         cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
+        country: form.country || null,
         notes: form.notes || null,
         important_dates: form.important_dates as any,
       }).eq("id", id);
@@ -148,6 +164,7 @@ const MyPeople = () => {
         gender: (editingRecipient as any).gender || "",
         interests: (editingRecipient as any).interests || [],
         cultural_context: (editingRecipient as any).cultural_context || "",
+        country: (editingRecipient as any).country || "",
         notes: (editingRecipient as any).notes || "",
         important_dates: ((editingRecipient as any).important_dates as any) || [],
       }
@@ -184,12 +201,12 @@ const MyPeople = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="border-border/50">
-                <CardContent className="p-5 space-y-3 animate-pulse">
-                  <div className="flex gap-3">
-                    <div className="w-10 h-10 rounded-full bg-muted" />
+                <CardContent className="p-5 space-y-3">
+                  <div className="flex gap-3 items-center">
+                    <Skeleton className="w-10 h-10 rounded-full" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-muted rounded w-2/3" />
-                      <div className="h-3 bg-muted rounded w-1/3" />
+                      <Skeleton className="h-4 w-2/3 rounded-md" />
+                      <Skeleton className="h-3 w-1/3 rounded-md" />
                     </div>
                   </div>
                 </CardContent>
@@ -231,7 +248,7 @@ const MyPeople = () => {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input placeholder="Search by name..." value={search}
-                    onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+                    onChange={(e) => setSearch(sanitizeString(e.target.value, 100))} className="pl-9 h-9" />
                 </div>
                 <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
                   <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
@@ -260,7 +277,7 @@ const MyPeople = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filtered.map((r: any) => (
-                  <RecipientCard key={r.id} recipient={r}
+                  <RecipientCard key={r.id} recipient={r} userCountry={userCountry}
                     onEdit={() => openEdit(r.id)}
                     onDelete={() => setDeletingId(r.id)}
                     onFindGift={() => navigate(`/gift-flow?recipient=${r.id}`)}

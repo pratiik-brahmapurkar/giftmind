@@ -30,6 +30,9 @@ export default function BlogPostCard({ slug, title, excerpt, featured_image, cat
               alt={title}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               loading="lazy"
+              decoding="async"
+              width={1200}
+              height={675}
             />
           ) : (
             <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground text-sm">No image</div>

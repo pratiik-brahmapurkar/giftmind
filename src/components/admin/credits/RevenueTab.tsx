@@ -40,7 +40,7 @@ const RevenueTab = () => {
   const { data: profiles = [] } = useQuery({
     queryKey: ["admin-profiles-count"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("user_id");
+      const { data, error } = await supabase.from("users").select("user_id");
       if (error) throw error;
       return data || [];
     },

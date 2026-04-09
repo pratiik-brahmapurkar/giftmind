@@ -42,7 +42,15 @@ export default function MediaPickerModal({ open, onClose, onSelect }: MediaPicke
               onClick={() => { onSelect(m.file_url, m.alt_text || m.file_name); onClose(); }}
               className="aspect-square rounded-md overflow-hidden border hover:ring-2 ring-primary transition-all"
             >
-              <img src={m.file_url} alt={m.alt_text || m.file_name} className="w-full h-full object-cover" />
+              <img
+                src={m.file_url}
+                alt={m.alt_text || m.file_name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+                width={640}
+                height={640}
+              />
             </button>
           ))}
           {filtered.length === 0 && <p className="col-span-full text-center text-muted-foreground py-8">No media found</p>}
