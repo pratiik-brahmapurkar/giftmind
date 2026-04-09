@@ -7,6 +7,8 @@ supabase functions deploy deduct-credit --no-verify-jwt
 supabase functions deploy signal-check --no-verify-jwt
 supabase functions deploy process-referral --no-verify-jwt
 supabase functions deploy award-referral-credits --no-verify-jwt
+supabase functions deploy admin-grant-credits --no-verify-jwt
+supabase functions deploy generate-blog-draft --no-verify-jwt
 supabase functions deploy send-expiry-warnings --no-verify-jwt
 supabase functions deploy send-occasion-reminders --no-verify-jwt
 supabase functions deploy blog-ai-assistant --no-verify-jwt

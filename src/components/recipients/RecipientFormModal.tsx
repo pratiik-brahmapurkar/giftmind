@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ElementType, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,14 +22,10 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
-<<<<<<< HEAD
-import { Plus, X, CalendarDays, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, X, CalendarDays, Check, ChevronsUpDown, User, Heart, Globe, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/posthog";
 import { sanitizeArray, sanitizeString, validateCountryCode, validateRelationship } from "@/lib/validation";
-=======
-import { Plus, X, CalendarDays, User, Heart, Sparkles, Globe, StickyNote } from "lucide-react";
->>>>>>> 6d949aeedde292c7f2def0ae9ed0873103bb90db
 import {
   RELATIONSHIP_TYPES,
   RELATIONSHIP_DEPTHS,
@@ -58,9 +54,9 @@ const FormSection = ({
   title,
   children,
 }: {
-  icon: React.ElementType;
+  icon: ElementType;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) => (
   <div className="rounded-xl bg-muted/40 border border-border/50 p-4 space-y-3">
     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -127,7 +123,7 @@ const RecipientFormModal = ({
     update("important_dates", form.important_dates.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const cleanData: RecipientFormData = {
       ...form,
@@ -180,14 +176,9 @@ const RecipientFormModal = ({
           </p>
         </DialogHeader>
 
-<<<<<<< HEAD
         <ScrollArea className="px-6 pb-6 max-h-[calc(90vh-80px)]">
           <form onSubmit={handleSubmit} className="space-y-6 pr-2">
             {error && <p className="text-sm text-destructive">{error}</p>}
-=======
-        <ScrollArea className="max-h-[calc(92vh-130px)]">
-          <form onSubmit={handleSubmit} className="space-y-4 p-5">
->>>>>>> 6d949aeedde292c7f2def0ae9ed0873103bb90db
 
             {/* ── Section 1: Basic Info ── */}
             <FormSection icon={User} title="Basic Info">
@@ -319,13 +310,13 @@ const RecipientFormModal = ({
               </div>
             </FormSection>
 
-<<<<<<< HEAD
             {/* ── Section 3: Cultural Context & Country ── */}
-            <div className="space-y-4">
+            <FormSection icon={Globe} title="Cultural Context">
               <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cultural Context</p>
                 <Select value={form.cultural_context} onValueChange={(v) => update("cultural_context", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select context" /></SelectTrigger>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Select context" />
+                  </SelectTrigger>
                   <SelectContent>
                     {CULTURAL_CONTEXTS.map((c) => (
                       <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
@@ -390,22 +381,7 @@ const RecipientFormModal = ({
                   </p>
                 )}
               </div>
-            </div>
-
-            <Separator />
-=======
-            {/* ── Section 3: Cultural Context ── */}
-            <FormSection icon={Globe} title="Cultural Context">
-              <Select value={form.cultural_context} onValueChange={(v) => update("cultural_context", v)}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select context" /></SelectTrigger>
-                <SelectContent>
-                  {CULTURAL_CONTEXTS.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </FormSection>
->>>>>>> 6d949aeedde292c7f2def0ae9ed0873103bb90db
 
             {/* ── Section 4: Important Dates ── */}
             <FormSection icon={CalendarDays} title="Important Dates">

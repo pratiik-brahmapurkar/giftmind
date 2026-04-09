@@ -74,7 +74,7 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     setError("");
     trackEvent('user_login', { method: 'google' });
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/dashboard`,
@@ -89,26 +89,6 @@ const Login = () => {
       triggerShake();
       return;
     }
-<<<<<<< HEAD
-=======
-    if (result.redirected) {
-      return;
-    }
-    // Session is set — check onboarding status
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("has_completed_onboarding")
-        .eq("user_id", user.id)
-        .single();
-      if (profile && !profile.has_completed_onboarding) {
-        navigate("/onboarding");
-        return;
-      }
-    }
-    navigate("/dashboard");
->>>>>>> 6d949aeedde292c7f2def0ae9ed0873103bb90db
   };
 
   return (

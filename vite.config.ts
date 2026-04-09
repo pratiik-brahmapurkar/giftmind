@@ -35,16 +35,29 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("@supabase/supabase-js")) return "vendor-supabase";
           if (id.includes("framer-motion")) return "vendor-ui";
           if (id.includes("recharts")) return "vendor-charts";
+          if (id.includes("lucide-react")) return "vendor-icons";
+          if (id.includes("posthog-js")) return "vendor-posthog";
+          if (id.includes("date-fns")) return "vendor-date";
+          if (id.includes("dompurify")) return "vendor-sanitize";
+          if (id.includes("marked")) return "vendor-markdown";
 
           if (
-            id.includes("@uiw/react-md-editor") ||
-            id.includes("@codemirror") ||
-            id.includes("rehype-prism-plus") ||
-            id.includes("prismjs") ||
-            id.includes("refractor")
+            id.includes("@uiw/react-md-editor")
           ) {
             return "md-editor";
           }
+
+          if (id.includes("@codemirror")) return "md-editor-codemirror";
+          if (id.includes("rehype-prism-plus")) return "md-editor-rehype";
+          if (id.includes("prismjs")) return "md-editor-prism";
+          if (id.includes("refractor/lang")) {
+            const refractorMatch = id.match(/refractor[\\/]lang[\\/](.+)\.(js|mjs|cjs)$/);
+            if (refractorMatch?.[1]) {
+              return `md-editor-lang-${refractorMatch[1].replace(/[^a-z0-9_-]/gi, "-")}`;
+            }
+            return "md-editor-refractor-lang";
+          }
+          if (id.includes("refractor")) return "md-editor-refractor";
 
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@tanstack")) return "query";

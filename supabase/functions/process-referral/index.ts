@@ -75,13 +75,14 @@ serve(async (req: Request): Promise<Response> => {
     }
     const body = parsedBody.data!;
 
-    const referralCode = sanitizeString(body.referral_code || "", 12);
-    if (!referralCode) {
+    const rawReferralCode = (body.referral_code || "").trim();
+    if (!rawReferralCode) {
       return json({ error: "Missing required field: referral_code" }, 400);
     }
-    if (!validateReferralCode(referralCode)) {
+    if (!validateReferralCode(rawReferralCode)) {
       return json({ error: "Invalid referral code" }, 400);
     }
+    const referralCode = sanitizeString(rawReferralCode, 12);
 
     const identifier = getClientIdentifier(req, user.id);
     const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
