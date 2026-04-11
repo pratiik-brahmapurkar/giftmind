@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useEffect, useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { captureError } from "@/lib/sentry";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { captureError } from "@/lib/sentry";
 
 interface AiDraftResult {
   title: string;
@@ -20,105 +20,147 @@ interface AiDraftResult {
 
 interface AiDraftModalProps {
   open: boolean;
+  initialTopic?: string;
   onClose: () => void;
   onInsert: (result: AiDraftResult) => void;
 }
 
-export default function AiDraftModal({ open, onClose, onInsert }: AiDraftModalProps) {
-  const [topic, setTopic] = useState("");
-  const [tone, setTone] = useState("informative");
-  const [length, setLength] = useState("1200");
+export default function AiDraftModal({ open, initialTopic, onClose, onInsert }: AiDraftModalProps) {
+  const [topic, setTopic] = useState(initialTopic || "");
+  const [tone, setTone] = useState<"informative" | "casual" | "listicle">("casual");
+  const [targetLength, setTargetLength] = useState<800 | 1200 | 2000>(1200);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AiDraftResult | null>(null);
 
-  const generate = async () => {
-    if (!topic.trim()) return;
+  useEffect(() => {
+    if (open) setTopic(initialTopic || "");
+  }, [open, initialTopic]);
+
+  const generateDraft = async () => {
+    if (!topic.trim()) {
+      toast.error("Topic is required");
+      return;
+    }
+
     setLoading(true);
-    setResult(null);
+
     try {
-      const { data, error } = await supabase.functions.invoke("generate-blog-draft", {
-        body: { topic, tone, wordCount: parseInt(length) },
+      const response = await supabase.functions.invoke("blog-ai-assistant", {
+        body: {
+          action: "generate_draft",
+          topic: topic.trim(),
+          tone,
+          target_word_count: targetLength,
+        },
       });
-      if (error) throw error;
-      setResult(data as AiDraftResult);
-    } catch (e: any) {
+
+      if (response.error) throw response.error;
+
+      const result = response.data?.result;
+      if (!result) throw new Error("The AI response was empty");
+
+      onInsert({
+        title: result.title,
+        excerpt: result.excerpt,
+        content: result.content,
+        tags: result.suggested_tags || [],
+        metaTitle: result.meta_title,
+        metaDescription: result.meta_description,
+      });
+
+      toast.success("Draft generated. Review and edit before publishing.");
+      onClose();
+    } catch (error) {
       captureError(
-        e instanceof Error ? e : new Error("Failed to generate blog draft"),
-        { action: "generate-blog-draft", tone, word_count: parseInt(length) },
+        error instanceof Error ? error : new Error("Failed to generate AI draft"),
+        { action: "blog-ai-generate-draft", tone, target_length: targetLength },
       );
-      toast.error("Failed to generate draft: " + (e.message || "Unknown error"));
+      toast.error(error instanceof Error ? error.message : "Failed to generate draft");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="max-w-xl rounded-[28px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> AI Draft Generator</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Generate Blog Post with AI
+          </DialogTitle>
         </DialogHeader>
-        {!result ? (
-          <div className="space-y-4">
-            <div>
-              <Label>Topic / Keyword *</Label>
-              <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Diwali gift ideas for colleagues" />
-            </div>
-            <div>
-              <Label>Tone</Label>
-              <RadioGroup value={tone} onValueChange={setTone} className="flex gap-4 mt-1">
-                {["informative", "casual", "listicle"].map((t) => (
-                  <div key={t} className="flex items-center gap-1.5">
-                    <RadioGroupItem value={t} id={`tone-${t}`} />
-                    <Label htmlFor={`tone-${t}`} className="capitalize cursor-pointer">{t}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
-            <div>
-              <Label>Length (words)</Label>
-              <RadioGroup value={length} onValueChange={setLength} className="flex gap-4 mt-1">
-                {["800", "1200", "2000"].map((l) => (
-                  <div key={l} className="flex items-center gap-1.5">
-                    <RadioGroupItem value={l} id={`len-${l}`} />
-                    <Label htmlFor={`len-${l}`} className="cursor-pointer">{l}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
-            <p className="text-xs text-muted-foreground">AI generation uses Lovable AI — no credits deducted.</p>
-            <Button onClick={generate} disabled={loading || !topic.trim()} className="w-full">
-              {loading ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Generating...</> : "Generate"}
-            </Button>
+
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="blog-ai-topic">Topic / Title</Label>
+            <Input
+              id="blog-ai-topic"
+              value={topic}
+              onChange={(event) => setTopic(event.target.value)}
+              placeholder="Best Diwali Gift Ideas for 2026"
+            />
           </div>
-        ) : (
+
           <div className="space-y-3">
-            <div>
-              <Label className="text-muted-foreground">Title</Label>
-              <p className="font-semibold">{result.title}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Excerpt</Label>
-              <p className="text-sm">{result.excerpt}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Content preview</Label>
-              <p className="text-sm text-muted-foreground line-clamp-4">{result.content.slice(0, 300)}...</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Tags</Label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {result.tags.map((t) => (
-                  <span key={t} className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-xs">{t}</span>
-                ))}
-              </div>
-            </div>
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => { setResult(null); generate(); }}>Regenerate</Button>
-              <Button onClick={() => { onInsert(result); onClose(); }}>Insert into Editor</Button>
-            </DialogFooter>
+            <Label>Tone</Label>
+            <RadioGroup
+              value={tone}
+              onValueChange={(value) => setTone(value as "informative" | "casual" | "listicle")}
+              className="grid gap-3 sm:grid-cols-3"
+            >
+              {[
+                { value: "informative", label: "Informative" },
+                { value: "casual", label: "Casual" },
+                { value: "listicle", label: "Listicle" },
+              ].map((item) => (
+                <label
+                  key={item.value}
+                  className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-3"
+                >
+                  <RadioGroupItem value={item.value} id={`tone-${item.value}`} />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </label>
+              ))}
+            </RadioGroup>
           </div>
-        )}
+
+          <div className="space-y-3">
+            <Label>Target Length</Label>
+            <RadioGroup
+              value={String(targetLength)}
+              onValueChange={(value) => setTargetLength(Number(value) as 800 | 1200 | 2000)}
+              className="grid gap-3"
+            >
+              {[
+                { value: 800, label: "Short (~800 words)" },
+                { value: 1200, label: "Medium (~1,200 words)" },
+                { value: 2000, label: "Long (~2,000 words)" },
+              ].map((item) => (
+                <label
+                  key={item.value}
+                  className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-3"
+                >
+                  <RadioGroupItem value={String(item.value)} id={`length-${item.value}`} />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+        </div>
+
+        <DialogFooter className="mt-2">
+          <Button variant="ghost" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={generateDraft} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Writing your post...
+              </>
+            ) : (
+              "Generate Draft"
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

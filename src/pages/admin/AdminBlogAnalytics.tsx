@@ -1,426 +1,336 @@
-import { SEOHead } from "@/components/common/SEOHead";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AlertTriangle, Eye, MousePointerClick, Newspaper, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SEOHead } from "@/components/common/SEOHead";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from "recharts";
-import {
-  Eye, MousePointerClick, FileText, TrendingUp, Clock, AlertTriangle,
-  Star, ArrowRight, ImageOff, FileWarning, CalendarClock,
-} from "lucide-react";
-import { format, subDays, subMonths, differenceInMonths } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { calculateSEOScore, getPrimarySeoIssue } from "@/lib/blog";
+import { cn } from "@/lib/utils";
 
-const COLORS = [
-  "hsl(249 76% 64%)", "hsl(0 100% 70%)", "hsl(142 71% 45%)",
-  "hsl(48 96% 53%)", "hsl(200 98% 48%)", "hsl(280 65% 60%)",
-  "hsl(25 95% 53%)", "hsl(330 80% 60%)",
-];
+type AnalyticsRow = {
+  id: string;
+  title: string;
+  slug: string;
+  status: string | null;
+  published_at: string | null;
+  category_id: string | null;
+  view_count: number | null;
+  cta_click_count: number | null;
+  seo_score: number | null;
+  content: string;
+  excerpt: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  focus_keyword: string | null;
+  featured_image_url: string | null;
+  featured_image_alt: string | null;
+  cta_type: string | null;
+  cta_text: string | null;
+  blog_categories: { name: string | null } | null;
+};
 
-function computeSeoScore(post: any): number {
-  let score = 0;
-  const content = post.content || "";
-  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
-  if (post.meta_title) score += 14;
-  if (post.meta_description) score += 14;
-  if (post.featured_image) score += 14;
-  if (wordCount >= 800) score += 14;
-  if (/^##\s/m.test(content)) score += 14;
-  if (/\]\(\/(gift-flow|blog|credits)/i.test(content)) score += 16;
-  if (post.excerpt) score += 14;
-  return Math.min(score, 100);
-}
-
-function estimateReadTime(content: string): number {
-  return Math.max(1, Math.round((content || "").trim().split(/\s+/).filter(Boolean).length / 200));
-}
+type SortKey = "title" | "view_count" | "cta_click_count" | "ctr" | "seo_score";
 
 export default function AdminBlogAnalytics() {
+  const [searchParams] = useSearchParams();
+  const [sortKey, setSortKey] = useState<SortKey>("view_count");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [range, setRange] = useState("30d");
+
+  const highlightId = searchParams.get("highlight");
+
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["admin-blog-analytics-posts"],
     queryFn: async () => {
-      const { data } = await supabase.from("blog_posts").select("*, blog_categories(name)").order("views", { ascending: false });
-      return data || [];
+      const { data, error } = await supabase
+        .from("blog_posts")
+        .select("id, title, slug, status, published_at, category_id, view_count, cta_click_count, seo_score, content, excerpt, meta_title, meta_description, focus_keyword, featured_image_url, featured_image_alt, cta_type, cta_text, blog_categories(name)")
+        .eq("status", "published")
+        .order("view_count", { ascending: false });
+
+      if (error) throw error;
+      return (data as AnalyticsRow[]) || [];
     },
   });
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ["blog-categories-analytics"],
-    queryFn: async () => {
-      const { data } = await supabase.from("blog_categories").select("*");
-      return data || [];
-    },
-  });
+  const enrichedPosts = useMemo(
+    () =>
+      posts.map((post) => {
+        const fallbackSeo = calculateSEOScore(post);
+        const score = post.seo_score ?? fallbackSeo.score;
+        const views = post.view_count || 0;
+        const clicks = post.cta_click_count || 0;
+        const ctr = views > 0 ? (clicks / views) * 100 : 0;
 
-  const { data: giftSessions = [] } = useQuery({
-    queryKey: ["blog-funnel-sessions"],
-    queryFn: async () => {
-      const { data } = await supabase.from("gift_sessions").select("status, chosen_gift");
-      return data || [];
-    },
-  });
+        return {
+          ...post,
+          resolvedSeoScore: score,
+          ctr,
+          categoryName: (post.blog_categories as { name?: string } | null)?.name || "Uncategorized",
+        };
+      }),
+    [posts],
+  );
 
-  const { data: creditTx = [] } = useQuery({
-    queryKey: ["blog-funnel-credits"],
-    queryFn: async () => {
-      const { data } = await supabase.from("credit_transactions").select("type").eq("type", "purchase");
-      return data || [];
-    },
-  });
+  const totals = useMemo(() => {
+    const totalViews = enrichedPosts.reduce((sum, post) => sum + (post.view_count || 0), 0);
+    const totalClicks = enrichedPosts.reduce((sum, post) => sum + (post.cta_click_count || 0), 0);
+    const ctr = totalViews > 0 ? (totalClicks / totalViews) * 100 : 0;
 
-  const published = useMemo(() => posts.filter((p: any) => p.status === "published"), [posts]);
-  const totalViews = useMemo(() => posts.reduce((s: number, p: any) => s + (p.views || 0), 0), [posts]);
-  const totalCta = useMemo(() => posts.reduce((s: number, p: any) => s + (p.cta_clicks || 0), 0), [posts]);
-  const ctr = totalViews > 0 ? ((totalCta / totalViews) * 100).toFixed(1) : "0";
-  const avgReadTime = useMemo(() => {
-    if (!published.length) return 0;
-    return Math.round(published.reduce((s: number, p: any) => s + estimateReadTime(p.content), 0) / published.length);
-  }, [published]);
+    return {
+      totalViews,
+      totalClicks,
+      publishedPosts: enrichedPosts.length,
+      ctr,
+    };
+  }, [enrichedPosts]);
 
-  // Simulated daily views (last 30 days) — distributed from total
-  const dailyViews = useMemo(() => {
-    const days = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = subDays(new Date(), i);
-      const base = Math.round(totalViews / 30 + (Math.random() - 0.5) * (totalViews / 15));
-      days.push({ date: format(d, "MMM dd"), views: Math.max(0, base) });
+  const chartData = useMemo(
+    () =>
+      enrichedPosts.slice(0, 8).map((post) => ({
+        name: post.title.length > 24 ? `${post.title.slice(0, 24)}…` : post.title,
+        views: post.view_count || 0,
+      })),
+    [enrichedPosts],
+  );
+
+  const topViews = useMemo(() => enrichedPosts.slice(0, 5), [enrichedPosts]);
+  const topCta = useMemo(
+    () => [...enrichedPosts].sort((a, b) => (b.cta_click_count || 0) - (a.cta_click_count || 0)).slice(0, 5),
+    [enrichedPosts],
+  );
+
+  const sortedPosts = useMemo(() => {
+    const next = [...enrichedPosts].sort((left, right) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+
+      if (sortKey === "title") return direction * left.title.localeCompare(right.title);
+      if (sortKey === "ctr") return direction * (left.ctr - right.ctr);
+      if (sortKey === "seo_score") return direction * (left.resolvedSeoScore - right.resolvedSeoScore);
+      return direction * (((left[sortKey] as number | null) || 0) - ((right[sortKey] as number | null) || 0));
+    });
+
+    return next;
+  }, [enrichedPosts, sortDirection, sortKey]);
+
+  const lowSeoPosts = useMemo(
+    () =>
+      [...enrichedPosts]
+        .filter((post) => post.resolvedSeoScore < 70)
+        .sort((a, b) => a.resolvedSeoScore - b.resolvedSeoScore),
+    [enrichedPosts],
+  );
+
+  const healthySeoCount = enrichedPosts.filter((post) => post.resolvedSeoScore >= 70).length;
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
     }
-    return days;
-  }, [totalViews]);
 
-  // Top 10 by views
-  const top10Views = useMemo(() =>
-    posts.slice(0, 10).map((p: any) => ({
-      title: (p.title || "").slice(0, 40),
-      views: p.views || 0,
-    })), [posts]);
-
-  // Top 10 by CTA
-  const top10Cta = useMemo(() =>
-    [...posts].sort((a: any, b: any) => (b.cta_clicks || 0) - (a.cta_clicks || 0)).slice(0, 10).map((p: any) => ({
-      title: (p.title || "").slice(0, 40),
-      clicks: p.cta_clicks || 0,
-    })), [posts]);
-
-  // Views by category
-  const viewsByCategory = useMemo(() => {
-    const map: Record<string, number> = {};
-    posts.forEach((p: any) => {
-      const cat = (p.blog_categories as any)?.name || "Uncategorized";
-      map[cat] = (map[cat] || 0) + (p.views || 0);
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [posts]);
-
-  // Funnel
-  const funnel = useMemo(() => {
-    const blogViews = totalViews;
-    const ctaClicks = totalCta;
-    const flowStarted = giftSessions.length;
-    const giftSelected = giftSessions.filter((s: any) => s.chosen_gift).length;
-    const creditPurchased = creditTx.length;
-    const stages = [
-      { name: "Blog View", count: blogViews },
-      { name: "CTA Click", count: ctaClicks },
-      { name: "Gift Flow Started", count: flowStarted },
-      { name: "Gift Selected", count: giftSelected },
-      { name: "Credit Purchased", count: creditPurchased },
-    ];
-    return stages.map((s, i) => ({
-      ...s,
-      dropOff: i > 0 && stages[i - 1].count > 0
-        ? ((1 - s.count / stages[i - 1].count) * 100).toFixed(1)
-        : "0",
-    }));
-  }, [totalViews, totalCta, giftSessions, creditTx]);
-
-  // Post performance with SEO
-  const postPerformance = useMemo(() => {
-    return published.map((p: any) => ({
-      id: p.id,
-      title: p.title,
-      category: (p.blog_categories as any)?.name || "—",
-      published_at: p.published_at,
-      views: p.views || 0,
-      cta_clicks: p.cta_clicks || 0,
-      ctr: (p.views || 0) > 0 ? (((p.cta_clicks || 0) / p.views) * 100).toFixed(1) : "0",
-      seoScore: computeSeoScore(p),
-      isTop: false,
-    })).sort((a: any, b: any) => b.views - a.views).map((p: any, i: number) => ({ ...p, isTop: i === 0 }));
-  }, [published]);
-
-  // SEO health issues
-  const seoIssues = useMemo(() => {
-    const lowSeo = posts.filter((p: any) => computeSeoScore(p) < 60 && p.status === "published");
-    const noImage = posts.filter((p: any) => !p.featured_image && p.status === "published");
-    const noMeta = posts.filter((p: any) => !p.meta_description && p.status === "published");
-    const stale = posts.filter((p: any) => {
-      if (!p.published_at || p.status !== "published") return false;
-      return differenceInMonths(new Date(), new Date(p.published_at)) > 6 && (p.views || 0) < 50;
-    });
-    return { lowSeo, noImage, noMeta, stale };
-  }, [posts]);
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-64 text-muted-foreground">Loading analytics...</div>;
-  }
+    setSortKey(key);
+    setSortDirection(key === "title" ? "asc" : "desc");
+  };
 
   return (
     <div className="space-y-6">
-      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
-      <h1 className="text-2xl font-bold">Blog Analytics</h1>
+      <SEOHead title="Blog Analytics" description="GiftMind blog analytics" noIndex />
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary/70">Content Analytics</p>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-950">Blog Analytics</h1>
+          <p className="mt-1 text-sm text-slate-500">Views, CTA performance, and SEO health for published posts.</p>
+        </div>
+
+        <Select value={range} onValueChange={setRange}>
+          <SelectTrigger className="h-11 w-[180px] rounded-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7d">Last 7 days</SelectItem>
+            <SelectItem value="30d">Last 30 days</SelectItem>
+            <SelectItem value="90d">Last 90 days</SelectItem>
+            <SelectItem value="all">All time</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
         {[
-          { label: "Published Posts", value: published.length, icon: FileText },
-          { label: "Total Views", value: totalViews.toLocaleString(), icon: Eye },
-          { label: "CTA Clicks", value: totalCta.toLocaleString(), icon: MousePointerClick },
-          { label: "Overall CTR", value: `${ctr}%`, icon: TrendingUp },
-          { label: "Avg Read Time", value: `${avgReadTime} min`, icon: Clock },
-        ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="pt-4 pb-3 px-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                <s.icon className="h-3.5 w-3.5" /> {s.label}
+          { label: "Total Views", value: totals.totalViews.toLocaleString(), icon: Eye },
+          { label: "CTA Clicks", value: totals.totalClicks.toLocaleString(), icon: MousePointerClick },
+          { label: "Published", value: totals.publishedPosts.toLocaleString(), icon: Newspaper },
+          { label: "CTR", value: `${totals.ctr.toFixed(1)}%`, icon: Target },
+        ].map((card) => (
+          <Card key={card.label} className="rounded-[24px] border-slate-200/80">
+            <CardContent className="flex items-center justify-between p-5">
+              <div>
+                <p className="text-sm text-slate-500">{card.label}</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-950">{card.value}</p>
               </div>
-              <p className="text-xl font-bold">{s.value}</p>
+              <card.icon className="h-5 w-5 text-slate-400" />
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="py-3"><CardTitle className="text-sm">Blog Views (Last 30 Days)</CardTitle></CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dailyViews}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={4} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="views" stroke="hsl(249 76% 64%)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="py-3"><CardTitle className="text-sm">Top 10 Posts by Views</CardTitle></CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={top10Views} layout="vertical" margin={{ left: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" tick={{ fontSize: 10 }} />
-                <YAxis dataKey="title" type="category" tick={{ fontSize: 9 }} width={80} />
-                <Tooltip />
-                <Bar dataKey="views" fill="hsl(249 76% 64%)" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="py-3"><CardTitle className="text-sm">Top 10 Posts by CTA Clicks</CardTitle></CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={top10Cta}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="title" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" height={60} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Bar dataKey="clicks" fill="hsl(0 100% 70%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="py-3"><CardTitle className="text-sm">Views by Category</CardTitle></CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={viewsByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                  {viewsByCategory.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Conversion Funnel */}
-      <Card>
-        <CardHeader className="py-3"><CardTitle className="text-sm">Conversion Funnel</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-1 overflow-x-auto pb-2">
-            {funnel.map((stage, i) => (
-              <div key={stage.name} className="flex items-center">
-                <div
-                  className="rounded-lg border px-4 py-3 text-center min-w-[130px]"
-                  style={{
-                    backgroundColor: `hsl(249 76% ${64 + i * 6}% / 0.1)`,
-                    borderColor: `hsl(249 76% ${64 + i * 6}% / 0.3)`,
-                  }}
-                >
-                  <p className="text-xs text-muted-foreground">{stage.name}</p>
-                  <p className="text-lg font-bold">{stage.count.toLocaleString()}</p>
-                  {i > 0 && (
-                    <p className="text-xs text-destructive">↓ {stage.dropOff}% drop</p>
-                  )}
-                </div>
-                {i < funnel.length - 1 && (
-                  <ArrowRight className="h-4 w-4 text-muted-foreground mx-1 shrink-0" />
-                )}
-              </div>
-            ))}
-          </div>
+      <Card className="rounded-[28px] border-slate-200/80">
+        <CardHeader>
+          <CardTitle>Views by Post</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[320px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" tickLine={false} axisLine={false} interval={0} angle={-18} textAnchor="end" height={72} />
+              <YAxis tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Bar dataKey="views" fill="hsl(262 83% 58%)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Posts Performance Table */}
-      <Card>
-        <CardHeader className="py-3"><CardTitle className="text-sm">Posts Performance</CardTitle></CardHeader>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="rounded-[28px] border-slate-200/80">
+          <CardHeader>
+            <CardTitle>Top Posts by Views</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {topViews.map((post, index) => (
+              <div key={post.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-950">{index + 1}. {post.title}</p>
+                  <p className="text-xs text-slate-500">{post.categoryName}</p>
+                </div>
+                <span className="text-sm font-medium text-slate-600">{(post.view_count || 0).toLocaleString()} views</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-[28px] border-slate-200/80">
+          <CardHeader>
+            <CardTitle>Top Posts by CTA Clicks</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {topCta.map((post, index) => (
+              <div key={post.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-950">{index + 1}. {post.title}</p>
+                  <p className="text-xs text-slate-500">{post.categoryName}</p>
+                </div>
+                <span className="text-sm font-medium text-slate-600">{(post.cta_click_count || 0).toLocaleString()} clicks</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-[28px] border-slate-200/80">
+        <CardHeader>
+          <CardTitle>All Posts Performance</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <button type="button" onClick={() => toggleSort("title")}>Title</button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button type="button" onClick={() => toggleSort("view_count")}>Views</button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button type="button" onClick={() => toggleSort("cta_click_count")}>CTA Clicks</button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button type="button" onClick={() => toggleSort("ctr")}>CTR</button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button type="button" onClick={() => toggleSort("seo_score")}>SEO</button>
+                </TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Published</TableHead>
-                  <TableHead className="text-right">Views</TableHead>
-                  <TableHead className="text-right">CTA Clicks</TableHead>
-                  <TableHead className="text-right">CTR%</TableHead>
-                  <TableHead className="text-right">SEO</TableHead>
+                  <TableCell colSpan={6} className="py-14 text-center text-slate-500">Loading analytics...</TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {postPerformance.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="max-w-[200px]">
-                      <Link to={`/admin/blog/edit/${p.id}`} className="hover:underline text-sm font-medium flex items-center gap-1">
-                        {p.isTop && <Star className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
-                        <span className="truncate">{p.title}</span>
+              ) : sortedPosts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-14 text-center text-slate-500">No published posts yet.</TableCell>
+                </TableRow>
+              ) : (
+                sortedPosts.map((post) => (
+                  <TableRow key={post.id} className={cn(highlightId === post.id && "bg-primary/5")}>
+                    <TableCell>
+                      <Link to={`/admin/blog/edit/${post.id}`} className="font-medium text-slate-950 hover:text-primary">
+                        {post.title}
                       </Link>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs">{p.category}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{p.published_at ? format(new Date(p.published_at), "MMM dd, yyyy") : "—"}</TableCell>
-                    <TableCell className="text-right">{p.views.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{p.cta_clicks.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{p.ctr}%</TableCell>
+                    <TableCell className="text-right">{(post.view_count || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{(post.cta_click_count || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{post.ctr.toFixed(1)}%</TableCell>
                     <TableCell className="text-right">
-                      <Badge variant={p.seoScore >= 80 ? "default" : p.seoScore >= 60 ? "secondary" : "destructive"} className="text-xs">
-                        {p.seoScore < 60 && <AlertTriangle className="h-3 w-3 mr-0.5" />}
-                        {p.seoScore}
+                      <Badge variant="outline" className={cn(
+                        "rounded-full",
+                        post.resolvedSeoScore >= 70 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700",
+                      )}>
+                        {post.resolvedSeoScore}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 text-slate-700">
+                        Live
                       </Badge>
                     </TableCell>
                   </TableRow>
-                ))}
-                {postPerformance.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No published posts yet</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
-      {/* SEO Health */}
-      <Card>
-        <CardHeader className="py-3"><CardTitle className="text-sm">SEO Health — Posts Needing Attention</CardTitle></CardHeader>
+      <Card className="rounded-[28px] border-slate-200/80">
+        <CardHeader>
+          <CardTitle>SEO Health</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
-          {seoIssues.lowSeo.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive" /> Low SEO Score (&lt;60)
-              </p>
-              <div className="space-y-1">
-                {seoIssues.lowSeo.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate max-w-[70%]">{p.title}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="destructive" className="text-xs">{computeSeoScore(p)}</Badge>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs" asChild>
-                        <Link to={`/admin/blog/edit/${p.id}`}>Edit</Link>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+          {lowSeoPosts.length > 0 ? (
+            lowSeoPosts.map((post) => (
+              <div key={post.id} className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 font-medium text-slate-950">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    {post.title}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    SEO score {post.resolvedSeoScore} · {getPrimarySeoIssue(calculateSEOScore(post))}
+                  </p>
+                </div>
+                <Button asChild variant="outline" className="rounded-full">
+                  <Link to={`/admin/blog/edit/${post.id}`}>Fix Post</Link>
+                </Button>
               </div>
-            </div>
+            ))
+          ) : (
+            <p className="text-sm text-slate-500">No published posts need SEO attention right now.</p>
           )}
-          {seoIssues.noImage.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-                <ImageOff className="h-3.5 w-3.5" /> No Featured Image
-              </p>
-              <div className="space-y-1">
-                {seoIssues.noImage.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate max-w-[70%]">{p.title}</span>
-                    <Button variant="ghost" size="sm" className="h-6 text-xs" asChild>
-                      <Link to={`/admin/blog/edit/${p.id}`}>Edit</Link>
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {seoIssues.noMeta.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-                <FileWarning className="h-3.5 w-3.5" /> Missing Meta Description
-              </p>
-              <div className="space-y-1">
-                {seoIssues.noMeta.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate max-w-[70%]">{p.title}</span>
-                    <Button variant="ghost" size="sm" className="h-6 text-xs" asChild>
-                      <Link to={`/admin/blog/edit/${p.id}`}>Edit</Link>
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {seoIssues.stale.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-                <CalendarClock className="h-3.5 w-3.5" /> Stale Posts — Consider Updating
-              </p>
-              <div className="space-y-1">
-                {seoIssues.stale.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate max-w-[70%]">{p.title}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{p.views} views</span>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs" asChild>
-                        <Link to={`/admin/blog/edit/${p.id}`}>Edit</Link>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {!seoIssues.lowSeo.length && !seoIssues.noImage.length && !seoIssues.noMeta.length && !seoIssues.stale.length && (
-            <p className="text-sm text-muted-foreground text-center py-4">✅ All posts are in good shape!</p>
-          )}
+
+          <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {healthySeoCount} posts have SEO score above 70.
+          </div>
         </CardContent>
       </Card>
     </div>

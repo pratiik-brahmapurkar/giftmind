@@ -1,227 +1,131 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { Switch } from "@/components/ui/switch";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { SUPPORTED_COUNTRIES, REGIONAL_OCCASIONS, UNIVERSAL_OCCASIONS } from "@/lib/geoConfig";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { COUNTRY_OPTIONS } from "@/components/recipients/constants";
 
 interface StepOccasionProps {
-  selected: string;
-  onSelect: (val: string) => void;
-  occasionDate: string;
-  onDateChange: (val: string) => void;
-  targetCountry?: string;
+  selectedOccasion: string | null;
+  onSelectOccasion: (id: string) => void;
+  occasionDate: string | null;
+  onOccasionDateChange: (date: string | null) => void;
+  targetCountry: string;
+  onContinue: () => void;
+  onBack: () => void;
 }
 
-const UNIVERSAL_OCCASIONS = [
-  { value: 'birthday', emoji: '🎂', label: 'Birthday' },
-  { value: 'anniversary', emoji: '💍', label: 'Anniversary' },
-  { value: 'valentines', emoji: '❤️', label: "Valentine's Day" },
-  { value: 'wedding', emoji: '💒', label: 'Wedding' },
-  { value: 'baby_shower', emoji: '🍼', label: 'Baby Shower' },
-  { value: 'housewarming', emoji: '🏠', label: 'Housewarming' },
-  { value: 'graduation', emoji: '🎓', label: 'Graduation' },
-  { value: 'thank_you', emoji: '🙏', label: 'Thank You' },
-  { value: 'just_because', emoji: '💝', label: 'Just Because' },
-  { value: 'christmas', emoji: '🎄', label: 'Christmas' },
-  { value: 'corporate', emoji: '👔', label: 'Corporate Gift' },
-  { value: 'secret_santa', emoji: '🎅', label: 'Secret Santa' },
-];
-
-const REGIONAL_OCCASIONS: Record<string, Array<{value: string, emoji: string, label: string}>> = {
-  IN: [
-    { value: 'diwali', emoji: '🪔', label: 'Diwali' },
-    { value: 'holi', emoji: '🎨', label: 'Holi' },
-    { value: 'raksha_bandhan', emoji: '🪢', label: 'Raksha Bandhan' },
-    { value: 'karwa_chauth', emoji: '🌙', label: 'Karwa Chauth' },
-    { value: 'ganesh_chaturthi', emoji: '🙏', label: 'Ganesh Chaturthi' },
-  ],
-  US: [
-    { value: 'thanksgiving', emoji: '🦃', label: 'Thanksgiving' },
-    { value: 'halloween', emoji: '🎃', label: 'Halloween' },
-    { value: 'hanukkah', emoji: '🕎', label: 'Hanukkah' },
-    { value: 'mothers_day', emoji: '💐', label: "Mother's Day" },
-    { value: 'fathers_day', emoji: '👔', label: "Father's Day" },
-  ],
-  GB: [
-    { value: 'boxing_day', emoji: '🎁', label: 'Boxing Day' },
-    { value: 'mothers_day', emoji: '💐', label: "Mother's Day" },
-    { value: 'fathers_day', emoji: '👔', label: "Father's Day" },
-    { value: 'eid', emoji: '🌙', label: 'Eid' },
-    { value: 'diwali', emoji: '🪔', label: 'Diwali' },
-  ],
-  AE: [
-    { value: 'eid_al_fitr', emoji: '🌙', label: 'Eid al-Fitr' },
-    { value: 'eid_al_adha', emoji: '🐑', label: 'Eid al-Adha' },
-    { value: 'ramadan', emoji: '☪️', label: 'Ramadan' },
-    { value: 'national_day', emoji: '🇦🇪', label: 'UAE National Day' },
-  ],
-  FR: [
-    { value: 'fete_nationale', emoji: '🇫🇷', label: 'Bastille Day' },
-    { value: 'epiphany', emoji: '👑', label: 'Epiphany' },
-    { value: 'mothers_day', emoji: '💐', label: "Fête des Mères" },
-    { value: 'fathers_day', emoji: '👔', label: "Fête des Pères" },
-  ],
-  DE: [
-    { value: 'nikolaus', emoji: '🎅', label: 'Nikolaus' },
-    { value: 'oktoberfest', emoji: '🍺', label: 'Oktoberfest' },
-    { value: 'mothers_day', emoji: '💐', label: 'Muttertag' },
-    { value: 'fathers_day', emoji: '👔', label: 'Vatertag' },
-  ],
-  NL: [
-    { value: 'sinterklaas', emoji: '🎅', label: 'Sinterklaas' },
-    { value: 'kings_day', emoji: '👑', label: "King's Day" },
-  ],
-  SG: [
-    { value: 'chinese_new_year', emoji: '🧧', label: 'Chinese New Year' },
-    { value: 'hari_raya', emoji: '🌙', label: 'Hari Raya' },
-    { value: 'deepavali', emoji: '🪔', label: 'Deepavali' },
-  ],
-  CA: [
-    { value: 'thanksgiving_ca', emoji: '🦃', label: 'Thanksgiving' },
-    { value: 'canada_day', emoji: '🇨🇦', label: 'Canada Day' },
-    { value: 'mothers_day', emoji: '💐', label: "Mother's Day" },
-    { value: 'fathers_day', emoji: '👔', label: "Father's Day" },
-  ],
-  AU: [
-    { value: 'australia_day', emoji: '🇦🇺', label: 'Australia Day' },
-    { value: 'anzac_day', emoji: '🌺', label: 'ANZAC Day' },
-    { value: 'mothers_day', emoji: '💐', label: "Mother's Day" },
-    { value: 'fathers_day', emoji: '👔', label: "Father's Day" },
-  ],
-};
-
-const StepOccasion = ({ selected, onSelect, occasionDate, onDateChange, targetCountry = "US" }: StepOccasionProps) => {
-  const dateValue = occasionDate ? new Date(occasionDate) : undefined;
-  const [notSure, setNotSure] = useState(false);
-  const regionalOccasions = REGIONAL_OCCASIONS[targetCountry] || [];
-  const countryData = COUNTRY_OPTIONS.find((c) => c.value === targetCountry);
+export default function StepOccasion({
+  selectedOccasion,
+  onSelectOccasion,
+  occasionDate,
+  onOccasionDateChange,
+  targetCountry,
+  onContinue,
+  onBack,
+}: StepOccasionProps) {
+  const country = SUPPORTED_COUNTRIES.find((item) => item.code === targetCountry);
+  const regionalOccasions = REGIONAL_OCCASIONS[targetCountry] ?? [];
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl md:text-2xl font-heading font-bold text-foreground">
-          What's the occasion?
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Pick the event or reason for the gift
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">What&apos;s the occasion?</h1>
+        <p className="text-sm text-muted-foreground md:text-base">
+          Choose the moment you&apos;re buying for. This shapes tone, budget, and store matching.
         </p>
       </div>
 
-      {/* Section 1: Universal */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          All occasions
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-          {UNIVERSAL_OCCASIONS.map((o) => (
-            <Card
-              key={o.value}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        {UNIVERSAL_OCCASIONS.map((occasion) => {
+          const isSelected = selectedOccasion === occasion.id;
+          return (
+            <button
+              key={occasion.id}
+              type="button"
               className={cn(
-                "cursor-pointer border-2 transition-all text-center",
-                selected === o.value
-                  ? "border-primary bg-primary text-primary-foreground shadow-md scale-[1.03]"
-                  : "border-border/50 hover:border-primary/30 hover:shadow-sm"
+                "rounded-2xl border px-4 py-5 text-left transition-all",
+                isSelected
+                  ? "scale-[1.01] border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-border bg-card hover:border-primary/30 hover:bg-primary/5",
               )}
-              onClick={() => onSelect(o.value)}
+              onClick={() => onSelectOccasion(occasion.id)}
             >
-              <CardContent className="p-3">
-                <span className="text-2xl block mb-1">{o.emoji}</span>
-                <span className={cn(
-                  "text-[10px] md:text-xs font-medium leading-tight",
-                  selected === o.value ? "text-primary-foreground" : "text-foreground"
-                )}>
-                  {o.label}
-                </span>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              <div className="text-2xl">{occasion.emoji}</div>
+              <div className="mt-3 text-sm font-medium">{occasion.label}</div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Section 2: Regional */}
-      {regionalOccasions.length > 0 && (
-        <div className="space-y-2 pt-2">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <span>{countryData?.flag || ""} Popular in {countryData?.label || targetCountry}</span>
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            {regionalOccasions.map((o) => (
-              <Card
-                key={o.value}
-                className={cn(
-                  "cursor-pointer border-2 transition-all text-center h-[72px] flex items-center justify-center", // slightly smaller card
-                  selected === o.value
-                    ? "border-primary bg-primary text-primary-foreground shadow-md scale-[1.03]"
-                    : "border-border/50 hover:border-primary/30 hover:shadow-sm"
-                )}
-                onClick={() => onSelect(o.value)}
-              >
-                <CardContent className="p-2 w-full">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-lg leading-none">{o.emoji}</span>
-                    <span className={cn(
-                      "text-[10px] sm:text-[11px] font-medium leading-tight",
-                      selected === o.value ? "text-primary-foreground" : "text-foreground"
-                    )}>
-                      {o.label}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+      {regionalOccasions.length > 0 && country && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-foreground">
+            {country.flag} Popular in {country.name}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {regionalOccasions.map((occasion) => {
+              const isSelected = selectedOccasion === occasion.id;
+              return (
+                <button
+                  key={occasion.id}
+                  type="button"
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-sm transition-colors",
+                    isSelected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-foreground hover:border-primary/30",
+                  )}
+                  onClick={() => onSelectOccasion(occasion.id)}
+                >
+                  {occasion.emoji} {occasion.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Date picker — show after selection */}
-      {selected && (
-        <div className="space-y-2 pt-2 border-t border-border/50">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-foreground">When is it?</label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">I'm not sure yet</span>
-              <Switch
-                checked={notSure}
-                onCheckedChange={(v) => {
-                  setNotSure(v);
-                  if (v) onDateChange("");
-                }}
-              />
-            </div>
+      <Card className="border-border/60">
+        <CardContent className="space-y-4 p-5">
+          <div className="space-y-2">
+            <Label htmlFor="occasion-date" className="text-sm font-medium">
+              When is it?
+            </Label>
+            <input
+              id="occasion-date"
+              type="date"
+              value={occasionDate ?? ""}
+              onChange={(event) => onOccasionDateChange(event.target.value || null)}
+              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+            />
           </div>
-          {!notSure && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full md:w-64 justify-start text-left font-normal",
-                    !dateValue && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateValue ? format(dateValue, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dateValue}
-                  onSelect={(d) => onDateChange(d ? d.toISOString().split("T")[0] : "")}
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
-      )}
+
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="occasion-date-unknown"
+              checked={!occasionDate}
+              onCheckedChange={(checked) => {
+                if (checked) onOccasionDateChange(null);
+              }}
+            />
+            <Label htmlFor="occasion-date-unknown" className="text-sm text-muted-foreground">
+              I&apos;m not sure yet
+            </Label>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button type="button" variant="outline" className="min-h-12 sm:w-auto" onClick={onBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+        <Button type="button" variant="hero" size="lg" className="min-h-12 w-full" disabled={!selectedOccasion} onClick={onContinue}>
+          Continue
+        </Button>
+      </div>
     </div>
   );
-};
-
-export default StepOccasion;
+}

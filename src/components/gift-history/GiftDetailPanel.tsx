@@ -18,10 +18,10 @@ type GiftSession = Tables<"gift_sessions"> & {
 
 interface GiftResult {
   name: string;
-  reasoning: string;
-  confidence: number;
-  price_range: string;
-  signal_check: string;
+  why_it_works?: string;
+  confidence_score?: number;
+  price_anchor?: number;
+  signal_interpretation?: string;
   product_links?: { title: string; url: string }[];
 }
 
@@ -33,8 +33,9 @@ interface Props {
 const GiftDetailPanel = ({ session, onClose }: Props) => {
   if (!session) return null;
 
-  const results = (session.results as unknown as GiftResult[] | null) || [];
-  const chosen = session.chosen_gift as unknown as GiftResult | null;
+  const response = session.results as unknown as { recommendations?: GiftResult[] } | null;
+  const results = response?.recommendations || [];
+  const chosen = typeof session.selected_gift_index === "number" ? results[session.selected_gift_index] || null : null;
   const occasion = OCCASIONS.find((o) => o.value === session.occasion);
 
   const getConfidenceStyle = (score: number) => {
@@ -81,8 +82,8 @@ const GiftDetailPanel = ({ session, onClose }: Props) => {
                 ))}
               </div>
             )}
-            {session.extra_notes && (
-              <p className="text-sm text-muted-foreground italic">"{session.extra_notes}"</p>
+            {session.special_context && (
+              <p className="text-sm text-muted-foreground italic">"{session.special_context}"</p>
             )}
           </div>
 
@@ -111,18 +112,18 @@ const GiftDetailPanel = ({ session, onClose }: Props) => {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">{gift.reasoning}</p>
+                  <p className="text-sm text-muted-foreground">{gift.why_it_works}</p>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${getConfidenceStyle(gift.confidence)}`}>
-                      {gift.confidence}% confidence
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${getConfidenceStyle(gift.confidence_score || 0)}`}>
+                      {gift.confidence_score || 0}% confidence
                     </span>
-                    {gift.price_range && (
-                      <span className="text-[10px] text-muted-foreground">{gift.price_range}</span>
+                    {gift.price_anchor != null && (
+                      <span className="text-[10px] text-muted-foreground">{gift.price_anchor}</span>
                     )}
                   </div>
-                  {gift.signal_check && (
+                  {gift.signal_interpretation && (
                     <p className="text-xs text-muted-foreground italic">
-                      Signal: {gift.signal_check}
+                      Signal: {gift.signal_interpretation}
                     </p>
                   )}
                   {gift.product_links && gift.product_links.length > 0 && (

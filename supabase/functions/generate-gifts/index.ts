@@ -458,13 +458,20 @@ Return your response as valid JSON matching the specified format.`;
       return json({ error: "AI response format error" }, 500);
     }
 
+    const recommendations = parsedResponse.recommendations;
+    const topConfidence = recommendations.reduce(
+      (max, recommendation) => Math.max(max, recommendation.confidence_score ?? 0),
+      0,
+    );
+
     // ── 12. Persist result to the caller's gift session ──────────────────────
     if (session_id) {
       const { error: dbError } = await supabaseAdmin
         .from("gift_sessions")
         .update({
-          results: parsedResponse,
-          status: "completed",
+          ai_response: parsedResponse,
+          confidence_score: topConfidence,
+          status: "active",
         })
         .eq("id", session_id)
         .eq("user_id", user.id);

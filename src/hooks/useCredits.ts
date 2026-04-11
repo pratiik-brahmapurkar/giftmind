@@ -1,59 +1,82 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-
-/* ─── Types ───────────────────────────────────────────────────────────────── */
-// Note: credit_batches table does not exist in the current schema.
-// This hook works with users.credits_balance .
-// When credit_batches is added in a future migration, extend this hook.
+import { supabase } from "@/integrations/supabase/client";
 
 export interface UseCreditsReturn {
   balance: number;
   isLoading: boolean;
-  /** Defined only when credits are LOW (≤ 7 days until expiry) — always null until credit_batches exists */
   nearestExpiry: { credits: number; daysLeft: number } | null;
-  /** true when balance ≤ 3 */
   isLow: boolean;
-  /** true when balance === 0 */
   isEmpty: boolean;
-  /** Re-fetches balance from DB — call after any purchase or deduction */
+  activePlan: string;
   refresh: () => Promise<void>;
 }
 
-/* ─── Hook ────────────────────────────────────────────────────────────────── */
+function getDaysLeft(expiresAt: string) {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
+
 export function useCredits(): UseCreditsReturn {
   const { user } = useAuth();
   const [balance, setBalance] = useState(0);
+  const [activePlan, setActivePlan] = useState("free");
+  const [nearestExpiry, setNearestExpiry] = useState<UseCreditsReturn["nearestExpiry"]>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  /* ── Fetch current balance from users.credits_balance ── */
-  const fetchBalance = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!user) {
+      setBalance(0);
+      setActivePlan("free");
+      setNearestExpiry(null);
       setIsLoading(false);
       return;
     }
-    setIsLoading(true);
-    const { data } = await supabase
-      .from("users")
-      .select("credits_balance")
-      .eq("id", user.id)
-      .single();
 
-    setBalance(data?.credits_balance ?? 0);
+    setIsLoading(true);
+
+    const [{ data: profile }, { data: batches }] = await Promise.all([
+      supabase
+        .from("users")
+        .select("credits_balance, active_plan")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("credit_batches")
+        .select("credits_remaining, expires_at")
+        .eq("user_id", user.id)
+        .gt("credits_remaining", 0)
+        .not("expires_at", "is", null)
+        .gte("expires_at", new Date().toISOString())
+        .order("expires_at", { ascending: true })
+        .limit(1),
+    ]);
+
+    setBalance(profile?.credits_balance ?? 0);
+    setActivePlan(profile?.active_plan ?? "free");
+
+    const batch = batches?.[0];
+    if (batch?.expires_at) {
+      setNearestExpiry({
+        credits: batch.credits_remaining ?? 0,
+        daysLeft: getDaysLeft(batch.expires_at),
+      });
+    } else {
+      setNearestExpiry(null);
+    }
+
     setIsLoading(false);
   }, [user]);
 
-  /* ── Initial load ── */
   useEffect(() => {
-    fetchBalance();
-  }, [fetchBalance]);
+    void refresh();
+  }, [refresh]);
 
-  /* ── Realtime subscription on users row ── */
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel(`credits-${user.id}`)
+    const userChannel = supabase
+      .channel(`credits-users-${user.id}`)
       .on(
         "postgres_changes",
         {
@@ -63,26 +86,42 @@ export function useCredits(): UseCreditsReturn {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          const newCredits = (payload.new as { credits_balance?: number })?.credits_balance;
-          if (typeof newCredits === "number") {
-            setBalance(newCredits);
-          }
-        }
+          const next = payload.new as { credits_balance?: number; active_plan?: string };
+          if (typeof next.credits_balance === "number") setBalance(next.credits_balance);
+          if (typeof next.active_plan === "string") setActivePlan(next.active_plan);
+        },
+      )
+      .subscribe();
+
+    const batchChannel = supabase
+      .channel(`credits-batches-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "credit_batches",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void refresh();
+        },
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(userChannel);
+      void supabase.removeChannel(batchChannel);
     };
-  }, [user]);
+  }, [refresh, user]);
 
   return {
     balance,
     isLoading,
-    // nearestExpiry requires credit_batches table — not yet in schema
-    nearestExpiry: null,
+    nearestExpiry,
     isLow: balance > 0 && balance <= 3,
     isEmpty: balance === 0,
-    refresh: fetchBalance,
+    activePlan,
+    refresh,
   };
 }

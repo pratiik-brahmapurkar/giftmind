@@ -1,29 +1,86 @@
-/**
- * usePlanLimits
- *
- * Thin extension layer on top of the existing useUserPlan hook.
- * Adds helper functions for feature-gating checks and upgrade routing.
- *
- * NOTE: useUserPlan already handles plan detection, limit values, and
- * isLoaded state. This hook re-exports those plus the helper functions
- * so callers have a single import point.
- */
-import { useUserPlan, type PlanKey, type PlanLimits, PLAN_CONFIG } from "@/hooks/useUserPlan";
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
+export type PlanKey = "free" | "starter" | "popular" | "pro";
 export type StoresLevel = "basic" | "standard" | "all";
+
+export interface PlanLimits {
+  recipients: number;
+  regenerations: number;
+  reminders: number;
+  hasSignalCheck: boolean;
+  hasBatchMode: boolean;
+  hasPriorityAi: boolean;
+  hasHistoryExport: boolean;
+  storeAccess: string[];
+  label: string;
+}
+
+export const PLAN_CONFIG: Record<PlanKey, PlanLimits> = {
+  free: {
+    recipients: 1,
+    regenerations: 1,
+    reminders: 0,
+    hasSignalCheck: false,
+    hasBatchMode: false,
+    hasPriorityAi: false,
+    hasHistoryExport: false,
+    storeAccess: ["amazon"],
+    label: "Free",
+  },
+  starter: {
+    recipients: 5,
+    regenerations: 2,
+    reminders: 0,
+    hasSignalCheck: false,
+    hasBatchMode: false,
+    hasPriorityAi: false,
+    hasHistoryExport: false,
+    storeAccess: ["amazon", "flipkart"],
+    label: "Starter",
+  },
+  popular: {
+    recipients: 15,
+    regenerations: 3,
+    reminders: 3,
+    hasSignalCheck: true,
+    hasBatchMode: true,
+    hasPriorityAi: false,
+    hasHistoryExport: false,
+    storeAccess: ["amazon", "flipkart", "myntra", "etsy", "others"],
+    label: "Popular",
+  },
+  pro: {
+    recipients: Number.POSITIVE_INFINITY,
+    regenerations: Number.POSITIVE_INFINITY,
+    reminders: Number.POSITIVE_INFINITY,
+    hasSignalCheck: true,
+    hasBatchMode: true,
+    hasPriorityAi: true,
+    hasHistoryExport: true,
+    storeAccess: ["amazon", "flipkart", "myntra", "etsy", "others"],
+    label: "Pro",
+  },
+};
+
+function normalizePlan(plan?: string | null): PlanKey {
+  if (plan === "starter" || plan === "popular" || plan === "pro") return plan;
+  return "free";
+}
 
 export interface ExtendedPlanLimits {
   plan: PlanKey;
-  maxRecipients: number;           // -1 = unlimited (maps from Infinity)
-  maxRegenerations: number;        // -1 = unlimited
-  maxReminders: number;            // -1 = unlimited
+  limits: PlanLimits;
+  isLoading: boolean;
+  maxRecipients: number;
+  maxRegenerations: number;
+  maxReminders: number;
   storesLevel: StoresLevel;
   hasSignalCheck: boolean;
   hasBatchMode: boolean;
   hasPriorityAi: boolean;
   hasHistoryExport: boolean;
-  isLoading: boolean;
-  // Helpers
   canAddRecipient: (currentCount: number) => boolean;
   canRegenerate: (currentRegenCount: number) => boolean;
   canUseSignalCheck: () => boolean;
@@ -32,74 +89,82 @@ export interface ExtendedPlanLimits {
   getUpgradePlan: (feature: string) => PlanKey;
 }
 
-/* ── Map PlanLimits → ExtendedPlanLimits ─────────────────────────────────── */
-function toExtended(plan: PlanKey, raw: PlanLimits): Omit<ExtendedPlanLimits, "plan" | "isLoading"> {
-  // Map Infinity → -1 for clean consumption
-  const maxRecipients = raw.recipients === Infinity ? -1 : raw.recipients;
-  const maxRegenerations = raw.regenerations === Infinity ? -1 : raw.regenerations;
-  const maxReminders = raw.reminders === Infinity ? -1 : raw.reminders;
+export function usePlanLimits(): ExtendedPlanLimits {
+  const { user } = useAuth();
+  const [plan, setPlan] = useState<PlanKey>("free");
+  const [isLoading, setIsLoading] = useState(true);
 
-  // storesLevel based on how many stores the plan unlocks
-  const storeCount = raw.storeAccess.length;
-  const storesLevel: StoresLevel = storeCount <= 1 ? "basic" : storeCount <= 2 ? "standard" : "all";
+  useEffect(() => {
+    let isMounted = true;
 
-  return {
-    maxRecipients,
-    maxRegenerations,
-    maxReminders,
-    storesLevel,
-    hasSignalCheck: raw.hasSignalCheck,
-    hasBatchMode: raw.hasBatchMode,
-    hasPriorityAi: plan === "pro",
-    hasHistoryExport: raw.hasExport,
+    async function loadPlan() {
+      if (!user) {
+        if (isMounted) {
+          setPlan("free");
+          setIsLoading(false);
+        }
+        return;
+      }
 
-    canAddRecipient: (currentCount: number) => {
-      if (maxRecipients === -1) return true;
-      return currentCount < maxRecipients;
-    },
+      const { data } = await supabase
+        .from("users")
+        .select("active_plan")
+        .eq("id", user.id)
+        .single();
 
-    canRegenerate: (currentRegenCount: number) => {
-      if (maxRegenerations === -1) return true;
-      return currentRegenCount < maxRegenerations;
-    },
+      if (isMounted) {
+        setPlan(normalizePlan(data?.active_plan));
+        setIsLoading(false);
+      }
+    }
 
-    canUseSignalCheck: () => raw.hasSignalCheck,
-    canUseBatchMode: () => raw.hasBatchMode,
+    void loadPlan();
 
-    getStoreLimit: () => {
-      if (storesLevel === "basic") return 1;
-      if (storesLevel === "standard") return 2;
-      return 99;
-    },
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
-    getUpgradePlan: (feature: string): PlanKey => {
-      const featurePlanMap: Record<string, PlanKey> = {
+  const limits = PLAN_CONFIG[plan];
+
+  return useMemo(() => {
+    const storesLevel: StoresLevel =
+      limits.storeAccess.length <= 1 ? "basic" : limits.storeAccess.length <= 2 ? "standard" : "all";
+
+    const getUpgradePlan = (feature: string): PlanKey => {
+      const featureMap: Record<string, PlanKey> = {
         signal_check: "popular",
         batch_mode: "popular",
         more_recipients: plan === "free" ? "starter" : "popular",
-        more_stores: plan === "free" ? "starter" : "popular",
         more_regenerations: plan === "free" ? "starter" : "popular",
+        more_stores: plan === "free" ? "starter" : "popular",
         priority_ai: "pro",
-        history_export: "pro",
-        reminders: "popular",
+        export: "pro",
       };
-      return featurePlanMap[feature] ?? "popular";
-    },
-  };
+
+      return featureMap[feature] ?? "popular";
+    };
+
+    return {
+      plan,
+      limits,
+      isLoading,
+      maxRecipients: Number.isFinite(limits.recipients) ? limits.recipients : -1,
+      maxRegenerations: Number.isFinite(limits.regenerations) ? limits.regenerations : -1,
+      maxReminders: Number.isFinite(limits.reminders) ? limits.reminders : -1,
+      storesLevel,
+      hasSignalCheck: limits.hasSignalCheck,
+      hasBatchMode: limits.hasBatchMode,
+      hasPriorityAi: limits.hasPriorityAi,
+      hasHistoryExport: limits.hasHistoryExport,
+      canAddRecipient: (currentCount: number) =>
+        !Number.isFinite(limits.recipients) || currentCount < limits.recipients,
+      canRegenerate: (currentRegenCount: number) =>
+        !Number.isFinite(limits.regenerations) || currentRegenCount < limits.regenerations,
+      canUseSignalCheck: () => limits.hasSignalCheck,
+      canUseBatchMode: () => limits.hasBatchMode,
+      getStoreLimit: () => limits.storeAccess.length,
+      getUpgradePlan,
+    };
+  }, [isLoading, limits, plan]);
 }
-
-/* ── Hook ─────────────────────────────────────────────────────────────────── */
-export function usePlanLimits(): ExtendedPlanLimits {
-  const { plan, limits, isLoaded } = useUserPlan();
-  const extended = toExtended(plan, limits);
-
-  return {
-    plan,
-    isLoading: !isLoaded,
-    ...extended,
-  };
-}
-
-/* ── Re-export plan config for any component that needs raw values ─────────── */
-export { PLAN_CONFIG };
-export type { PlanKey, PlanLimits };

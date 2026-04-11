@@ -1,58 +1,67 @@
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { getReadTimeMinutes } from "@/lib/blog";
+import { cn } from "@/lib/utils";
 
 interface BlogPostCardProps {
   slug: string;
   title: string;
   excerpt: string | null;
-  featured_image: string | null;
-  category_name?: string;
-  category_slug?: string;
-  published_at: string | null;
+  featuredImageUrl: string | null;
+  featuredImageAlt?: string | null;
+  categoryName?: string | null;
+  publishedAt: string | null;
   content: string | null;
-  author_name?: string;
+  className?: string;
 }
 
-function estimateReadTime(content: string): number {
-  return Math.max(1, Math.round((content || "").trim().split(/\s+/).filter(Boolean).length / 200));
-}
-
-export default function BlogPostCard({ slug, title, excerpt, featured_image, category_name, published_at, content, author_name }: BlogPostCardProps) {
-  const readTime = estimateReadTime(content || "");
+export default function BlogPostCard({
+  slug,
+  title,
+  excerpt,
+  featuredImageUrl,
+  featuredImageAlt,
+  categoryName,
+  publishedAt,
+  content,
+  className,
+}: BlogPostCardProps) {
+  const readTime = getReadTimeMinutes(content);
 
   return (
-    <Link to={`/blog/${slug}`} className="group block">
-      <div className="rounded-lg border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-        <div className="relative overflow-hidden aspect-video">
-          {featured_image ? (
-            <img
-              src={featured_image}
-              alt={title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              loading="lazy"
-              decoding="async"
-              width={1200}
-              height={675}
-            />
-          ) : (
-            <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground text-sm">No image</div>
-          )}
-          {category_name && (
-            <span className="absolute top-3 left-3 bg-primary text-primary-foreground text-xs font-medium px-2.5 py-0.5 rounded-full">
-              {category_name}
-            </span>
-          )}
-        </div>
-        <div className="p-4">
-          <h3 className="font-bold text-lg leading-tight line-clamp-2 mb-1.5">{title}</h3>
-          {excerpt && <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{excerpt}</p>}
-          <div className="flex items-center text-xs text-muted-foreground gap-1">
-            <span>{author_name || "GiftMind"}</span>
-            <span>·</span>
-            <span>{published_at ? format(new Date(published_at), "MMM dd, yyyy") : "Draft"}</span>
-            <span>·</span>
-            <span>{readTime} min read</span>
+    <Link
+      to={`/blog/${slug}`}
+      className={cn(
+        "group block overflow-hidden rounded-[26px] border border-slate-200/70 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
+        className,
+      )}
+    >
+      <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
+        {featuredImageUrl ? (
+          <img
+            src={featuredImageUrl}
+            alt={featuredImageAlt || title}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.14),rgba(255,255,255,1)_55%)] px-8 text-center text-sm text-slate-500">
+            No featured image
           </div>
+        )}
+        {categoryName && (
+          <span className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
+            {categoryName}
+          </span>
+        )}
+      </div>
+      <div className="space-y-3 p-5">
+        <h3 className="line-clamp-2 text-lg font-semibold leading-tight text-slate-950">{title}</h3>
+        {excerpt && (
+          <p className="line-clamp-3 text-sm leading-6 text-slate-600">{excerpt}</p>
+        )}
+        <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+          {publishedAt ? format(new Date(publishedAt), "MMM d, yyyy") : "Draft"} · {readTime} min read
         </div>
       </div>
     </Link>

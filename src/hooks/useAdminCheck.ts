@@ -17,13 +17,12 @@ export function useAdminCheck() {
 
     const check = async () => {
       const { data, error } = await supabase
-        .from("user_roles")
+        .from("users")
         .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "superadmin")
+        .eq("id", user.id)
         .maybeSingle();
 
-      setIsAdmin(!error && !!data);
+      setIsAdmin(!error && !!data && ["admin", "superadmin"].includes(data.role));
       setLoading(false);
     };
 

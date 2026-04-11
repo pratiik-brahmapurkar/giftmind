@@ -1,433 +1,335 @@
-import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Gift } from "lucide-react";
-import PricingCards from "@/components/pricing/PricingCards";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, Coins, Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import GiftFlowStepper from "@/components/gift-flow/GiftFlowStepper";
-import StepRecipient from "@/components/gift-flow/StepRecipient";
-import StepOccasion from "@/components/gift-flow/StepOccasion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { detectUserCountry, detectUserCurrency } from "@/lib/geoConfig";
+import { useGiftSession, type Recipient } from "@/hooks/useGiftSession";
+import NoCreditGate from "@/components/gift-flow/NoCreditGate";
 import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
+import StepOccasion from "@/components/gift-flow/StepOccasion";
+import StepProgress from "@/components/gift-flow/StepProgress";
+import StepRecipient from "@/components/gift-flow/StepRecipient";
 import StepResults from "@/components/gift-flow/StepResults";
-import { defaultGiftFlowState, detectCurrencyFromLocale, detectUserCountry, type GiftFlowState } from "@/components/gift-flow/constants";
-import { useGiftSession } from "@/hooks/useGiftSession";
-import type { SignalCheckContext } from "@/hooks/useGiftSession";
-import { useUserPlan } from "@/hooks/useUserPlan";
-import { useCredits } from "@/hooks/useCredits";
-import { usePlanLimits } from "@/hooks/usePlanLimits";
-import { SEOHead } from "@/components/common/SEOHead";
-import { trackEvent } from "@/lib/posthog";
-import { sanitizeArray, sanitizeString } from "@/lib/validation";
 
-const slideVariants = {
-  enter: (dir: number) => ({ x: dir > 0 ? 200 : -200, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (dir: number) => ({ x: dir > 0 ? -200 : 200, opacity: 0 }),
-};
-
-const GiftFlow = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+export default function GiftFlow() {
+  const { user, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
-  const { plan } = useUserPlan();
-
-  const [step, setStep] = useState(0);
-  const [dir, setDir] = useState(1);
-  const [flow, setFlow] = useState<GiftFlowState>(() => {
-    const occasion = searchParams.get("occasion") || "";
-    const recipientId = searchParams.get("recipient") || null;
-    const detectedCurrency = detectCurrencyFromLocale();
-    const detectedCountry = detectUserCountry();
-    return {
-      ...defaultGiftFlowState,
-      occasion,
-      recipientId,
-      currency: detectedCurrency,
-      recipientCountry: detectedCountry,
-    };
-  });
-
   const giftSession = useGiftSession();
 
-  // Realtime credit awareness — isEmpty triggers the no-credits gate
-  const { isEmpty: noCredits, isLoading: creditsLoading, balance: creditsBalance, refresh: refreshCredits } = useCredits();
-  const planLimits = usePlanLimits();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [direction, setDirection] = useState(1);
+  const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null);
+  const [recipientCountry, setRecipientCountry] = useState<string | null>(null);
+  const [isCrossBorder, setIsCrossBorder] = useState(false);
+  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
+  const [occasionDate, setOccasionDate] = useState<string | null>(null);
+  const [budgetMin, setBudgetMin] = useState<number | null>(null);
+  const [budgetMax, setBudgetMax] = useState<number | null>(null);
+  const [currency, setCurrency] = useState(detectUserCurrency());
+  const [specialContext, setSpecialContext] = useState("");
+  const [contextTags, setContextTags] = useState<string[]>([]);
+  const [userPlan, setUserPlan] = useState("free");
+  const [creditsBalance, setCreditsBalance] = useState(0);
+  const [userCountry, setUserCountry] = useState(detectUserCountry());
+  const [isCheckingCredits, setIsCheckingCredits] = useState(true);
 
-  // Fetch full recipient object (all fields needed for AI prompt)
-  const { data: selectedRecipient } = useQuery({
-    queryKey: ["recipient-full", flow.recipientId],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const hasGeneratedRef = useRef(false);
+  const previousSnapshotRef = useRef("");
+
+  const refreshProfile = async () => {
+    if (!user) {
+      setCreditsBalance(0);
+      setUserPlan("free");
+      setCurrency(detectUserCurrency());
+      setUserCountry(detectUserCountry());
+      setIsCheckingCredits(false);
+      return;
+    }
+
+    setIsCheckingCredits(true);
+
+    const { data } = await supabase
+      .from("users")
+      .select("credits_balance, active_plan, country, currency_preference")
+      .eq("id", user.id)
+      .single();
+
+    setCreditsBalance(data?.credits_balance ?? 0);
+    setUserPlan(data?.active_plan ?? "free");
+    setCurrency(data?.currency_preference || detectUserCurrency());
+    setUserCountry(data?.country || detectUserCountry());
+    setIsCheckingCredits(false);
+  };
+
+  useEffect(() => {
+    if (authLoading) return;
+    void refreshProfile();
+  }, [authLoading, user]);
+
+  useEffect(() => {
+    const recipientId = searchParams.get("recipient");
+    const occasion = searchParams.get("occasion");
+    if (occasion) {
+      setSelectedOccasion(occasion);
+    }
+    if (!recipientId || !user) return;
+
+    async function preloadRecipient() {
+      const { data } = await supabase
         .from("recipients")
-        .select(
-          "id, name, relationship_type, relationship_depth, age_range, gender, interests, cultural_context, country, notes"
-        )
-        .eq("id", flow.recipientId!)
+        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes")
+        .eq("id", recipientId)
+        .eq("user_id", user.id)
         .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!flow.recipientId,
-  });
 
-  const { data: profile } = useQuery({
-    queryKey: ["profile", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("users").select("country").eq("id", user!.id).single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+      if (!data) return;
 
-  // Build signal check context from the current flow + recipient
-  const signalCheckContext: SignalCheckContext | null = selectedRecipient
-    ? {
-        recipientName: (selectedRecipient as any).name,
-        recipientRelationship: (selectedRecipient as any).relationship_type,
-        recipientRelationshipDepth: (selectedRecipient as any).relationship_depth,
-        occasion: flow.occasion,
-        relationshipStage: (selectedRecipient as any).relationship_depth,
-        currency: flow.currency,
-      }
-    : null;
-
-  // Browser back button → go to previous step instead of leaving the flow
-  useEffect(() => {
-    const handlePop = () => {
-      setDir(-1);
-      setStep((s) => Math.max(s - 1, 0));
-    };
-    window.addEventListener("popstate", handlePop);
-    return () => window.removeEventListener("popstate", handlePop);
-  }, []);
-
-  useEffect(() => {
-    if (step === 0) {
-      trackEvent('gift_flow_started', { occasion: null });
-    }
-  }, [step]);
-
-  const handleSignalCheck = async (gift: any) => {
-    trackEvent('signal_check_used', { gift_name: gift.name, plan: plan });
-    if (!planLimits.canUseSignalCheck()) return;
-    if (!signalCheckContext) return;
-    await giftSession.handleSignalCheck(gift, signalCheckContext, refreshCredits);
-  };
-
-
-  const update = <K extends keyof GiftFlowState>(key: K, val: GiftFlowState[K]) =>
-    setFlow((p) => ({ ...p, [key]: val }));
-
-  const cleanContextTags = sanitizeArray(flow.contextTags, 10);
-  const cleanExtraNotes = sanitizeString(flow.extraNotes, 300);
-
-  const stepNames = ['recipient', 'occasion', 'budget', 'context', 'results'];
-  const goNext = () => {
-    window.history.pushState({ step: step + 1 }, '');
-    trackEvent('gift_flow_step', { step: step + 1, step_name: stepNames[step] });
-    setDir(1);
-    setStep((s) => Math.min(s + 1, 4));
-  };
-  const goBack = () => { setDir(-1); setStep((s) => Math.max(s - 1, 0)); };
-
-  const canProceed = () => {
-    if (step === 0) return !!flow.recipientId;
-    if (step === 1) return !!flow.occasion;
-    if (step === 2) return flow.budgetMax > flow.budgetMin;
-    return true;
-  };
-
-  // Create the DB session row, then trigger AI generation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase
-        .from("gift_sessions")
-        .insert({
-          user_id: user!.id,
-          recipient_id: flow.recipientId,
-          occasion: flow.occasion,
-          occasion_date: flow.occasionDate || null,
-          budget_min: flow.budgetMin,
-          budget_max: flow.budgetMax,
-          currency: flow.currency,
-          context_tags: cleanContextTags,
-          extra_notes: cleanExtraNotes || null,
-          recipient_country: flow.recipientCountry || null,
-          status: "active",
-        } as any)
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: async (data) => {
-      const sessionId = data.id;
-      giftSession.setSessionId(sessionId);
-
-      // Now we have a session + recipient — fire the AI
-      if (selectedRecipient) {
-        try {
-          await giftSession.generateGifts({
-            recipient: {
-              name: (selectedRecipient as any).name,
-              relationship_type: (selectedRecipient as any).relationship_type,
-              relationship_depth: (selectedRecipient as any).relationship_depth,
-              age_range: (selectedRecipient as any).age_range,
-              gender: (selectedRecipient as any).gender,
-              interests: (selectedRecipient as any).interests,
-              cultural_context: (selectedRecipient as any).cultural_context,
-              country: (selectedRecipient as any).country,
-              notes: (selectedRecipient as any).notes,
-            },
-            occasion: flow.occasion,
-            occasionDate: flow.occasionDate || null,
-            budgetMin: flow.budgetMin,
-            budgetMax: flow.budgetMax,
-            currency: flow.currency,
-            recipientCountry: flow.recipientCountry || null,
-            specialContext: cleanExtraNotes || null,
-            contextTags: cleanContextTags,
-            userPlan: plan,
-            sessionId,
-          });
-        } catch {
-          // Error is stored in giftSession.error — StepResults will show retry UI
-        }
-      }
-    },
-    onError: () => toast.error("Failed to save session"),
-  });
-
-  const handleProceedToResults = () => {
-    goNext();
-    // Only create session once
-    if (!giftSession.sessionId) {
-      saveMutation.mutate();
-    }
-  };
-
-  const handleChooseGift = async (gift: any, index: number) => {
-    trackEvent('gift_selected', {
-      gift_name: gift.name,
-      confidence_score: gift.confidence_score,
-      occasion: flow.occasion
-    });
-    // selectGift handles the DB update (chosen_gift, selected_gift_name, selected_gift_index, status)
-    // and fires the referral credit award — no duplicate update needed here
-    await giftSession.selectGift(index, gift);
-    toast.success("Great choice! 🎉");
-  };
-
-  const handleRegenerate = async () => {
-    if (!selectedRecipient || !giftSession.sessionId) return;
-    trackEvent('gift_regenerated', { regen_count: giftSession.regenerationCount + 1 });
-    try {
-      await giftSession.regenerate({
-        recipient: {
-          name: (selectedRecipient as any).name,
-          relationship_type: (selectedRecipient as any).relationship_type,
-          relationship_depth: (selectedRecipient as any).relationship_depth,
-          age_range: (selectedRecipient as any).age_range,
-          gender: (selectedRecipient as any).gender,
-          interests: (selectedRecipient as any).interests,
-          cultural_context: (selectedRecipient as any).cultural_context,
-          country: (selectedRecipient as any).country,
-          notes: (selectedRecipient as any).notes,
-        },
-        occasion: flow.occasion,
-        occasionDate: flow.occasionDate || null,
-        budgetMin: flow.budgetMin,
-        budgetMax: flow.budgetMax,
-        currency: flow.currency,
-        recipientCountry: flow.recipientCountry || null,
-        specialContext: cleanExtraNotes || null,
-        contextTags: cleanContextTags,
-        userPlan: plan,
-        sessionId: giftSession.sessionId,
+      setSelectedRecipient({
+        id: data.id,
+        name: data.name,
+        relationship: data.relationship ?? "",
+        relationship_depth: data.relationship_depth ?? "",
+        age_range: data.age_range ?? "",
+        gender: data.gender ?? "",
+        interests: data.interests ?? [],
+        cultural_context: data.cultural_context ?? "",
+        country: data.country,
+        notes: data.notes ?? "",
       });
-    } catch {
-      // Error shown in StepResults
+      setRecipientCountry(data.country);
+      setIsCrossBorder(Boolean(data.country));
     }
+
+    void preloadRecipient();
+  }, [searchParams, user]);
+
+  const generationParams = useMemo(() => {
+    if (!selectedRecipient || !selectedOccasion || budgetMin == null || budgetMax == null) return null;
+
+    return {
+      recipient: selectedRecipient,
+      occasion: selectedOccasion,
+      occasionDate,
+      budgetMin,
+      budgetMax,
+      currency,
+      recipientCountry,
+      userCountry,
+      specialContext,
+      contextTags,
+      userPlan,
+    };
+  }, [
+    budgetMax,
+    budgetMin,
+    contextTags,
+    currency,
+    occasionDate,
+    recipientCountry,
+    selectedOccasion,
+    selectedRecipient,
+    specialContext,
+    userCountry,
+    userPlan,
+  ]);
+
+  const inputSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        selectedRecipientId: selectedRecipient?.id ?? null,
+        recipientCountry,
+        selectedOccasion,
+        occasionDate,
+        budgetMin,
+        budgetMax,
+        currency,
+        specialContext,
+        contextTags,
+      }),
+    [budgetMax, budgetMin, contextTags, currency, occasionDate, recipientCountry, selectedOccasion, selectedRecipient?.id, specialContext],
+  );
+
+  useEffect(() => {
+    if (!previousSnapshotRef.current) {
+      previousSnapshotRef.current = inputSnapshot;
+      return;
+    }
+
+    if (previousSnapshotRef.current !== inputSnapshot && hasGeneratedRef.current) {
+      hasGeneratedRef.current = false;
+      giftSession.resetSession();
+    }
+
+    previousSnapshotRef.current = inputSnapshot;
+  }, [giftSession, inputSnapshot]);
+
+  useEffect(() => {
+    if (currentStep !== 5 || !generationParams || hasGeneratedRef.current) return;
+
+    hasGeneratedRef.current = true;
+
+    void (async () => {
+      await giftSession.generateGifts(generationParams);
+      await refreshProfile();
+    })();
+  }, [currentStep, generationParams, giftSession]);
+
+  const goToStep = (nextStep: number) => {
+    if (nextStep > currentStep) {
+      if (currentStep === 1 && !selectedRecipient) {
+        toast.error("Select a recipient first");
+        return;
+      }
+      if (currentStep === 2 && !selectedOccasion) {
+        toast.error("Select an occasion first");
+        return;
+      }
+      if (currentStep === 3 && (budgetMin == null || budgetMax == null || budgetMax < budgetMin)) {
+        toast.error("Set a valid budget range");
+        return;
+      }
+    }
+
+    setDirection(nextStep > currentStep ? 1 : -1);
+    setCurrentStep(nextStep);
   };
 
-  // No credits overlay — only after balance has loaded
-  if (noCredits && !creditsLoading) {
-    return (
-      <DashboardLayout>
-        <SEOHead title="Find the Perfect Gift" description="AI-powered gift recommendations" noIndex={true} />
-        <div className="max-w-5xl mx-auto py-8 space-y-6">
-          <div className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <Gift className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-2xl font-heading font-bold text-foreground">
-              You've used all your free credits 🎁
-            </h2>
-            <p className="text-muted-foreground">
-              Get more credits to keep finding perfect gifts.
-            </p>
-          </div>
-          <PricingCards compact />
-          <div className="text-center">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-muted-foreground">
-              ← Go back to dashboard
-            </Button>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  const goBack = () => {
+    if (currentStep === 1) return;
+    setDirection(-1);
+    setCurrentStep((step) => Math.max(1, step - 1));
+  };
+
+  const stepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <StepRecipient
+            selectedRecipient={selectedRecipient}
+            onSelectRecipient={setSelectedRecipient}
+            recipientCountry={recipientCountry}
+            onRecipientCountryChange={setRecipientCountry}
+            isCrossBorder={isCrossBorder}
+            onCrossBorderChange={setIsCrossBorder}
+            onContinue={() => goToStep(2)}
+            userPlan={userPlan}
+          />
+        );
+      case 2:
+        return (
+          <StepOccasion
+            selectedOccasion={selectedOccasion}
+            onSelectOccasion={setSelectedOccasion}
+            occasionDate={occasionDate}
+            onOccasionDateChange={setOccasionDate}
+            targetCountry={recipientCountry || userCountry}
+            onContinue={() => goToStep(3)}
+            onBack={goBack}
+          />
+        );
+      case 3:
+        return (
+          <StepBudget
+            budgetMin={budgetMin}
+            budgetMax={budgetMax}
+            onBudgetChange={(min, max) => {
+              setBudgetMin(min);
+              setBudgetMax(max);
+            }}
+            currency={currency}
+            isCrossBorder={isCrossBorder}
+            recipientCountry={recipientCountry}
+            relationship={selectedRecipient?.relationship ?? null}
+            onContinue={() => goToStep(4)}
+            onBack={goBack}
+          />
+        );
+      case 4:
+        return (
+          <StepContext
+            specialContext={specialContext}
+            onSpecialContextChange={setSpecialContext}
+            contextTags={contextTags}
+            onContextTagsChange={setContextTags}
+            onContinue={() => goToStep(5)}
+            onSkip={() => goToStep(5)}
+            onBack={goBack}
+          />
+        );
+      case 5:
+        if (!selectedRecipient || !selectedOccasion || !generationParams) return null;
+        return (
+          <StepResults
+            giftSession={giftSession}
+            selectedRecipient={selectedRecipient}
+            selectedOccasion={selectedOccasion}
+            currency={currency}
+            recipientCountry={recipientCountry}
+            userPlan={userPlan}
+            onRegenerateParams={generationParams}
+            onCreditsChanged={() => {
+              void refreshProfile();
+            }}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <DashboardLayout>
-      <SEOHead title="Find the Perfect Gift" description="AI-powered gift recommendations" noIndex={true} />
-      <div className="max-w-2xl mx-auto pb-20 md:pb-0">
-        <div className="flex items-start justify-between">
-          <GiftFlowStepper currentStep={step} />
-          {!creditsLoading && (
-            <span className="shrink-0 text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1.5 flex items-center gap-1 mt-4 ml-2">
-              🪙 {creditsBalance} credit{creditsBalance !== 1 ? 's' : ''} remaining
-            </span>
-          )}
-        </div>
+      <div className="mx-auto w-full max-w-[720px] px-4 py-6 md:px-6 md:py-8">
+        {isCheckingCredits || authLoading ? (
+          <Card className="border-border/60">
+            <CardContent className="flex min-h-[300px] items-center justify-center gap-3 p-6 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading your gift flow...
+            </CardContent>
+          </Card>
+        ) : creditsBalance <= 0 ? (
+          <NoCreditGate />
+        ) : (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-3">
+              {currentStep > 1 ? (
+                <Button type="button" variant="ghost" className="px-0 text-muted-foreground hover:text-foreground" onClick={goBack}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+              ) : (
+                <div />
+              )}
 
-        <div className="mt-8 min-h-[400px]">
-          <AnimatePresence mode="wait" custom={dir}>
-            <motion.div
-              key={step}
-              custom={dir}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            >
-              {step === 0 && (
-                <StepRecipient
-                  selectedId={flow.recipientId}
-                  onSelect={(id) => update("recipientId", id)}
-                  recipientCountry={flow.recipientCountry}
-                  onRecipientCountryChange={(c) => update("recipientCountry", c)}
-                />
-              )}
-              {step === 1 && (
-                <StepOccasion
-                  selected={flow.occasion}
-                  onSelect={(v) => update("occasion", v)}
-                  occasionDate={flow.occasionDate}
-                  onDateChange={(v) => update("occasionDate", v)}
-                  targetCountry={
-                    (selectedRecipient as any)?.country && (selectedRecipient as any).country !== ""
-                      ? (selectedRecipient as any).country
-                      : (profile as any)?.country || detectUserCountry() || "US"
-                  }
-                />
-              )}
-              {step === 2 && (
-                <StepBudget
-                  min={flow.budgetMin}
-                  max={flow.budgetMax}
-                  currency={flow.currency}
-                  onMinChange={(v) => update("budgetMin", v)}
-                  onMaxChange={(v) => update("budgetMax", v)}
-                  onCurrencyChange={(v) => update("currency", v)}
-                  recipientRelationship={(selectedRecipient as any)?.relationship_type}
-                  recipientCountry={flow.recipientCountry}
-                />
-              )}
-              {step === 3 && (
-                <StepContext
-                  tags={flow.contextTags}
-                  onToggleTag={(tag) =>
-                    update(
-                      "contextTags",
-                      sanitizeArray(
-                        flow.contextTags.includes(tag)
-                          ? flow.contextTags.filter((t) => t !== tag)
-                          : [...flow.contextTags, sanitizeString(tag, 100)],
-                        10,
-                      )
-                    )
-                  }
-                  notes={flow.extraNotes}
-                  onNotesChange={(v) => update("extraNotes", sanitizeString(v, 300))}
-                  onSkip={handleProceedToResults}
-                />
-              )}
-              {step === 4 && (
-                <StepResults
-                  currency={flow.currency}
-                  recipientCountry={flow.recipientCountry}
-                  recipientName={(selectedRecipient as any)?.name ?? null}
-                  occasion={flow.occasion}
-                  sessionId={giftSession.sessionId}
-                  // Real AI data
-                  isGenerating={giftSession.isGenerating || saveMutation.isPending}
-                  isSearchingProducts={giftSession.isSearchingProducts}
-                  recommendations={giftSession.recommendations}
-                  productResults={giftSession.productResults}
-                  occasionInsight={giftSession.occasionInsight}
-                  budgetAssessment={giftSession.budgetAssessment}
-                  culturalNote={giftSession.culturalNote}
-                  error={giftSession.error}
-                  regenerationCount={giftSession.regenerationCount}
-                  // Signal Check
-                  signalCheckResults={giftSession.signalCheckResults}
-                  signalCheckLoading={giftSession.signalCheckLoading}
-                  signalCheckContext={signalCheckContext}
-                  onSignalCheck={handleSignalCheck}
-                  // Actions
-                  onRegenerate={handleRegenerate}
-                  onBack={goBack}
-                  onChoose={handleChooseGift}
-                  onTrackClick={(product) => {
-                    trackEvent('product_clicked', { 
-                      store: product.store_name, 
-                      gift_name: product.gift_name, 
-                      is_search_link: true,
-                      country: flow.recipientCountry 
-                    });
-                    giftSession.trackClick(product, giftSession.sessionId);
-                  }}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground">
+                <Coins className="h-4 w-4 text-primary" />
+                {creditsBalance} credits
+              </div>
+            </div>
 
-        {/* Navigation buttons (steps 0-3) */}
-        {step < 4 && (
-          <div className="flex items-center justify-between mt-8">
-            <Button
-              variant="ghost"
-              onClick={goBack}
-              disabled={step === 0}
-              className="text-muted-foreground"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" /> Back
-            </Button>
+            <StepProgress currentStep={currentStep} />
 
-            {step === 3 ? (
-              <Button variant="hero" onClick={handleProceedToResults}>
-                Get Recommendations <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            ) : (
-              <Button variant="hero" onClick={goNext} disabled={!canProceed()}>
-                Next <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            )}
+            <AnimatePresence initial={false} mode="wait">
+              <motion.div
+                key={currentStep}
+                initial={{ opacity: 0, x: direction > 0 ? 28 : -28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: direction > 0 ? -28 : 28 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {stepContent()}
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
       </div>
     </DashboardLayout>
   );
-};
-
-export default GiftFlow;
+}

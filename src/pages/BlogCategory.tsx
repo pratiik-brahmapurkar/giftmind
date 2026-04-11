@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,9 +70,10 @@ export default function BlogCategory() {
               slug={p.slug}
               title={p.title}
               excerpt={p.excerpt}
-              featured_image={p.featured_image}
-              category_name={(p.blog_categories as any)?.name}
-              published_at={p.published_at}
+              featuredImageUrl={p.featured_image_url}
+              featuredImageAlt={p.featured_image_alt}
+              categoryName={(p.blog_categories as any)?.name}
+              publishedAt={p.published_at}
               content={p.content}
             />
           ))}

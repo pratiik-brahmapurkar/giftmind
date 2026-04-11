@@ -1,43 +1,59 @@
-import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CONTEXT_TAGS } from "./constants";
+import { Textarea } from "@/components/ui/textarea";
+import { CONTEXT_TAGS } from "@/lib/geoConfig";
 import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
 
 interface StepContextProps {
-  tags: string[];
-  onToggleTag: (tag: string) => void;
-  notes: string;
-  onNotesChange: (val: string) => void;
-  onSkip?: () => void;
+  specialContext: string;
+  onSpecialContextChange: (text: string) => void;
+  contextTags: string[];
+  onContextTagsChange: (tags: string[]) => void;
+  onContinue: () => void;
+  onSkip: () => void;
+  onBack: () => void;
 }
 
-const StepContext = ({ tags, onToggleTag, notes, onNotesChange, onSkip }: StepContextProps) => {
+export default function StepContext({
+  specialContext,
+  onSpecialContextChange,
+  contextTags,
+  onContextTagsChange,
+  onContinue,
+  onSkip,
+  onBack,
+}: StepContextProps) {
+  const toggleTag = (id: string) => {
+    if (contextTags.includes(id)) {
+      onContextTagsChange(contextTags.filter((tag) => tag !== id));
+      return;
+    }
+    onContextTagsChange([...contextTags, id]);
+  };
+
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl md:text-2xl font-heading font-bold text-foreground">
-          Any special context?
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          This is optional but helps us find better matches
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Anything else we should know?</h1>
+        <p className="text-sm text-muted-foreground md:text-base">
+          Context is optional, but it helps the AI avoid generic ideas.
         </p>
       </div>
 
-      {/* Quick tags with emoji */}
       <div className="flex flex-wrap gap-2">
         {CONTEXT_TAGS.map((tag) => {
-          const isSelected = tags.includes(tag.label);
+          const isSelected = contextTags.includes(tag.id);
           return (
             <button
-              key={tag.label}
+              key={tag.id}
+              type="button"
               className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                "rounded-full border px-4 py-2 text-sm transition-colors",
                 isSelected
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-foreground border-border hover:border-primary/40"
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:border-primary/30",
               )}
-              onClick={() => onToggleTag(tag.label)}
+              onClick={() => toggleTag(tag.id)}
             >
               {tag.emoji} {tag.label}
             </button>
@@ -45,32 +61,28 @@ const StepContext = ({ tags, onToggleTag, notes, onNotesChange, onSkip }: StepCo
         })}
       </div>
 
-      {/* Textarea */}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">
-          Anything else that might help? (optional)
-        </label>
-        <div className="relative">
-          <Textarea
-            value={notes}
-            onChange={(e) => onNotesChange(e.target.value.slice(0, 300))}
-            placeholder="e.g., She just started painting, he's really into cricket, they're vegan..."
-            rows={3}
-            maxLength={300}
-          />
-          <span className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">
-            {notes.length}/300
-          </span>
-        </div>
+      <div className="space-y-2">
+        <Textarea
+          value={specialContext}
+          onChange={(event) => onSpecialContextChange(event.target.value.slice(0, 300))}
+          placeholder="Examples: they already own most gadgets, it needs to ship fast, I want this to feel personal but not romantic."
+          className="min-h-[140px]"
+        />
+        <p className="text-right text-xs text-muted-foreground">{specialContext.length}/300</p>
       </div>
 
-      {onSkip && (
-        <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground text-xs">
-          Skip this step <ArrowRight className="w-3 h-3 ml-1" />
+      <div className="flex flex-col gap-3">
+        <Button type="button" variant="outline" className="min-h-12" onClick={onSkip}>
+          Skip and get recommendations
         </Button>
-      )}
+        <Button type="button" variant="hero" size="lg" className="min-h-12" onClick={onContinue}>
+          Continue with context
+        </Button>
+        <Button type="button" variant="ghost" className="min-h-12" onClick={onBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+      </div>
     </div>
   );
-};
-
-export default StepContext;
+}

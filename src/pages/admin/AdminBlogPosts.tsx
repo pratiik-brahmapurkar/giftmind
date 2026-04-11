@@ -1,340 +1,530 @@
-import { SEOHead } from "@/components/common/SEOHead";
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
+import { Plus, Search, MoreHorizontal, ChevronLeft, ChevronRight, Eye, BarChart3, Copy, Archive, Trash2, PencilLine } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { SEOHead } from "@/components/common/SEOHead";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Search, Plus, MoreHorizontal, ChevronLeft, ChevronRight,
-  FileText, Eye, MousePointerClick,
-} from "lucide-react";
-import { format } from "date-fns";
-import { toast } from "sonner";
-import { sanitizeString } from "@/lib/validation";
+import { BLOG_STATUS_META, getBlogPostDisplayDate, getBlogPostStatusTitle } from "@/lib/blog";
+import { cn } from "@/lib/utils";
 
-type SortKey = "created_at" | "views" | "cta_clicks";
-const PAGE_SIZE = 25;
+const PER_PAGE = 20;
 
-const AdminBlogPosts = () => {
+type AdminBlogPostRow = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string;
+  status: string | null;
+  published_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  scheduled_at: string | null;
+  category_id: string | null;
+  view_count: number | null;
+  cta_click_count: number | null;
+  featured_image_url: string | null;
+  featured_image_alt: string | null;
+  tags: string[] | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  focus_keyword: string | null;
+  cta_type: string | null;
+  cta_text: string | null;
+  cta_url: string | null;
+  cta_occasion: string | null;
+  blog_categories: { name: string; slug: string } | null;
+};
+
+export default function AdminBlogPosts() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<SortKey>("created_at");
-  const [page, setPage] = useState(0);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [bulkAction, setBulkAction] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
+  const [deletePost, setDeletePost] = useState<AdminBlogPostRow | null>(null);
 
-  const { data: posts = [], isLoading } = useQuery({
-    queryKey: ["admin-blog-posts"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("blog_posts")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
+  const status = searchParams.get("status") || "all";
+  const category = searchParams.get("category") || "all";
+  const page = Number(searchParams.get("page") || "1");
+  const fromDate = searchParams.get("from") || "";
+  const toDate = searchParams.get("to") || "";
+  const highlightId = searchParams.get("highlight");
+
+  useEffect(() => {
+    setSearchInput(searchParams.get("search") || "");
+  }, [searchParams]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const current = searchParams.get("search") || "";
+      if (searchInput !== current) {
+        updateParams({ search: searchInput || null, page: "1" });
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchInput, searchParams]);
+
+  const updateParams = (updates: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (!value || value === "all") next.delete(key);
+      else next.set(key, value);
+    });
+    setSearchParams(next, { replace: true });
+  };
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["admin-blog-categories"],
+    queryKey: ["admin-blog-categories-filter"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("blog_categories")
-        .select("*")
+        .select("id, name, slug")
         .order("sort_order");
+
       if (error) throw error;
       return data || [];
     },
   });
 
-  const categoryMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    categories.forEach((c) => { m[c.id] = c.name; });
-    return m;
-  }, [categories]);
+  const { data: postResult, isLoading } = useQuery({
+    queryKey: ["admin-blog-posts", status, category, searchParams.get("search") || "", page, fromDate, toDate],
+    queryFn: async () => {
+      let query = supabase
+        .from("blog_posts")
+        .select(
+          `id, title, slug, excerpt, content, status, published_at, created_at, updated_at, scheduled_at,
+           category_id, view_count, cta_click_count, featured_image_url, featured_image_alt, tags,
+           meta_title, meta_description, focus_keyword, cta_type, cta_text, cta_url, cta_occasion,
+           blog_categories(name, slug)`,
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .range((page - 1) * PER_PAGE, page * PER_PAGE - 1);
 
-  const stats = useMemo(() => ({
-    published: posts.filter((p) => p.status === "published").length,
-    drafts: posts.filter((p) => p.status === "draft").length,
-    scheduled: posts.filter((p) => p.status === "scheduled").length,
-    totalViews: posts.reduce((s, p) => s + (p.views || 0), 0),
-  }), [posts]);
+      if (status !== "all") query = query.eq("status", status);
+      if (category !== "all") query = query.eq("category_id", category);
+      if (searchParams.get("search")) query = query.ilike("title", `%${searchParams.get("search")}%`);
+      if (fromDate) query = query.gte("created_at", `${fromDate}T00:00:00`);
+      if (toDate) query = query.lte("created_at", `${toDate}T23:59:59`);
 
-  const filtered = useMemo(() => {
-    let list = posts;
-    if (statusFilter !== "all") list = list.filter((p) => p.status === statusFilter);
-    if (categoryFilter !== "all") list = list.filter((p) => p.category_id === categoryFilter);
-    const cleanSearch = sanitizeString(search, 200).toLowerCase();
-    if (cleanSearch) {
-      const q = cleanSearch;
-      list = list.filter((p) =>
-        p.title.toLowerCase().includes(q) ||
-        (p.tags as string[] || []).some((t) => t.toLowerCase().includes(q))
+      const { data, count, error } = await query;
+      if (error) throw error;
+
+      return {
+        posts: (data as unknown as AdminBlogPostRow[]) || [],
+        count: count || 0,
+      };
+    },
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["admin-blog-stats"],
+    queryFn: async () => {
+      const statuses = ["published", "draft", "scheduled", "archived"];
+      const counts = await Promise.all(
+        statuses.map(async (item) => {
+          const { count, error } = await supabase
+            .from("blog_posts")
+            .select("id", { count: "exact", head: true })
+            .eq("status", item);
+
+          if (error) throw error;
+          return [item, count || 0] as const;
+        }),
       );
+
+      return Object.fromEntries(counts) as Record<string, number>;
+    },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (post: AdminBlogPostRow) => {
+      const { data, error } = await supabase
+        .from("blog_posts")
+        .insert({
+          title: `Copy of ${post.title}`,
+          slug: `copy-${post.slug}-${Date.now()}`,
+          excerpt: post.excerpt,
+          content: post.content,
+          category_id: post.category_id,
+          tags: post.tags,
+          featured_image_url: post.featured_image_url,
+          featured_image_alt: post.featured_image_alt,
+          cta_type: post.cta_type,
+          cta_text: post.cta_text,
+          cta_url: post.cta_url,
+          cta_occasion: post.cta_occasion,
+          meta_title: post.meta_title,
+          meta_description: post.meta_description,
+          focus_keyword: post.focus_keyword,
+          status: "draft",
+          author_id: user?.id || null,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Post duplicated as draft");
+      queryClient.invalidateQueries({ queryKey: ["admin-blog-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-blog-stats"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("blog_posts")
+        .update({ status: "archived" })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Post archived");
+      queryClient.invalidateQueries({ queryKey: ["admin-blog-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-blog-stats"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("blog_posts").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Post deleted");
+      setDeletePost(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-blog-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-blog-stats"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const posts = postResult?.posts || [];
+  const totalCount = postResult?.count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      updateParams({ page: String(totalPages) });
     }
-    list = [...list].sort((a, b) => {
-      if (sortBy === "views") return (b.views || 0) - (a.views || 0);
-      if (sortBy === "cta_clicks") return (b.cta_clicks || 0) - (a.cta_clicks || 0);
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-    return list;
-  }, [posts, statusFilter, categoryFilter, search, sortBy]);
+  }, [page, totalPages]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
-  const toggleSelect = (id: string) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setSelected(next);
-  };
-
-  const toggleAll = () => {
-    if (selected.size === paged.length) setSelected(new Set());
-    else setSelected(new Set(paged.map((p) => p.id)));
-  };
-
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("blog_posts").delete().eq("id", id);
-    if (error) { toast.error("Failed to delete"); return; }
-    queryClient.invalidateQueries({ queryKey: ["admin-blog-posts"] });
-    toast.success("Post deleted");
-    setDeleteId(null);
-  };
-
-  const handleDuplicate = async (post: any) => {
-    const { error } = await supabase.from("blog_posts").insert({
-      title: `${post.title} (Copy)`,
-      slug: `${post.slug}-copy-${Date.now()}`,
-      content: post.content,
-      excerpt: post.excerpt,
-      category_id: post.category_id,
-      status: "draft" as const,
-      author_id: post.author_id,
-      tags: post.tags,
-      featured_image: post.featured_image,
-    });
-    if (error) { toast.error(error.message); return; }
-    queryClient.invalidateQueries({ queryKey: ["admin-blog-posts"] });
-    toast.success("Post duplicated as draft");
-  };
-
-  const handleArchive = async (id: string) => {
-    const { error } = await supabase.from("blog_posts").update({ status: "archived" as const }).eq("id", id);
-    if (error) { toast.error("Failed to archive"); return; }
-    queryClient.invalidateQueries({ queryKey: ["admin-blog-posts"] });
-    toast.success("Post archived");
-  };
-
-  const handleBulkAction = async () => {
-    if (!bulkAction || selected.size === 0) return;
-    const ids = Array.from(selected);
-    if (bulkAction === "publish") {
-      await supabase.from("blog_posts").update({ status: "published" as const, published_at: new Date().toISOString() }).in("id", ids);
-    } else if (bulkAction === "archive") {
-      await supabase.from("blog_posts").update({ status: "archived" as const }).in("id", ids);
-    } else if (bulkAction === "delete") {
-      await supabase.from("blog_posts").delete().in("id", ids);
-    }
-    queryClient.invalidateQueries({ queryKey: ["admin-blog-posts"] });
-    setSelected(new Set());
-    setBulkAction(null);
-    toast.success(`${ids.length} posts updated`);
-  };
-
-  const statusDot = (status: string) => {
-    const colors: Record<string, string> = {
-      published: "bg-green-500", scheduled: "bg-amber-500",
-      draft: "bg-gray-400", archived: "bg-red-400",
-    };
-    return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] || "bg-gray-400"}`} />;
-  };
+  const statsCards = useMemo(
+    () => [
+      { key: "published", label: "Published", count: stats?.published || 0 },
+      { key: "draft", label: "Drafts", count: stats?.draft || 0 },
+      { key: "scheduled", label: "Scheduled", count: stats?.scheduled || 0 },
+      { key: "archived", label: "Archived", count: stats?.archived || 0 },
+    ],
+    [stats],
+  );
 
   return (
     <div className="space-y-6">
-      <SEOHead title="Admin - GiftMind" description="Admin Dashboard" noIndex={true} />
-      <div className="flex items-center justify-between">
+      <SEOHead title="Blog Posts" description="Manage GiftMind blog posts" noIndex />
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-foreground">Blog Posts</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your blog content</p>
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary/70">Content Hub</p>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-950">Blog Posts</h1>
+          <p className="mt-1 text-sm text-slate-500">Manage drafts, publishing, schedules, and SEO performance from one place.</p>
         </div>
-        <Button onClick={() => navigate("/admin/blog/new")}>
-          <Plus className="w-4 h-4 mr-1.5" /> New Post
+        <Button className="h-11 rounded-full px-5" onClick={() => navigate("/admin/blog/new")}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Post
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Published", value: stats.published, icon: FileText, color: "text-green-500" },
-          { label: "Drafts", value: stats.drafts, icon: FileText, color: "text-muted-foreground" },
-          { label: "Scheduled", value: stats.scheduled, icon: FileText, color: "text-amber-500" },
-          { label: "Total Views", value: stats.totalViews.toLocaleString(), icon: Eye },
-        ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="pt-5 pb-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{s.label}</p>
-                <span className={`text-xl font-bold ${s.color || ""}`}>{s.value}</span>
+      <div className="grid gap-3 md:grid-cols-4">
+        {statsCards.map((item) => {
+          const meta = BLOG_STATUS_META[item.key as keyof typeof BLOG_STATUS_META];
+          const active = status === item.key;
+
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => updateParams({ status: active ? null : item.key, page: "1" })}
+              className={cn(
+                "rounded-[22px] border p-4 text-left transition-colors",
+                active ? meta.pillClass : "border-slate-200 bg-white hover:border-slate-300",
+              )}
+            >
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <span className={cn("h-2.5 w-2.5 rounded-full", meta.dotClass)} />
+                {item.label}
               </div>
-              <s.icon className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        ))}
+              <div className="mt-3 text-3xl font-semibold text-slate-950">{item.count}</div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search by title or tag..." value={search} onChange={(e) => { setSearch(sanitizeString(e.target.value, 200)); setPage(0); }} className="pl-9" />
-        </div>
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Category" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Sort" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="created_at">Newest</SelectItem>
-            <SelectItem value="views">Most Views</SelectItem>
-            <SelectItem value="cta_clicks">Most Clicks</SelectItem>
-          </SelectContent>
-        </Select>
-        {selected.size > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{selected.size} selected</span>
-            <Button size="sm" variant="outline" onClick={() => { setBulkAction("publish"); handleBulkAction(); }}>Publish</Button>
-            <Button size="sm" variant="outline" onClick={() => { setBulkAction("archive"); handleBulkAction(); }}>Archive</Button>
-            <Button size="sm" variant="destructive" onClick={() => { setBulkAction("delete"); handleBulkAction(); }}>Delete</Button>
+      <Card className="rounded-[26px] border-slate-200/80">
+        <CardContent className="space-y-4 p-5">
+          <div className="grid gap-3 xl:grid-cols-[1fr_180px_220px_170px_170px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search posts by title..."
+                className="h-11 rounded-full border-slate-200 pl-9"
+              />
+            </div>
+
+            <Select value={status} onValueChange={(value) => updateParams({ status: value, page: "1" })}>
+              <SelectTrigger className="h-11 rounded-full">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={category} onValueChange={(value) => updateParams({ category: value, page: "1" })}>
+              <SelectTrigger className="h-11 rounded-full">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Input
+              type="date"
+              value={fromDate}
+              onChange={(event) => updateParams({ from: event.target.value || null, page: "1" })}
+              className="h-11 rounded-full"
+            />
+
+            <Input
+              type="date"
+              value={toDate}
+              onChange={(event) => updateParams({ to: event.target.value || null, page: "1" })}
+              className="h-11 rounded-full"
+            />
           </div>
-        )}
-      </div>
 
-      {/* Table */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <Checkbox checked={paged.length > 0 && selected.size === paged.length} onCheckedChange={toggleAll} />
-              </TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead className="hidden md:table-cell">Category</TableHead>
-              <TableHead className="hidden sm:table-cell">Date</TableHead>
-              <TableHead className="text-right hidden md:table-cell">Views</TableHead>
-              <TableHead className="text-right hidden lg:table-cell">CTA Clicks</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">Loading...</TableCell></TableRow>
-            ) : paged.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">No posts found</TableCell></TableRow>
-            ) : paged.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell><Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} /></TableCell>
-                <TableCell>
-                  <button className="flex items-center gap-2 text-left hover:underline" onClick={() => navigate(`/admin/blog/new?edit=${p.id}`)}>
-                    {statusDot(p.status)}
-                    <span className="font-medium text-sm truncate max-w-[220px]">{p.title}</span>
-                  </button>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {p.category_id && categoryMap[p.category_id] ? (
-                    <Badge variant="outline">{categoryMap[p.category_id]}</Badge>
-                  ) : <span className="text-xs text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground hidden sm:table-cell">
-                  {p.status === "published" && p.published_at
-                    ? format(new Date(p.published_at), "MMM d, yyyy")
-                    : p.status === "scheduled" && p.scheduled_at
-                    ? `Scheduled: ${format(new Date(p.scheduled_at), "MMM d")}`
-                    : "Draft"}
-                </TableCell>
-                <TableCell className="text-right text-sm hidden md:table-cell">{p.views}</TableCell>
-                <TableCell className="text-right text-sm hidden lg:table-cell">{p.cta_clicks}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="w-8 h-8" aria-label="Open post actions"><MoreHorizontal className="w-4 h-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/admin/blog/new?edit=${p.id}`)}>Edit</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicate(p)}>Duplicate</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleArchive(p.id)}>Archive</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(p.id)}>Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          <div className="overflow-hidden rounded-[22px] border border-slate-200">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Views</TableHead>
+                  <TableHead className="text-right">CTA Clicks</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-14 text-center text-sm text-slate-500">
+                      Loading posts...
+                    </TableCell>
+                  </TableRow>
+                )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Page {page + 1} of {totalPages}</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}><ChevronLeft className="w-4 h-4" /></Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}><ChevronRight className="w-4 h-4" /></Button>
+                {!isLoading && posts.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-14 text-center text-sm text-slate-500">
+                      No posts match the current filters.
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {posts.map((post) => {
+                  const meta = BLOG_STATUS_META[(post.status || "draft") as keyof typeof BLOG_STATUS_META];
+                  const isPublished = post.status === "published";
+
+                  return (
+                    <TableRow
+                      key={post.id}
+                      className={cn(highlightId === post.id && "bg-primary/5")}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-2.5 w-2.5 rounded-full", meta.dotClass)} />
+                          <span className="text-sm text-slate-500">{meta.label}</span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <button
+                          type="button"
+                          className="max-w-[360px] text-left"
+                          onClick={() => navigate(`/admin/blog/edit/${post.id}`)}
+                        >
+                          <div className="font-medium text-slate-950">{getBlogPostStatusTitle(post)}</div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            /blog/{post.slug}
+                          </div>
+                        </button>
+                      </TableCell>
+
+                      <TableCell>
+                        {post.blog_categories?.name ? (
+                          <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 text-slate-700">
+                            {post.blog_categories.name}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-slate-400">Uncategorized</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-sm text-slate-500">
+                        {getBlogPostDisplayDate(post)}
+                        {post.status === "scheduled" && post.scheduled_at ? (
+                          <div className="text-xs text-slate-400">{format(new Date(post.scheduled_at), "p")}</div>
+                        ) : null}
+                      </TableCell>
+
+                      <TableCell className="text-right text-sm text-slate-700">
+                        {isPublished ? (post.view_count || 0).toLocaleString() : "—"}
+                      </TableCell>
+
+                      <TableCell className="text-right text-sm text-slate-700">
+                        {isPublished ? (post.cta_click_count || 0).toLocaleString() : "—"}
+                      </TableCell>
+
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem onClick={() => navigate(`/admin/blog/edit/${post.id}`)}>
+                              <PencilLine className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => window.open(`/blog/${post.slug}?preview=true`, "_blank", "noopener,noreferrer")}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Preview
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => duplicateMutation.mutate(post)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => archiveMutation.mutate(post.id)}>
+                              <Archive className="mr-2 h-4 w-4" />
+                              Archive
+                            </DropdownMenuItem>
+                            {isPublished && (
+                              <DropdownMenuItem onClick={() => navigate(`/admin/blog/analytics?highlight=${post.id}`)}>
+                                <BarChart3 className="mr-2 h-4 w-4" />
+                                View Analytics
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeletePost(post)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      )}
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+          <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-slate-500">
+              Page {page} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="rounded-full"
+                disabled={page <= 1}
+                onClick={() => updateParams({ page: String(page - 1) })}
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Prev
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-full"
+                disabled={page >= totalPages}
+                onClick={() => updateParams({ page: String(page + 1) })}
+              >
+                Next
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!deletePost} onOpenChange={(open) => !open && setDeletePost(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Post</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete this blog post. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Delete blog post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete &quot;{deletePost?.title}&quot;? This cannot be undone.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteId && handleDelete(deleteId)}>Delete</AlertDialogAction>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => deletePost && deleteMutation.mutate(deletePost.id)}
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
   );
-};
-
-export default AdminBlogPosts;
+}

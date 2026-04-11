@@ -41,13 +41,13 @@ interface SearchRequest {
 // Real column names from marketplace_config table
 interface MarketplaceStore {
   id: string;
+  store_id: string;
   store_name: string;
   domain: string;
-  country: string;               // NOT country_code — real column name
-  search_url_pattern: string | null; // NOT search_url — real column name
-  affiliate_tag: string | null;  // NOT affiliate_param — real column name
+  country_code: string;
+  search_url: string;
+  affiliate_param: string | null;
   brand_color: string | null;
-  logo_url: string | null;
   categories: string[] | null;
   priority: number | null;
   is_active: boolean | null;
@@ -58,7 +58,6 @@ interface ProductLink {
   store_name: string;
   domain: string;
   brand_color: string | null;
-  logo_url: string | null;
   search_url: string;
   is_search_link: true;
   gift_name: string;
@@ -101,27 +100,22 @@ const STORE_LIMITS: Record<string, number> = {
 // We append: <encoded_keyword>&tag=<affiliate_tag>  (for Amazon-style)
 // For non-Amazon stores the pattern may already be complete or use a different param.
 function buildSearchUrl(store: MarketplaceStore, keyword: string): string {
-  const basePattern = store.search_url_pattern;
-
-  if (!basePattern) {
-    // No pattern configured — fall back to a plain domain search
-    return `https://${store.domain}/search?q=${encodeURIComponent(keyword)}`;
-  }
+  const basePattern = store.search_url;
 
   const encoded = encodeURIComponent(keyword);
 
   // If the pattern already includes a placeholder token, replace it
   if (basePattern.includes("{keyword}")) {
     const withKeyword = basePattern.replace("{keyword}", encoded);
-    if (store.affiliate_tag) {
-      return `${withKeyword}&tag=${encodeURIComponent(store.affiliate_tag)}`;
+    if (store.affiliate_param) {
+      return `${withKeyword}${store.affiliate_param}`;
     }
     return withKeyword;
   }
 
   // Otherwise treat the pattern as a prefix (most common format: "https://...?k=")
-  if (store.affiliate_tag) {
-    return `${basePattern}${encoded}&tag=${encodeURIComponent(store.affiliate_tag)}`;
+  if (store.affiliate_param) {
+    return `${basePattern}${encoded}${store.affiliate_param}`;
   }
   return `${basePattern}${encoded}`;
 }
@@ -131,7 +125,7 @@ async function fetchStores(targetCountry: string): Promise<MarketplaceStore[]> {
   const { data: countryStores, error: countryError } = await supabaseAdmin
     .from("marketplace_config")
     .select("*")
-    .eq("country", targetCountry)        // column is "country", not "country_code"
+    .eq("country_code", targetCountry)
     .eq("is_active", true)
     .order("priority", { ascending: true });
 
@@ -145,7 +139,7 @@ async function fetchStores(targetCountry: string): Promise<MarketplaceStore[]> {
   const { data: globalStores, error: globalError } = await supabaseAdmin
     .from("marketplace_config")
     .select("*")
-    .eq("country", "GLOBAL")              // GLOBAL is the fallback sentinel
+    .eq("country_code", "GLOBAL")
     .eq("is_active", true)
     .order("priority", { ascending: true });
 
@@ -275,11 +269,10 @@ serve(async (req: Request): Promise<Response> => {
 
       // Build product links for accessible stores
       const products: ProductLink[] = accessibleStores.map((store): ProductLink => ({
-        store_id: store.id,           // "id" is the PK, not "store_id"
+        store_id: store.store_id,
         store_name: store.store_name,
         domain: store.domain,
         brand_color: store.brand_color,
-        logo_url: store.logo_url,
         search_url: buildSearchUrl(store, primaryKeyword),
         is_search_link: true,
         gift_name: concept.name,
@@ -290,7 +283,7 @@ serve(async (req: Request): Promise<Response> => {
       const locked_stores: LockedStore[] = lockedStoreSource
         .slice(0, 3)
         .map((store): LockedStore => ({
-          store_id: store.id,
+          store_id: store.store_id,
           store_name: store.store_name,
           brand_color: store.brand_color,
           is_locked: true,

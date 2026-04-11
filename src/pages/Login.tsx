@@ -24,9 +24,9 @@ const Login = () => {
   useEffect(() => {
     if (authLoading || !authUser) return;
     supabase
-      .from("profiles")
+      .from("users")
       .select("has_completed_onboarding")
-      .eq("user_id", authUser.id)
+      .eq("id", authUser.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data && !data.has_completed_onboarding) {

@@ -241,16 +241,20 @@ const AdminGiftAnalytics = () => {
       .slice(0, 10);
   }, [sessions]);
 
-  // Product clicks from chosen_gift
+  // Product clicks inferred from selected gift + results
   const productClicks = useMemo(() => {
     const storeCounts: Record<string, number> = {};
     const products: { title: string; store: string; clicks: number }[] = [];
     sessions.forEach((s) => {
-      if (s.chosen_gift && typeof s.chosen_gift === "object") {
-        const g = s.chosen_gift as any;
-        const store = g.store || g.marketplace || "Unknown";
-        storeCounts[store] = (storeCounts[store] || 0) + 1;
-        products.push({ title: g.title || g.name || "Unnamed", store, clicks: 1 });
+      if (s.results && typeof s.results === "object") {
+        const recommendations = ((s.results as any).recommendations || []) as any[];
+        const selectedGift =
+          typeof s.selected_gift_index === "number" ? recommendations[s.selected_gift_index] : null;
+        if (selectedGift) {
+          const store = selectedGift.store || selectedGift.marketplace || "Unknown";
+          storeCounts[store] = (storeCounts[store] || 0) + 1;
+          products.push({ title: selectedGift.title || selectedGift.name || "Unnamed", store, clicks: 1 });
+        }
       }
     });
     const storeData = Object.entries(storeCounts)
@@ -596,7 +600,7 @@ const AdminGiftAnalytics = () => {
                         <tr>
                           <td colSpan={8} className="bg-muted/30 px-6 py-4">
                             <div className="space-y-2 text-sm">
-                              {s.extra_notes && <p><strong>Notes:</strong> {s.extra_notes}</p>}
+                              {s.special_context && <p><strong>Notes:</strong> {s.special_context}</p>}
                               {s.context_tags && (s.context_tags as string[]).length > 0 && (
                                 <div className="flex flex-wrap gap-1">
                                   <strong className="mr-1">Tags:</strong>
@@ -614,11 +618,11 @@ const AdminGiftAnalytics = () => {
                                   </pre>
                                 </details>
                               )}
-                              {s.chosen_gift && (
+                              {typeof s.selected_gift_index === "number" && s.results && (
                                 <details className="mt-1">
                                   <summary className="cursor-pointer text-xs text-primary hover:underline">View chosen gift</summary>
                                   <pre className="mt-2 text-xs bg-muted p-3 rounded-lg overflow-x-auto max-h-40">
-                                    {JSON.stringify(s.chosen_gift, null, 2)}
+                                    {JSON.stringify(((s.results as any).recommendations || [])[s.selected_gift_index], null, 2)}
                                   </pre>
                                 </details>
                               )}

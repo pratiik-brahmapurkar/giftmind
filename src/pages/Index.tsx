@@ -25,9 +25,9 @@ const Index = () => {
   useEffect(() => {
     if (loading || !user) return;
     supabase
-      .from("profiles")
+      .from("users")
       .select("has_completed_onboarding")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data && !data.has_completed_onboarding) {

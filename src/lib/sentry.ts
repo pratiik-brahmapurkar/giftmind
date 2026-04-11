@@ -1,9 +1,21 @@
 import * as Sentry from "@sentry/react";
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+const ENABLE_SENTRY_IN_DEV = import.meta.env.VITE_ENABLE_SENTRY_IN_DEV === "true";
+
+function isValidSentryDsn(dsn: string) {
+  try {
+    const url = new URL(dsn);
+    return url.protocol.startsWith("http") && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export function initSentry() {
   if (!SENTRY_DSN) return;
+  if (!import.meta.env.PROD && !ENABLE_SENTRY_IN_DEV) return;
+  if (!isValidSentryDsn(SENTRY_DSN)) return;
 
   Sentry.init({
     dsn: SENTRY_DSN,

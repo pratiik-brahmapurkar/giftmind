@@ -1,258 +1,270 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Check } from "lucide-react";
-import { RELATIONSHIP_TYPES } from "@/components/recipients/constants";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import RecipientFormModal from "@/components/recipients/RecipientFormModal";
-import CrossBorderSection from "./CrossBorderSection";
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Lock, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import RecipientFormModal from "@/components/recipients/RecipientFormModal";
 import type { RecipientFormData } from "@/components/recipients/constants";
-import { detectUserCountry, SUPPORTED_COUNTRIES } from "./constants";
-import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { RELATIONSHIP_TYPES } from "@/components/recipients/constants";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
-
-const AVATAR_COLORS: Record<string, string> = {
-  partner: "bg-[hsl(0,73%,71%)]",
-  parent: "bg-[hsl(249,76%,65%)]",
-  sibling: "bg-[hsl(249,98%,80%)]",
-  close_friend: "bg-[hsl(153,53%,53%)]",
-  friend: "bg-[hsl(153,53%,53%)]",
-  colleague: "bg-[hsl(45,98%,71%)]",
-  boss: "bg-[hsl(45,98%,71%)]",
-  new_relationship: "bg-[hsl(0,100%,86%)]",
-};
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import type { Recipient } from "@/hooks/useGiftSession";
+import { RELATIONSHIP_COLORS } from "@/lib/geoConfig";
+import { cn } from "@/lib/utils";
+import CrossBorderSelect from "./CrossBorderSelect";
 
 interface StepRecipientProps {
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  recipientCountry: string;
-  onRecipientCountryChange: (country: string) => void;
+  selectedRecipient: Recipient | null;
+  onSelectRecipient: (recipient: Recipient) => void;
+  recipientCountry: string | null;
+  onRecipientCountryChange: (country: string | null) => void;
+  isCrossBorder: boolean;
+  onCrossBorderChange: (value: boolean) => void;
+  onContinue: () => void;
+  userPlan: string;
 }
 
-const StepRecipient = ({ selectedId, onSelect, recipientCountry, onRecipientCountryChange }: StepRecipientProps) => {
+interface RecipientRecord {
+  id: string;
+  name: string;
+  relationship: string | null;
+  relationship_depth: string | null;
+  age_range: string | null;
+  gender: string | null;
+  interests: string[] | null;
+  cultural_context: string | null;
+  country: string | null;
+  notes: string | null;
+}
+
+function toRecipient(record: RecipientRecord): Recipient {
+  return {
+    id: record.id,
+    name: record.name,
+    relationship: record.relationship ?? "",
+    relationship_depth: record.relationship_depth ?? "",
+    age_range: record.age_range ?? "",
+    gender: record.gender ?? "",
+    interests: record.interests ?? [],
+    cultural_context: record.cultural_context ?? "",
+    country: record.country,
+    notes: record.notes ?? "",
+  };
+}
+
+export default function StepRecipient({
+  selectedRecipient,
+  onSelectRecipient,
+  recipientCountry,
+  onRecipientCountryChange,
+  isCrossBorder,
+  onCrossBorderChange,
+  onContinue,
+}: StepRecipientProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [inlineFormOpen, setInlineFormOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const planLimits = usePlanLimits();
-  const userCountry = detectUserCountry();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const { data: recipients = [], isLoading } = useQuery({
-    queryKey: ["recipients", user?.id],
+    queryKey: ["gift-flow-recipients", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipients")
-        .select("id, name, relationship_type, interests, country")
+        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
+
       if (error) throw error;
-      return data;
+      return (data ?? []) as RecipientRecord[];
     },
     enabled: !!user,
   });
 
-  // When a recipient is selected and they have a saved country, auto-populate
-  const selectedRecipient = recipients.find((r: any) => r.id === selectedId);
-
-  const handleSelect = (id: string) => {
-    onSelect(id);
-    const recipient = recipients.find((r: any) => r.id === id);
-    if (recipient?.country) {
-      onRecipientCountryChange(recipient.country);
-    } else {
-      onRecipientCountryChange(detectUserCountry());
-    }
-  };
-
-  const handleCountryChange = async (country: string) => {
-    onRecipientCountryChange(country);
-    // Persist to recipient profile
-    if (selectedId) {
-      await supabase
-        .from("recipients")
-        .update({ country } as any)
-        .eq("id", selectedId);
-    }
-  };
-
-  const addMutation = useMutation({
+  const addRecipient = useMutation({
     mutationFn: async (form: RecipientFormData) => {
       const { data, error } = await supabase
         .from("recipients")
         .insert({
           user_id: user!.id,
           name: form.name,
-          relationship_type: form.relationship_type as any,
-          relationship_depth: form.relationship_depth as any,
-          age_range: form.age_range ? (form.age_range as any) : null,
-          gender: form.gender ? (form.gender as any) : null,
+          relationship: form.relationship_type,
+          relationship_depth: form.relationship_depth || null,
+          age_range: form.age_range || null,
+          gender: form.gender || null,
           interests: form.interests,
-          cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
+          cultural_context: form.cultural_context || null,
           country: form.country || null,
           notes: form.notes || null,
-          important_dates: form.important_dates as any,
+          important_dates: form.important_dates,
         })
-        .select("id")
+        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes")
         .single();
+
       if (error) throw error;
-      return data;
+      return data as RecipientRecord;
     },
     onSuccess: (data) => {
-      handleSelect(data.id);
-      setInlineFormOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["recipients"] });
-      toast.success("Person added!");
+      const mapped = toRecipient(data);
+      queryClient.invalidateQueries({ queryKey: ["gift-flow-recipients", user?.id] });
+      onSelectRecipient(mapped);
+      onRecipientCountryChange(mapped.country);
+      onCrossBorderChange(Boolean(mapped.country));
+      setModalOpen(false);
+      toast.success("Recipient added");
     },
-    onError: () => toast.error("Failed to add person"),
+    onError: () => {
+      toast.error("Could not add recipient");
+    },
   });
 
-  // 0 recipients — show inline form directly
-  if (!isLoading && recipients.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-heading font-bold text-foreground">
-            Who is this gift for?
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Add the person you want to find a gift for
-          </p>
-        </div>
-        <RecipientFormModal
-          open={true}
-          onOpenChange={() => {}}
-          onSubmit={(data) => addMutation.mutate(data)}
-          loading={addMutation.isPending}
-        />
-      </div>
-    );
-  }
+  const selectedCountry = useMemo(
+    () => recipientCountry ?? selectedRecipient?.country ?? null,
+    [recipientCountry, selectedRecipient?.country],
+  );
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-xl md:text-2xl font-heading font-bold text-foreground">
-          Who is this gift for?
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Select a saved person or add someone new
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Who is this for?</h1>
+        <p className="text-sm text-muted-foreground md:text-base">
+          Pick someone you already know in GiftMind or add a new person.
         </p>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="border-border/50">
-              <CardContent className="p-4 animate-pulse">
-                <div className="w-10 h-10 rounded-full bg-muted mb-2" />
-                <div className="h-4 bg-muted rounded w-2/3" />
+      <div className="grid gap-4 md:grid-cols-2">
+        {isLoading &&
+          [1, 2, 3].map((item) => (
+            <Card key={item} className="border-border/60">
+              <CardContent className="space-y-4 p-5">
+                <div className="h-11 w-11 animate-pulse rounded-full bg-muted" />
+                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-24 animate-pulse rounded bg-muted" />
               </CardContent>
             </Card>
           ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {recipients.map((r: any) => {
-            const avatarColor = AVATAR_COLORS[r.relationship_type] || "bg-primary";
-            const relLabel = RELATIONSHIP_TYPES.find((t) => t.value === r.relationship_type)?.label;
-            const isSelected = selectedId === r.id;
+
+        {!isLoading &&
+          recipients.map((record) => {
+            const recipient = toRecipient(record);
+            const isSelected = selectedRecipient?.id === recipient.id;
+            const relationshipLabel =
+              RELATIONSHIP_TYPES.find((item) => item.value === recipient.relationship)?.label ?? recipient.relationship;
+
             return (
               <Card
-                key={r.id}
+                key={recipient.id}
                 className={cn(
-                  "cursor-pointer border-2 transition-all hover:shadow-md relative",
+                  "cursor-pointer border-2 transition-all hover:shadow-md",
                   isSelected
-                    ? "border-primary shadow-md bg-primary/5"
-                    : "border-border/50 hover:border-primary/30"
+                    ? "scale-[1.01] border-primary bg-primary/5 shadow-sm"
+                    : "border-border/60 hover:border-primary/30",
                 )}
-                onClick={() => handleSelect(r.id)}
+                onClick={() => {
+                  onSelectRecipient(recipient);
+                  onRecipientCountryChange(recipient.country);
+                  onCrossBorderChange(Boolean(recipient.country));
+                }}
               >
-                {isSelected && (
-                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                    <Check className="w-3.5 h-3.5 text-primary-foreground" />
-                  </div>
-                )}
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-primary-foreground shrink-0",
-                      avatarColor
-                    )}
-                  >
-                    {r.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-medium text-foreground truncate">{r.name}</p>
-                      {r.country && r.country !== userCountry && (
-                        <span className="shrink-0 text-sm leading-none" title={SUPPORTED_COUNTRIES.find(c => c.code === r.country)?.name}>
-                          {SUPPORTED_COUNTRIES.find(c => c.code === r.country)?.flag}
-                        </span>
-                      )}
+                <CardContent className="relative space-y-4 p-5">
+                  {isSelected && (
+                    <div className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Check className="h-4 w-4" />
                     </div>
-                    {relLabel && (
-                      <Badge variant="outline" className="text-[9px] mt-0.5">{relLabel}</Badge>
-                    )}
-                    {r.interests && r.interests.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
-                        {(r.interests as string[]).slice(0, 3).join(", ")}
-                      </p>
-                    )}
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold text-white"
+                      style={{ backgroundColor: RELATIONSHIP_COLORS[recipient.relationship] || "#7c3aed" }}
+                    >
+                      {recipient.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">{recipient.name}</p>
+                      <Badge variant="outline" className="text-[11px]">
+                        {relationshipLabel}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {(recipient.interests ?? []).slice(0, 3).map((interest) => (
+                      <span key={interest} className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+                        {interest}
+                      </span>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
             );
           })}
 
-          {/* Add new card */}
-          <Card
-            className="cursor-pointer border-2 border-dashed border-border/50 hover:border-primary/30 transition-all"
-            onClick={() => {
-              if (!planLimits.canAddRecipient(recipients.length)) {
-                setUpgradeOpen(true);
-              } else {
-                setInlineFormOpen(true);
-              }
-            }}
-          >
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[80px]">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Plus className="w-5 h-5 text-primary" />
+        <Card
+          className="cursor-pointer border-2 border-dashed border-border/60 transition-all hover:border-primary/40 hover:bg-primary/5"
+          onClick={() => {
+            if (!planLimits.canAddRecipient(recipients.length)) {
+              setUpgradeOpen(true);
+              return;
+            }
+            setModalOpen(true);
+          }}
+        >
+          <CardContent className="relative flex min-h-[184px] flex-col items-center justify-center gap-3 p-5 text-center">
+            {!planLimits.canAddRecipient(recipients.length) && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-background/70 backdrop-blur-[1px]">
+                <div className="space-y-2 px-6 text-center">
+                  <Lock className="mx-auto h-5 w-5 text-muted-foreground" />
+                  <p className="text-sm font-medium text-foreground">Recipient limit reached</p>
+                  <p className="text-xs text-muted-foreground">Upgrade from {planLimits.plan} to add more people.</p>
+                </div>
               </div>
-              <p className="text-sm font-medium text-muted-foreground">Add Someone New</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            )}
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Plus className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Add Someone New</p>
+              <p className="text-sm text-muted-foreground">Create a profile and use it immediately in this flow.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Cross-border section — only visible when a recipient is selected */}
-      {selectedId && selectedRecipient && (
-        <CrossBorderSection
+      {selectedRecipient && (
+        <CrossBorderSelect
           recipientName={selectedRecipient.name}
-          recipientCountry={recipientCountry}
-          onCountryChange={handleCountryChange}
+          recipientCountry={isCrossBorder ? selectedCountry : null}
+          savedCountry={selectedRecipient.country}
+          onChange={(country) => {
+            onRecipientCountryChange(country);
+            onCrossBorderChange(Boolean(country));
+          }}
         />
       )}
 
+      <Button type="button" variant="hero" size="lg" className="min-h-12 w-full" disabled={!selectedRecipient} onClick={onContinue}>
+        Continue
+      </Button>
+
       <RecipientFormModal
-        open={inlineFormOpen}
-        onOpenChange={setInlineFormOpen}
-        onSubmit={(data) => addMutation.mutate(data)}
-        loading={addMutation.isPending}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onSubmit={(form) => addRecipient.mutate(form)}
+        loading={addRecipient.isPending}
       />
 
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        highlightPlan={planLimits.getUpgradePlan("more_recipients") as any}
-        reason="Upgrade to add more people to your gifting list."
+        highlightPlan="starter"
+        reason="Upgrade to add more recipients to GiftMind."
       />
     </div>
   );
-};
-
-export default StepRecipient;
+}

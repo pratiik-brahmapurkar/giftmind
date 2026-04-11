@@ -1,10 +1,13 @@
 import posthog from 'posthog-js';
 
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
+const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
+const ENABLE_POSTHOG_IN_DEV = import.meta.env.VITE_ENABLE_POSTHOG_IN_DEV === "true";
 
 let initialized = false;
 
 export function initPosthog() {
+  if (!import.meta.env.PROD && !ENABLE_POSTHOG_IN_DEV) return;
   // Only initialize if user has accepted cookies
   const consent = localStorage.getItem('gm_cookie_consent');
   if (consent !== 'accepted') return;
@@ -12,7 +15,7 @@ export function initPosthog() {
   if (!POSTHOG_KEY) return;
   
   posthog.init(POSTHOG_KEY, {
-    api_host: 'https://us.i.posthog.com',  // or eu.i.posthog.com
+    api_host: POSTHOG_HOST,
     loaded: (ph) => { initialized = true; },
     autocapture: false,  // We'll track manually for precision
     capture_pageview: true,

@@ -16,6 +16,8 @@ supabase functions deploy generate-sitemap --no-verify-jwt
 supabase functions deploy generate-rss --no-verify-jwt
 supabase functions deploy delete-account --no-verify-jwt
 supabase functions deploy export-user-data --no-verify-jwt
+supabase functions deploy check-secrets --no-verify-jwt
+supabase functions deploy send-test-email --no-verify-jwt
 
 echo "Setting secrets..."
 echo "Run manually:"

@@ -1,175 +1,158 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight } from "lucide-react";
-import BlogPostCard from "@/components/blog/BlogPostCard";
 import { SEOHead } from "@/components/common/SEOHead";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
+import BlogPostCard from "@/components/blog/BlogPostCard";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 12;
 
 export default function BlogListing() {
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [page, setPage] = useState(1);
 
-  const { data: posts = [], isLoading: postsLoading } = useQuery({
-    queryKey: ["public-blog-posts"],
+  const { data: categories = [] } = useQuery({
+    queryKey: ["blog-categories-public"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
+        .from("blog_categories")
+        .select("id, name, slug")
+        .order("sort_order");
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: postsResult, isLoading } = useQuery({
+    queryKey: ["blog-listing", selectedCategory, page],
+    queryFn: async () => {
+      let query = supabase
         .from("blog_posts")
-        .select("*, blog_categories(name, slug)")
+        .select(
+          "id, title, slug, excerpt, content, featured_image_url, featured_image_alt, published_at, category_id, blog_categories(name, slug)",
+          { count: "exact" },
+        )
         .eq("status", "published")
-        .order("published_at", { ascending: false });
-      return data || [];
+        .order("published_at", { ascending: false })
+        .range(0, page * PAGE_SIZE - 1);
+
+      if (selectedCategory !== "all") {
+        query = query.eq("category_id", selectedCategory);
+      }
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+      return { posts: data || [], count: count || 0 };
     },
   });
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
-    queryKey: ["public-blog-categories"],
-    queryFn: async () => {
-      const { data } = await supabase.from("blog_categories").select("*").order("sort_order");
-      return data || [];
-    },
-  });
-
-  const filtered = useMemo(() => {
-    if (selectedCategory === "all") return posts;
-    return posts.filter((p: any) => p.category_id === selectedCategory);
-  }, [posts, selectedCategory]);
-
-  const visible = filtered.slice(0, visibleCount);
-  const isLoading = postsLoading || categoriesLoading;
-
-  const popularPosts = useMemo(() => [...posts].sort((a: any, b: any) => (b.views || 0) - (a.views || 0)).slice(0, 5), [posts]);
-
-  const tagCloud = useMemo(() => {
-    const map: Record<string, number> = {};
-    posts.forEach((p: any) => (p.tags || []).forEach((t: string) => { map[t] = (map[t] || 0) + 1; }));
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 15);
-  }, [posts]);
+  const posts = postsResult?.posts || [];
+  const count = postsResult?.count || 0;
+  const hasMore = posts.length < count;
 
   return (
-    <div className="min-h-screen bg-background">
-      <SEOHead 
-        title="Blog — Gift Ideas & Guides"
-        description="Gift ideas, guides, and the psychology of thoughtful giving. Cultural tips for Diwali, Christmas, Eid, and every occasion."
-        keywords={['gift ideas', 'gift guide', 'what to gift', 'gifting tips']}
+    <div className="min-h-screen bg-[linear-gradient(180deg,#fffdf8_0%,#ffffff_22%,#f8fafc_100%)]">
+      <SEOHead
+        title="The GiftMind Blog"
+        description="Gift ideas, guides, and the psychology of thoughtful giving."
+        keywords={["gift ideas", "gift guides", "festival gifting", "relationship gifting", "budget gifts"]}
       />
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 pt-24 pb-12">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-bold font-['Clash_Display',sans-serif]">The GiftMind Blog</h1>
-          <p className="text-muted-foreground mt-3 text-lg">Gift ideas, guides, and the psychology of thoughtful giving</p>
-        </div>
 
-        {/* Category pills */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 snap-x scrollbar-none">
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-28 sm:px-6 lg:px-8">
+        <section className="relative overflow-hidden rounded-[36px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.14),rgba(255,255,255,1)_40%),linear-gradient(135deg,rgba(14,165,233,0.06),rgba(236,72,153,0.08),rgba(255,255,255,1))] px-6 py-10 shadow-sm sm:px-10">
+          <div className="max-w-3xl">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary/70">GiftMind Editorial</p>
+            <h1 className="mt-3 font-['Clash_Display',sans-serif] text-4xl leading-tight text-slate-950 sm:text-5xl">
+              The GiftMind Blog
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+              Gift ideas, practical guides, and the psychology of thoughtful giving for every occasion.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-8 flex gap-3 overflow-x-auto pb-2">
           <button
-            onClick={() => { setSelectedCategory("all"); setVisibleCount(PAGE_SIZE); }}
-            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium snap-start transition-colors ${selectedCategory === "all" ? "bg-primary text-primary-foreground" : "border border-muted-foreground/30 text-muted-foreground hover:border-primary/50"}`}
+            type="button"
+            onClick={() => {
+              setSelectedCategory("all");
+              setPage(1);
+            }}
+            className={cn(
+              "whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition",
+              selectedCategory === "all"
+                ? "border-primary bg-primary text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-primary/30 hover:text-primary",
+            )}
           >
             All
           </button>
-          {categories.map((c: any) => (
+          {categories.map((category) => (
             <button
-              key={c.id}
-              onClick={() => { setSelectedCategory(c.id); setVisibleCount(PAGE_SIZE); }}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium snap-start transition-colors ${selectedCategory === c.id ? "bg-primary text-primary-foreground" : "border border-muted-foreground/30 text-muted-foreground hover:border-primary/50"}`}
+              key={category.id}
+              type="button"
+              onClick={() => {
+                setSelectedCategory(category.id);
+                setPage(1);
+              }}
+              className={cn(
+                "whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition",
+                selectedCategory === category.id
+                  ? "border-primary bg-primary text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-primary/30 hover:text-primary",
+              )}
             >
-              {c.icon} {c.name}
+              {category.name}
             </button>
           ))}
-        </div>
+        </section>
 
-        <div className="flex gap-8">
-          {/* Post grid */}
-          <div className="flex-1">
-            <div className="grid md:grid-cols-2 gap-6">
-              {isLoading
-                ? [1, 2, 3, 4].map((idx) => (
-                    <Card key={idx}>
-                      <Skeleton className="h-48 w-full rounded-t-xl rounded-b-none" />
-                      <CardContent className="space-y-3 p-4">
-                        <Skeleton className="h-4 w-1/3 rounded-md" />
-                        <Skeleton className="h-6 w-5/6 rounded-md" />
-                        <Skeleton className="h-4 w-full rounded-md" />
-                        <Skeleton className="h-4 w-4/5 rounded-md" />
-                      </CardContent>
-                    </Card>
-                  ))
-                : visible.map((p: any) => (
-                    <BlogPostCard
-                      key={p.id}
-                      slug={p.slug}
-                      title={p.title}
-                      excerpt={p.excerpt}
-                      featured_image={p.featured_image}
-                      category_name={(p.blog_categories as any)?.name}
-                      category_slug={(p.blog_categories as any)?.slug}
-                      published_at={p.published_at}
-                      content={p.content}
-                    />
-                  ))}
-            </div>
-            {!isLoading && visible.length === 0 && (
-              <p className="text-center text-muted-foreground py-16">No posts yet. Check back soon!</p>
-            )}
-            {!isLoading && visibleCount < filtered.length && (
-              <div className="text-center mt-8">
-                <Button variant="outline" onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}>Load more</Button>
-              </div>
-            )}
+        <section className="mt-8 grid gap-6 md:grid-cols-2">
+          {isLoading
+            ? Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="overflow-hidden rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+                  <Skeleton className="aspect-[16/10] w-full rounded-[20px]" />
+                  <Skeleton className="mt-4 h-4 w-28 rounded-full" />
+                  <Skeleton className="mt-3 h-8 w-4/5 rounded-xl" />
+                  <Skeleton className="mt-3 h-16 w-full rounded-xl" />
+                </div>
+              ))
+            : posts.map((post) => (
+                <BlogPostCard
+                  key={post.id}
+                  slug={post.slug}
+                  title={post.title}
+                  excerpt={post.excerpt}
+                  featuredImageUrl={post.featured_image_url}
+                  featuredImageAlt={post.featured_image_alt}
+                  categoryName={(post.blog_categories as { name?: string } | null)?.name || null}
+                  publishedAt={post.published_at}
+                  content={post.content}
+                />
+              ))}
+        </section>
+
+        {!isLoading && posts.length === 0 ? (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white/80 px-6 py-16 text-center text-slate-500">
+            No published posts yet.
           </div>
+        ) : null}
 
-          {/* Sidebar — desktop only */}
-          <aside className="hidden lg:block w-72 shrink-0 space-y-6 sticky top-24 self-start">
-            <Card>
-              <CardHeader className="py-3"><CardTitle className="text-sm">Popular Posts</CardTitle></CardHeader>
-              <CardContent className="pt-0 space-y-2">
-                {popularPosts.map((p: any, i: number) => (
-                  <Link key={p.id} to={`/blog/${p.slug}`} className="flex gap-2 text-sm hover:text-primary transition-colors">
-                    <span className="text-muted-foreground font-bold">{i + 1}.</span>
-                    <span className="line-clamp-2">{p.title}</span>
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="py-5 text-center space-y-2">
-                <p className="font-bold">Need a gift idea right now?</p>
-                <p className="text-xs text-muted-foreground">Get personalized recommendations in 60 seconds</p>
-                <Button size="sm" asChild>
-                  <Link to="/gift-flow">Start Free <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {tagCloud.length > 0 && (
-              <Card>
-                <CardHeader className="py-3"><CardTitle className="text-sm">Tags</CardTitle></CardHeader>
-                <CardContent className="pt-0 flex flex-wrap gap-1.5">
-                  {tagCloud.map(([tag, count]) => (
-                    <span
-                      key={tag}
-                      className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-xs"
-                      style={{ fontSize: `${Math.min(14, 10 + count)}px` }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-          </aside>
-        </div>
+        {hasMore ? (
+          <div className="mt-10 flex justify-center">
+            <Button variant="outline" className="rounded-full px-6" onClick={() => setPage((current) => current + 1)}>
+              Load More
+            </Button>
+          </div>
+        ) : null}
       </main>
+
       <Footer />
     </div>
   );

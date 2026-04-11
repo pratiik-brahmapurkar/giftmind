@@ -55,7 +55,7 @@ const Dashboard = () => {
       if (!user) return [];
       const { data } = await supabase
         .from("gift_sessions")
-        .select("id, occasion, status, created_at, chosen_gift, results, recipient_id")
+        .select("id, occasion, status, created_at, selected_gift_name, selected_gift_index, results, recipient_id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(5);
@@ -209,14 +209,22 @@ const Dashboard = () => {
               const recipientName = recipientMap[session.recipient_id] || "Unknown";
               const initial = recipientName[0]?.toUpperCase() || "?";
               const isCompleted = session.status === "completed";
-              const chosenGiftName = session.chosen_gift && typeof session.chosen_gift === "object"
-                ? (session.chosen_gift as any).name || "Gift selected"
-                : null;
+              const recommendations = session.results && typeof session.results === "object"
+                ? ((session.results as any).recommendations || [])
+                : [];
+              const chosenGiftName = session.selected_gift_name ||
+                (typeof session.selected_gift_index === "number" && Array.isArray(recommendations)
+                  ? recommendations[session.selected_gift_index]?.name || null
+                  : null);
 
               // Extract confidence from results if available
               let confidence: number | null = null;
-              if (session.results && Array.isArray(session.results) && session.results.length > 0) {
-                confidence = (session.results[0] as any)?.confidence ?? null;
+              if (Array.isArray(recommendations) && recommendations.length > 0) {
+                if (typeof session.selected_gift_index === "number" && recommendations[session.selected_gift_index]) {
+                  confidence = recommendations[session.selected_gift_index]?.confidence_score ?? null;
+                } else {
+                  confidence = recommendations[0]?.confidence_score ?? null;
+                }
               }
 
               return (

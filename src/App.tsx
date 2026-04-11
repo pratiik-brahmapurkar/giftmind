@@ -35,6 +35,7 @@ const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const AdminLayout = lazy(() => import("@/components/admin/AdminLayout"));
 const AdminOverview = lazy(() => import("@/pages/admin/AdminOverview"));
 const AdminPlaceholder = lazy(() => import("@/pages/admin/AdminPlaceholder"));
+const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminCredits = lazy(() => import("@/pages/admin/AdminCredits"));
 const AdminGiftAnalytics = lazy(() => import("@/pages/admin/AdminGiftAnalytics"));
@@ -129,7 +130,7 @@ const App = () => {
               />
               <Route
                 path="/admin/settings"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminPlaceholder /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminSettings /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
