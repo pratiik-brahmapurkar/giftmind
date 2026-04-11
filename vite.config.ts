@@ -34,7 +34,6 @@ export default defineConfig(({ mode }) => ({
 
           if (id.includes("@supabase/supabase-js")) return "vendor-supabase";
           if (id.includes("framer-motion")) return "vendor-ui";
-          if (id.includes("recharts")) return "vendor-charts";
           if (id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("posthog-js")) return "vendor-posthog";
           if (id.includes("date-fns")) return "vendor-date";
