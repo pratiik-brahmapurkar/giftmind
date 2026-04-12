@@ -2,7 +2,8 @@ import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { GiftRecommendation, ProductResult, Recipient } from "@/hooks/useGiftSession";
+import type { GiftRecommendation, Recipient } from "@/hooks/useGiftSession";
+import type { ProductResult } from "@/lib/productLinks";
 import { cn } from "@/lib/utils";
 import { getCurrencySymbol } from "@/lib/geoConfig";
 import ProductLinks from "./ProductLinks";
@@ -22,7 +23,7 @@ interface GiftCardProps {
   canUseSignalCheck: boolean;
   onCreditsChanged: () => void;
   onSelect: (index: number, name: string) => void;
-  onTrackClick: (product: any) => void;
+  onTrackClick: (product: ProductResult["products"][number]) => void;
 }
 
 function getConfidenceBadge(score: number) {

@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { detectUserCountry, detectUserCurrency } from "@/lib/geoConfig";
 import { useGiftSession, type Recipient } from "@/hooks/useGiftSession";
+import { normalizePlan, type PlanKey } from "@/lib/plans";
 import NoCreditGate from "@/components/gift-flow/NoCreditGate";
 import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
@@ -35,7 +36,7 @@ export default function GiftFlow() {
   const [currency, setCurrency] = useState(detectUserCurrency());
   const [specialContext, setSpecialContext] = useState("");
   const [contextTags, setContextTags] = useState<string[]>([]);
-  const [userPlan, setUserPlan] = useState("free");
+  const [userPlan, setUserPlan] = useState<PlanKey>("free");
   const [creditsBalance, setCreditsBalance] = useState(0);
   const [userCountry, setUserCountry] = useState(detectUserCountry());
   const [isCheckingCredits, setIsCheckingCredits] = useState(true);
@@ -62,7 +63,7 @@ export default function GiftFlow() {
       .single();
 
     setCreditsBalance(data?.credits_balance ?? 0);
-    setUserPlan(data?.active_plan ?? "free");
+    setUserPlan(normalizePlan(data?.active_plan));
     setCurrency(data?.currency_preference || detectUserCurrency());
     setUserCountry(data?.country || detectUserCountry());
     setIsCheckingCredits(false);

@@ -53,15 +53,53 @@ interface MarketplaceStore {
   is_active: boolean | null;
 }
 
+interface MarketplaceProduct {
+  id: string;
+  store_id: string;
+  country_code: string;
+  product_title: string;
+  product_url: string;
+  affiliate_url: string | null;
+  image_url: string | null;
+  price_amount: number | null;
+  price_currency: string | null;
+  original_price_amount: number | null;
+  stock_status: "in_stock" | "low_stock" | "out_of_stock" | "preorder" | "unknown";
+  delivery_eta_text: string | null;
+  coupon_code: string | null;
+  coupon_text: string | null;
+  product_category: string | null;
+  keyword_tags: string[] | null;
+  affiliate_source: string | null;
+  attribution_label: string | null;
+  is_affiliate: boolean | null;
+  priority: number | null;
+  is_active: boolean | null;
+}
+
 interface ProductLink {
   store_id: string;
   store_name: string;
   domain: string;
   brand_color: string | null;
-  search_url: string;
-  is_search_link: true;
   gift_name: string;
   product_category: string;
+  is_search_link: boolean;
+  search_url?: string;
+  product_url?: string;
+  affiliate_url?: string | null;
+  product_title?: string | null;
+  image_url?: string | null;
+  price_amount?: number | null;
+  price_currency?: string | null;
+  original_price_amount?: number | null;
+  stock_status?: string | null;
+  delivery_eta_text?: string | null;
+  coupon_code?: string | null;
+  coupon_text?: string | null;
+  affiliate_source?: string | null;
+  attribution_label?: string | null;
+  is_affiliate?: boolean | null;
 }
 
 interface LockedStore {
@@ -146,6 +184,111 @@ async function fetchStores(targetCountry: string): Promise<MarketplaceStore[]> {
   if (globalError) throw new Error(`DB error fetching global stores: ${globalError.message}`);
 
   return (globalStores ?? []) as MarketplaceStore[];
+}
+
+async function fetchProducts(targetCountry: string, storeIds: string[]): Promise<MarketplaceProduct[]> {
+  if (storeIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from("marketplace_products")
+    .select("*")
+    .in("store_id", storeIds)
+    .in("country_code", [targetCountry, "GLOBAL"])
+    .eq("is_active", true)
+    .order("priority", { ascending: true });
+
+  if (error) throw new Error(`DB error fetching marketplace products: ${error.message}`);
+  return (data ?? []) as MarketplaceProduct[];
+}
+
+function tokenize(input: string): string[] {
+  return sanitizeString(input, 200)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((token) => token.length >= 2);
+}
+
+function scoreProduct(product: MarketplaceProduct, concept: GiftConcept, targetCountry: string, budgetMin: number, budgetMax: number) {
+  let score = 0;
+
+  const title = sanitizeString(product.product_title, 200).toLowerCase();
+  const tags = (product.keyword_tags ?? []).map((tag) => sanitizeString(tag, 100).toLowerCase());
+  const category = sanitizeString(product.product_category ?? "", 100).toLowerCase();
+  const keywordPhrases = [concept.name, ...(concept.search_keywords ?? [])]
+    .map((value) => sanitizeString(value, 120).toLowerCase())
+    .filter(Boolean);
+  const keywordTokens = [...new Set(keywordPhrases.flatMap(tokenize))];
+
+  keywordPhrases.forEach((phrase) => {
+    if (phrase && title.includes(phrase)) score += 14;
+    if (phrase && tags.some((tag) => tag.includes(phrase))) score += 10;
+  });
+
+  keywordTokens.forEach((token) => {
+    if (title.includes(token)) score += 4;
+    if (tags.some((tag) => tag.includes(token))) score += 3;
+  });
+
+  if (category && category === concept.product_category.toLowerCase()) score += 10;
+  if (product.country_code === targetCountry) score += 4;
+
+  if (typeof product.price_amount === "number" && Number.isFinite(product.price_amount)) {
+    if (product.price_amount >= budgetMin && product.price_amount <= budgetMax) {
+      score += 12;
+      const distance = Math.abs(product.price_amount - concept.price_anchor);
+      score += Math.max(0, 8 - Math.round(distance / Math.max(1, concept.price_anchor || 1) * 10));
+    } else {
+      score -= 10;
+    }
+  }
+
+  if (product.stock_status === "in_stock") score += 6;
+  if (product.stock_status === "low_stock") score += 3;
+  if (product.stock_status === "preorder") score += 1;
+  if (product.stock_status === "out_of_stock") score -= 20;
+
+  return score;
+}
+
+function buildEnrichedProductLink(store: MarketplaceStore, concept: GiftConcept, product: MarketplaceProduct): ProductLink {
+  return {
+    store_id: store.store_id,
+    store_name: store.store_name,
+    domain: store.domain,
+    brand_color: store.brand_color,
+    gift_name: concept.name,
+    product_category: concept.product_category,
+    is_search_link: false,
+    product_url: product.product_url,
+    affiliate_url: product.affiliate_url,
+    product_title: product.product_title,
+    image_url: product.image_url,
+    price_amount: product.price_amount,
+    price_currency: product.price_currency,
+    original_price_amount: product.original_price_amount,
+    stock_status: product.stock_status,
+    delivery_eta_text: product.delivery_eta_text,
+    coupon_code: product.coupon_code,
+    coupon_text: product.coupon_text,
+    affiliate_source: product.affiliate_source,
+    attribution_label: product.attribution_label,
+    is_affiliate: product.is_affiliate,
+  };
+}
+
+function buildSearchProductLink(store: MarketplaceStore, concept: GiftConcept, keyword: string): ProductLink {
+  return {
+    store_id: store.store_id,
+    store_name: store.store_name,
+    domain: store.domain,
+    brand_color: store.brand_color,
+    gift_name: concept.name,
+    product_category: concept.product_category,
+    is_search_link: true,
+    search_url: buildSearchUrl(store, keyword),
+    attribution_label: store.affiliate_param ? "Affiliate search" : "Search",
+    is_affiliate: Boolean(store.affiliate_param),
+  };
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────────
@@ -247,6 +390,14 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    const storeIds = allStores.map((store) => store.store_id);
+    let catalogProducts: MarketplaceProduct[] = [];
+    try {
+      catalogProducts = await fetchProducts(targetCountry, storeIds);
+    } catch (err) {
+      console.error("Marketplace product fetch error:", err);
+    }
+
     // ── 5. Apply plan-based store limit ────────────────────────────────────────
     const maxStores = STORE_LIMITS[user_plan] ?? 1;
     const unlockPlan = maxStores <= 1 ? "starter" : "popular";
@@ -267,17 +418,27 @@ serve(async (req: Request): Promise<Response> => {
       const accessibleStores = categoryMatchedStores.slice(0, maxStores);
       const lockedStoreSource = categoryMatchedStores.slice(maxStores);
 
-      // Build product links for accessible stores
-      const products: ProductLink[] = accessibleStores.map((store): ProductLink => ({
-        store_id: store.store_id,
-        store_name: store.store_name,
-        domain: store.domain,
-        brand_color: store.brand_color,
-        search_url: buildSearchUrl(store, primaryKeyword),
-        is_search_link: true,
-        gift_name: concept.name,
-        product_category: concept.product_category,
-      }));
+      const products: ProductLink[] = accessibleStores.map((store): ProductLink => {
+        const matchedProducts = catalogProducts
+          .filter((product) => {
+            if (product.store_id !== store.store_id) return false;
+            if (product.product_category && product.product_category !== concept.product_category) return false;
+            if (!(product.country_code === targetCountry || product.country_code === "GLOBAL")) return false;
+            return true;
+          })
+          .map((product) => ({
+            product,
+            score: scoreProduct(product, concept, targetCountry, budget_min, budget_max),
+          }))
+          .sort((left, right) => right.score - left.score || (left.product.priority ?? 0) - (right.product.priority ?? 0));
+
+        const topMatch = matchedProducts[0];
+        if (topMatch && topMatch.score > 0) {
+          return buildEnrichedProductLink(store, concept, topMatch.product);
+        }
+
+        return buildSearchProductLink(store, concept, primaryKeyword);
+      });
 
       // Build locked store placeholders (max 3 shown)
       const locked_stores: LockedStore[] = lockedStoreSource
@@ -303,6 +464,10 @@ serve(async (req: Request): Promise<Response> => {
         success: true,
         target_country: targetCountry,
         results,
+        enriched_products_returned: results.reduce(
+          (sum, result) => sum + result.products.filter((product) => !product.is_search_link).length,
+          0,
+        ),
         total_stores_available: allStores.length,
         stores_shown: Math.min(maxStores, allStores.length),
         is_cross_border: isCrossBorder,

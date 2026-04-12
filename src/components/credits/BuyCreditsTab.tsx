@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import {
   Accordion,
@@ -33,9 +33,27 @@ const CREDIT_USAGE = [
 
 interface Props {
   credits: number;
+  expiringBatches: Array<{
+    id: string;
+    credits: number;
+    daysLeft: number;
+    expiresAt: string;
+    packageName: string;
+  }>;
 }
 
-const BuyCreditsTab = ({ credits }: Props) => {
+function formatExpiryDate(expiresAt: string) {
+  return new Date(expiresAt).toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatBatchSummary(batch: Props["expiringBatches"][number]) {
+  return `${batch.credits} expiring ${formatExpiryDate(batch.expiresAt)}`;
+}
+
+const BuyCreditsTab = ({ credits, expiringBatches }: Props) => {
   useEffect(() => {
     trackEvent('credit_purchase_started', { trigger: 'pricing_page', current_plan: 'unknown' });
   }, []);
@@ -46,6 +64,27 @@ const BuyCreditsTab = ({ credits }: Props) => {
       : credits <= 3
       ? "border-warning/30 bg-warning/5"
       : "border-border bg-card";
+
+  const expiryCopy = useMemo(() => {
+    if (credits <= 0) return null;
+    if (expiringBatches.length === 0) return "No active expiry batches found";
+
+    const soonest = expiringBatches[0];
+    if (credits <= 3) {
+      if (soonest.daysLeft === 0) {
+        return `${soonest.credits} credit${soonest.credits !== 1 ? "s" : ""} expire today`;
+      }
+      if (soonest.daysLeft === 1) {
+        return `${soonest.credits} credit${soonest.credits !== 1 ? "s" : ""} expire tomorrow`;
+      }
+      return `${soonest.credits} credit${soonest.credits !== 1 ? "s" : ""} expire in ${soonest.daysLeft} days`;
+    }
+
+    return expiringBatches
+      .slice(0, 2)
+      .map(formatBatchSummary)
+      .join(" · ");
+  }, [credits, expiringBatches]);
 
   return (
     <div className="space-y-8">
@@ -67,11 +106,13 @@ const BuyCreditsTab = ({ credits }: Props) => {
               <p className="text-sm text-destructive font-medium">You're out of credits</p>
             )}
             {credits > 0 && credits <= 3 && (
-              <p className="text-sm text-warning font-medium">Running low</p>
+              <p className="text-sm text-warning font-medium">
+                {expiryCopy || "Running low"}
+              </p>
             )}
             {credits > 3 && (
               <p className="text-sm text-muted-foreground">
-                15 expiring Apr 20 · 32 expiring May 15
+                {expiryCopy}
               </p>
             )}
           </div>

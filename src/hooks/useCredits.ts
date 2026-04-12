@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizePlan, type PlanKey } from "@/lib/plans";
 
 export interface UseCreditsReturn {
   balance: number;
   isLoading: boolean;
   nearestExpiry: { credits: number; daysLeft: number } | null;
+  expiringBatches: Array<{
+    id: string;
+    credits: number;
+    daysLeft: number;
+    expiresAt: string;
+    packageName: string;
+  }>;
   isLow: boolean;
   isEmpty: boolean;
-  activePlan: string;
+  activePlan: PlanKey;
   refresh: () => Promise<void>;
 }
 
@@ -20,8 +28,9 @@ function getDaysLeft(expiresAt: string) {
 export function useCredits(): UseCreditsReturn {
   const { user } = useAuth();
   const [balance, setBalance] = useState(0);
-  const [activePlan, setActivePlan] = useState("free");
+  const [activePlan, setActivePlan] = useState<PlanKey>("free");
   const [nearestExpiry, setNearestExpiry] = useState<UseCreditsReturn["nearestExpiry"]>(null);
+  const [expiringBatches, setExpiringBatches] = useState<UseCreditsReturn["expiringBatches"]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -29,6 +38,7 @@ export function useCredits(): UseCreditsReturn {
       setBalance(0);
       setActivePlan("free");
       setNearestExpiry(null);
+      setExpiringBatches([]);
       setIsLoading(false);
       return;
     }
@@ -43,27 +53,36 @@ export function useCredits(): UseCreditsReturn {
         .single(),
       supabase
         .from("credit_batches")
-        .select("credits_remaining, expires_at")
+        .select("id, credits_remaining, expires_at, package_name")
         .eq("user_id", user.id)
         .gt("credits_remaining", 0)
         .not("expires_at", "is", null)
         .gte("expires_at", new Date().toISOString())
         .order("expires_at", { ascending: true })
-        .limit(1),
+        .limit(5),
     ]);
 
     setBalance(profile?.credits_balance ?? 0);
-    setActivePlan(profile?.active_plan ?? "free");
+    setActivePlan(normalizePlan(profile?.active_plan));
 
-    const batch = batches?.[0];
-    if (batch?.expires_at) {
+    const activeBatches = (batches || []).map((batch) => ({
+      id: batch.id,
+      credits: batch.credits_remaining ?? 0,
+      daysLeft: getDaysLeft(batch.expires_at),
+      expiresAt: batch.expires_at,
+      packageName: batch.package_name ?? "credits",
+    }));
+
+    const batch = activeBatches[0];
+    if (batch?.expiresAt) {
       setNearestExpiry({
-        credits: batch.credits_remaining ?? 0,
-        daysLeft: getDaysLeft(batch.expires_at),
+        credits: batch.credits,
+        daysLeft: batch.daysLeft,
       });
     } else {
       setNearestExpiry(null);
     }
+    setExpiringBatches(activeBatches);
 
     setIsLoading(false);
   }, [user]);
@@ -88,7 +107,7 @@ export function useCredits(): UseCreditsReturn {
         (payload) => {
           const next = payload.new as { credits_balance?: number; active_plan?: string };
           if (typeof next.credits_balance === "number") setBalance(next.credits_balance);
-          if (typeof next.active_plan === "string") setActivePlan(next.active_plan);
+          if (typeof next.active_plan === "string") setActivePlan(normalizePlan(next.active_plan));
         },
       )
       .subscribe();
@@ -119,6 +138,7 @@ export function useCredits(): UseCreditsReturn {
     balance,
     isLoading,
     nearestExpiry,
+    expiringBatches,
     isLow: balance > 0 && balance <= 3,
     isEmpty: balance === 0,
     activePlan,

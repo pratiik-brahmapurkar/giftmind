@@ -443,7 +443,9 @@ export default function AdminBlogEditor() {
       if (!featuredImageAlt.trim()) setFeaturedImageAlt(altText);
       toast.success("Featured image uploaded");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to upload image");
+      const message = error instanceof Error ? error.message : "Failed to upload image";
+      console.error("[featured-image-upload]", error);
+      toast.error(message);
     } finally {
       setUploadingFeaturedImage(false);
     }
@@ -1038,6 +1040,8 @@ export default function AdminBlogEditor() {
               ) : (
                 <button
                   type="button"
+                  aria-label="Upload featured image"
+                  disabled={uploadingFeaturedImage}
                   onClick={() => featuredFileInputRef.current?.click()}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => {
@@ -1045,10 +1049,10 @@ export default function AdminBlogEditor() {
                     const file = event.dataTransfer.files?.[0];
                     if (file) void handleFeaturedImageUpload(file);
                   }}
-                  className="flex aspect-[16/10] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-500 transition hover:border-primary/35 hover:text-primary"
+                  className="flex aspect-[16/10] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-500 transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {uploadingFeaturedImage ? <Loader2 className="mb-2 h-5 w-5 animate-spin" /> : <ImagePlus className="mb-2 h-5 w-5" />}
-                  Upload Image
+                  {uploadingFeaturedImage ? "Uploading…" : "Upload Image"}
                   <span className="mt-1 text-xs">or drag and drop a JPG, PNG, or WebP up to 5MB</span>
                 </button>
               )}

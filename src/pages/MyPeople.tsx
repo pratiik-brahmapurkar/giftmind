@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -22,11 +23,79 @@ import {
 import { Plus, Users, Search, Heart, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { FILTER_GROUPS, type RecipientFormData } from "@/components/recipients/constants";
+import { FILTER_GROUPS, type ImportantDate, type RecipientFormData } from "@/components/recipients/constants";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { sanitizeString } from "@/lib/validation";
 
 type SortOption = "recent" | "upcoming" | "most_gifted";
+type RecipientRow = Database["public"]["Tables"]["recipients"]["Row"];
+type GiftSessionRow = Pick<
+  Database["public"]["Tables"]["gift_sessions"]["Row"],
+  "recipient_id" | "created_at" | "status" | "selected_gift_name"
+>;
+
+type RecipientWithIntelligence = RecipientRow & {
+  gift_count: number;
+  next_important_date: ImportantDate | null;
+  next_important_date_days: number | null;
+};
+
+function parseImportantDates(value: RecipientRow["important_dates"]): ImportantDate[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const candidate = entry as Partial<ImportantDate>;
+      if (typeof candidate.label !== "string" || typeof candidate.date !== "string") return null;
+      return {
+        label: candidate.label,
+        date: candidate.date,
+        recurring: Boolean(candidate.recurring),
+      };
+    })
+    .filter((entry): entry is ImportantDate => Boolean(entry));
+}
+
+function getDaysUntilDate(mmdd: string) {
+  const [month, day] = mmdd.split("-").map(Number);
+  if (!month || !day) return null;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let target = new Date(today.getFullYear(), month - 1, day);
+  if (Number.isNaN(target.getTime())) return null;
+  if (target < today) {
+    target = new Date(today.getFullYear() + 1, month - 1, day);
+  }
+
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function isBirthdayOrAnniversary(label: string) {
+  const normalized = label.trim().toLowerCase();
+  return normalized.includes("birthday") || normalized.includes("anniversary");
+}
+
+function getNextImportantDate(value: RecipientRow["important_dates"]) {
+  const dated = parseImportantDates(value)
+    .map((entry) => ({
+      entry,
+      days: getDaysUntilDate(entry.date),
+      priority: isBirthdayOrAnniversary(entry.label) ? 0 : 1,
+    }))
+    .filter((entry): entry is { entry: ImportantDate; days: number; priority: number } => entry.days !== null)
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return a.days - b.days;
+    });
+
+  if (dated.length === 0) return null;
+  return {
+    entry: dated[0].entry,
+    days: dated[0].days,
+  };
+}
 
 const MyPeople = () => {
   const { user } = useAuth();
@@ -42,13 +111,26 @@ const MyPeople = () => {
   const [filterIdx, setFilterIdx] = useState(0);
   const [sort, setSort] = useState<SortOption>("recent");
 
-  const { data: recipients = [], isLoading } = useQuery({
+  const { data: recipients = [], isLoading: recipientsLoading } = useQuery({
     queryKey: ["recipients", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipients").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: giftSessions = [], isLoading: giftSessionsLoading } = useQuery({
+    queryKey: ["recipient-intelligence", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gift_sessions")
+        .select("recipient_id, created_at, status, selected_gift_name")
+        .not("recipient_id", "is", null);
+      if (error) throw error;
+      return (data || []) as GiftSessionRow[];
     },
     enabled: !!user,
   });
@@ -64,8 +146,41 @@ const MyPeople = () => {
   });
   const userCountry = (profile as any)?.country || "US";
 
+  const recipientGiftStats = useMemo(() => {
+    return giftSessions.reduce<Record<string, { gift_count: number; last_gift_date: string | null }>>((acc, session) => {
+      if (!session.recipient_id) return acc;
+      const wasGifted = session.status === "completed" || Boolean(session.selected_gift_name);
+      if (!wasGifted) return acc;
+
+      const key = session.recipient_id;
+      const createdAt = session.created_at || null;
+
+      if (!acc[key]) {
+        acc[key] = { gift_count: 0, last_gift_date: null };
+      }
+
+      acc[key].gift_count += 1;
+      if (!acc[key].last_gift_date || (createdAt && new Date(createdAt) > new Date(acc[key].last_gift_date!))) {
+        acc[key].last_gift_date = createdAt;
+      }
+
+      return acc;
+    }, {});
+  }, [giftSessions]);
+
   const filtered = useMemo(() => {
-    let list = recipients as any[];
+    let list: RecipientWithIntelligence[] = (recipients as RecipientRow[]).map((recipient) => {
+      const giftStats = recipientGiftStats[recipient.id];
+      const nextDate = getNextImportantDate(recipient.important_dates);
+
+      return {
+        ...recipient,
+        gift_count: giftStats?.gift_count || 0,
+        last_gift_date: giftStats?.last_gift_date || recipient.last_gift_date,
+        next_important_date: nextDate?.entry || null,
+        next_important_date_days: nextDate?.days ?? null,
+      };
+    });
     const cleanSearch = sanitizeString(search, 100).toLowerCase();
     if (cleanSearch) {
       const q = cleanSearch;
@@ -75,11 +190,33 @@ const MyPeople = () => {
     if (group.types.length > 0) {
       list = list.filter((r: any) => group.types.includes(r.relationship_type));
     }
-    if (sort === "recent") {
-      list = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    }
+    list = [...list].sort((a, b) => {
+      if (sort === "upcoming") {
+        if (a.next_important_date_days === null && b.next_important_date_days === null) {
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        }
+        if (a.next_important_date_days === null) return 1;
+        if (b.next_important_date_days === null) return -1;
+        if (a.next_important_date_days !== b.next_important_date_days) {
+          return a.next_important_date_days - b.next_important_date_days;
+        }
+        if (b.gift_count !== a.gift_count) return b.gift_count - a.gift_count;
+      }
+
+      if (sort === "most_gifted") {
+        if (b.gift_count !== a.gift_count) return b.gift_count - a.gift_count;
+        if (a.last_gift_date && b.last_gift_date && a.last_gift_date !== b.last_gift_date) {
+          return new Date(b.last_gift_date).getTime() - new Date(a.last_gift_date).getTime();
+        }
+        if (a.last_gift_date && !b.last_gift_date) return -1;
+        if (!a.last_gift_date && b.last_gift_date) return 1;
+      }
+
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
+
     return list;
-  }, [recipients, search, filterIdx, sort]);
+  }, [recipients, recipientGiftStats, search, filterIdx, sort]);
 
   const atLimit = recipients.length >= limits.recipients;
   const capacityPct = limits.recipients === Infinity ? 0 : recipients.length / limits.recipients;
@@ -197,7 +334,7 @@ const MyPeople = () => {
         )}
 
         {/* Content */}
-        {isLoading ? (
+        {recipientsLoading || giftSessionsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="border-border/50">
@@ -254,7 +391,7 @@ const MyPeople = () => {
                   <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="recent">Recently added</SelectItem>
-                    <SelectItem value="upcoming">Upcoming birthdays</SelectItem>
+                    <SelectItem value="upcoming">Upcoming dates</SelectItem>
                     <SelectItem value="most_gifted">Most gifted</SelectItem>
                   </SelectContent>
                 </Select>

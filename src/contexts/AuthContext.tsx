@@ -3,6 +3,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { identifyUser, resetUser } from "@/lib/posthog";
 import { clearSentryUser, setSentryUser } from "@/lib/sentry";
+import { normalizePlan } from "@/lib/plans";
 
 interface AuthContextType {
   session: Session | null;
@@ -45,14 +46,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .single()
             .then(({ data }) => {
               if (data) {
+                const normalizedPlan = normalizePlan(data.active_plan);
                 identifyUser(session.user.id, {
                   email: session.user.email,
-                  plan: data.active_plan,
+                  plan: normalizedPlan,
                   country: data.country,
                   currency: data.currency_preference,
                   signup_date: data.created_at,
                 });
-                setSentryUser(session.user.id, data.active_plan ?? "free");
+                setSentryUser(session.user.id, normalizedPlan);
               }
             });
           console.log('User signed in:', session.user.email);

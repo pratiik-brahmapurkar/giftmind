@@ -81,6 +81,7 @@ serve(async (req: Request): Promise<Response> => {
       transactionsRes,
       batchesRes,
       feedbackRes,
+      signalChecksRes,
       referralsRes,
       clicksRes,
       postsRes,
@@ -93,6 +94,7 @@ serve(async (req: Request): Promise<Response> => {
       supabaseAdmin.from("credit_transactions").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
       supabaseAdmin.from("credit_batches").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
       supabaseAdmin.from("gift_feedback").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+      supabaseAdmin.from("signal_checks").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
       supabaseAdmin
         .from("referrals")
         .select("*")
@@ -117,6 +119,7 @@ serve(async (req: Request): Promise<Response> => {
       transactionsRes,
       batchesRes,
       feedbackRes,
+      signalChecksRes,
       referralsRes,
       clicksRes,
       postsRes,
@@ -140,6 +143,7 @@ serve(async (req: Request): Promise<Response> => {
       credit_transactions: transactionsRes.data ?? [],
       credit_batches: batchesRes.data ?? [],
       gift_feedback: feedbackRes.data ?? [],
+      signal_checks: signalChecksRes.data ?? [],
       referrals: referralsRes.data ?? [],
       product_clicks: clicksRes.data ?? [],
       blog_posts: postsRes.data ?? [],

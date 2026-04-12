@@ -23,6 +23,7 @@ interface RecipientCardProps {
     relationship_type: string;
     interests: string[];
     last_gift_date: string | null;
+    gift_count?: number;
     important_dates: any;
     country?: string;
   };
@@ -34,15 +35,24 @@ interface RecipientCardProps {
 
 /** Check if MM-DD date is within next N days */
 function isWithinDays(mmdd: string, days: number): boolean {
-  if (!mmdd || mmdd.length < 4) return false;
+  const diff = getDaysUntil(mmdd);
+  return diff !== null && diff >= 0 && diff <= days;
+}
+
+function getDaysUntil(mmdd: string): number | null {
+  if (!mmdd || mmdd.length < 4) return null;
   const [mm, dd] = mmdd.split("-").map(Number);
-  if (!mm || !dd) return false;
+  if (!mm || !dd) return null;
   const now = new Date();
-  const thisYear = now.getFullYear();
-  let target = new Date(thisYear, mm - 1, dd);
-  if (target < now) target = new Date(thisYear + 1, mm - 1, dd);
-  const diff = (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  return diff >= 0 && diff <= days;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let target = new Date(today.getFullYear(), mm - 1, dd);
+  if (target < today) target = new Date(today.getFullYear() + 1, mm - 1, dd);
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function isPriorityDateLabel(label: string) {
+  const normalized = label.trim().toLowerCase();
+  return normalized.includes("birthday") || normalized.includes("anniversary");
 }
 
 function formatMMDD(mmdd: string): string {
@@ -60,11 +70,23 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }:
   const badgeClass = RELATIONSHIP_BADGE_COLORS[recipient.relationship_type] || "bg-muted text-muted-foreground";
 
   const dates: { label: string; date: string; recurring?: boolean }[] =
-    Array.isArray(recipient.important_dates) ? recipient.important_dates : [];
+    [...(Array.isArray(recipient.important_dates) ? recipient.important_dates : [])].sort((a, b) => {
+      const priorityA = isPriorityDateLabel(a.label || "") ? 0 : 1;
+      const priorityB = isPriorityDateLabel(b.label || "") ? 0 : 1;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+
+      const daysA = getDaysUntil(a.date || "");
+      const daysB = getDaysUntil(b.date || "");
+      if (daysA === null && daysB === null) return 0;
+      if (daysA === null) return 1;
+      if (daysB === null) return -1;
+      return daysA - daysB;
+    });
 
   const maxInterests = 3;
   const shownInterests = recipient.interests.slice(0, maxInterests);
   const overflow = recipient.interests.length - maxInterests;
+  const giftCount = recipient.gift_count || 0;
 
   return (
     <Card className="group border-border/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 relative">
@@ -148,9 +170,10 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }:
 
         {/* Last gift */}
         <p className="text-[11px] text-muted-foreground">
+          {giftCount > 0 ? `${giftCount} gift${giftCount === 1 ? "" : "s"} chosen` : "No gifts yet"}
           {recipient.last_gift_date
-            ? `Last gift: ${new Date(recipient.last_gift_date).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`
-            : "No gifts yet"}
+            ? ` · Last gift: ${new Date(recipient.last_gift_date).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`
+            : ""}
         </p>
 
         {/* Hover CTA */}

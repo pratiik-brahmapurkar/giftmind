@@ -1,32 +1,13 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import BuyCreditsTab from "@/components/credits/BuyCreditsTab";
 import CreditHistoryTab from "@/components/credits/CreditHistoryTab";
 import { SEOHead } from "@/components/common/SEOHead";
+import { useCredits } from "@/hooks/useCredits";
 
 const Credits = () => {
-  const { user } = useAuth();
-
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("credits_balance")
-        .eq("id", user!.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const credits = profile?.credits_balance ?? 0;
+  const { balance: credits, expiringBatches, isLoading } = useCredits();
 
   return (
     <DashboardLayout>
@@ -41,10 +22,10 @@ const Credits = () => {
           </TabsList>
 
           <TabsContent value="buy">
-            {profileLoading ? (
+            {isLoading ? (
               <Skeleton className="h-[120px] w-full rounded-xl" />
             ) : (
-              <BuyCreditsTab credits={credits} />
+              <BuyCreditsTab credits={credits} expiringBatches={expiringBatches} />
             )}
           </TabsContent>
 

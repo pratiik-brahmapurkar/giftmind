@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { ProductResult } from "@/lib/productLinks";
 
 export interface Recipient {
   id: string;
@@ -24,27 +25,6 @@ export interface GiftRecommendation {
   product_category: string;
   price_anchor: number;
   what_not_to_do: string;
-}
-
-export interface ProductResult {
-  gift_name: string;
-  products: Array<{
-    store_id: string;
-    store_name: string;
-    domain: string;
-    brand_color: string;
-    search_url: string;
-    is_search_link: boolean;
-    gift_name: string;
-    product_category: string;
-  }>;
-  locked_stores: Array<{
-    store_id: string;
-    store_name: string;
-    brand_color: string;
-    is_locked: boolean;
-    unlock_plan: string;
-  }>;
 }
 
 export interface GiftSessionState {
@@ -546,6 +526,19 @@ export function useGiftSession() {
         })
         .eq("id", state.sessionId);
 
+      const { data: completedSession } = await supabase
+        .from("gift_sessions")
+        .select("recipient_id")
+        .eq("id", state.sessionId)
+        .single();
+
+      if (completedSession?.recipient_id) {
+        await supabase
+          .from("recipients")
+          .update({ last_gift_date: new Date().toISOString() })
+          .eq("id", completedSession.recipient_id);
+      }
+
       try {
         await invokeAuthedFunction("award-referral-credits", {
           session_id: state.sessionId,
@@ -567,10 +560,13 @@ export function useGiftSession() {
     async (product: {
       gift_name: string;
       store_name: string;
-      search_url: string;
+      search_url?: string | null;
+      product_url?: string | null;
+      affiliate_url?: string | null;
       store_id: string;
       domain?: string;
       is_search_link?: boolean;
+      product_title?: string | null;
     }) => {
       const {
         data: { user },
@@ -578,18 +574,21 @@ export function useGiftSession() {
 
       if (!user) return;
 
+      const outboundUrl = product.affiliate_url || product.product_url || product.search_url;
+      if (!outboundUrl) return;
+
       await supabase.from("product_clicks").insert({
         user_id: user.id,
         session_id: state.sessionId,
         gift_concept_name: product.gift_name,
-        product_title: product.store_name,
-        product_url: product.search_url,
+        product_title: product.product_title || product.store_name,
+        product_url: outboundUrl,
         store: product.store_id,
         country: product.domain?.split(".").pop() || "",
         is_search_link: Boolean(product.is_search_link),
       });
 
-      window.open(product.search_url, "_blank", "noopener,noreferrer");
+      window.open(outboundUrl, "_blank", "noopener,noreferrer");
     },
     [state.sessionId],
   );

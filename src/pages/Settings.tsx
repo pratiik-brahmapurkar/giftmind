@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Bell, Download, Trash2, Shield, AlertTriangle, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { normalizePlan } from "@/lib/plans";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -48,7 +49,7 @@ const Settings = () => {
   const notifyReminders = (profile as any)?.notify_gift_reminders ?? true;
   const notifyCreditExpiry = (profile as any)?.notify_credit_expiry ?? true;
   const notifyTips = (profile as any)?.notify_tips ?? false;
-  const hasExportAccess = (profile as any)?.active_plan === "pro";
+  const hasExportAccess = normalizePlan((profile as any)?.active_plan) === "pro";
 
   const updateNotif = useMutation({
     mutationFn: async (updates: Record<string, boolean>) => {

@@ -26,12 +26,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrencySymbol, RELATIONSHIP_COLORS } from "@/lib/geoConfig";
+import { getOutboundProductUrl, type ProductLink, type ProductResult } from "@/lib/productLinks";
+import { getSignalFeedbackComparison, parseSignalChecks, type ParsedSignalCheck } from "@/lib/signalCheck";
 import type { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 
 type RecipientSummary = Pick<Tables<"recipients">, "id" | "name" | "relationship" | "country">;
 type FeedbackRow = Tables<"gift_feedback">;
 type MarketplaceRow = Tables<"marketplace_config">;
+type SignalCheckRow = Tables<"signal_checks">;
 
 interface Recommendation {
   name: string;
@@ -47,22 +50,6 @@ interface AiResponseShape {
   occasion_insight?: string | null;
   budget_assessment?: string | null;
   cultural_note?: string | null;
-}
-
-interface ProductLink {
-  store_id: string;
-  store_name: string;
-  domain: string;
-  brand_color: string;
-  search_url: string;
-  is_search_link: boolean;
-  gift_name: string;
-  product_category: string;
-}
-
-interface ProductResult {
-  gift_name: string;
-  products: ProductLink[];
 }
 
 type GiftSessionRecord = Tables<"gift_sessions"> & {
@@ -259,6 +246,21 @@ export default function GiftHistory() {
     enabled: !!user,
   });
 
+  const { data: signalCheckRows = [] } = useQuery({
+    queryKey: ["gift-history-signal-checks", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("signal_checks")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return (data as SignalCheckRow[]) || [];
+    },
+    enabled: !!user,
+  });
+
   const { data: stores = [] } = useQuery({
     queryKey: ["gift-history-marketplace-config"],
     queryFn: async () => {
@@ -289,6 +291,19 @@ export default function GiftHistory() {
     () => new Map(feedbackRows.map((row) => [row.session_id, row])),
     [feedbackRows],
   );
+
+  const signalChecksBySessionGift = useMemo(() => {
+    const grouped = new Map<string, ParsedSignalCheck[]>();
+
+    for (const row of parseSignalChecks(signalCheckRows)) {
+      const key = `${row.session_id}:${row.gift_name}`;
+      const current = grouped.get(key) ?? [];
+      current.push(row);
+      grouped.set(key, current);
+    }
+
+    return grouped;
+  }, [signalCheckRows]);
 
   const uniqueOccasions = useMemo(
     () => [...new Set(sessions.map((session) => session.occasion).filter(Boolean))],
@@ -415,7 +430,11 @@ export default function GiftHistory() {
 
     const links = resolveStoreLinks(selected, session, stores);
     if (links.length > 0) {
-      window.open(links[0].search_url, "_blank", "noopener,noreferrer");
+      const url = getOutboundProductUrl(links[0]);
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
       return;
     }
 
@@ -666,6 +685,10 @@ export default function GiftHistory() {
                                 const isSelected =
                                   session.selected_gift_name === recommendation.name ||
                                   session.selected_gift_index === index;
+                                const signalHistory = signalChecksBySessionGift.get(`${session.id}:${recommendation.name}`) ?? [];
+                                const latestSignalCheck = signalHistory[signalHistory.length - 1] ?? null;
+                                const feedbackComparison =
+                                  isSelected && feedback ? getSignalFeedbackComparison(latestSignalCheck, feedback) : null;
 
                                 return (
                                   <div
@@ -699,17 +722,80 @@ export default function GiftHistory() {
                                       {recommendation.why_it_works}
                                     </p>
 
+                                    {latestSignalCheck && (
+                                      <div className="mt-4 space-y-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="text-sm font-semibold text-foreground">Signal Check</span>
+                                          <span className="rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                                            Revision {latestSignalCheck.revision_number}
+                                          </span>
+                                          {signalHistory.length > 1 ? (
+                                            <span className="rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                                              {signalHistory.length} saved reads
+                                            </span>
+                                          ) : null}
+                                          {feedbackComparison ? (
+                                            <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-medium", feedbackComparison.className)}>
+                                              {feedbackComparison.label}
+                                            </span>
+                                          ) : null}
+                                        </div>
+
+                                        <p className="text-sm font-medium text-foreground">
+                                          {latestSignalCheck.result.overall_message}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          {latestSignalCheck.result.confidence_note}
+                                        </p>
+
+                                        {latestSignalCheck.result.adjustment_suggestions.length > 0 && (
+                                          <div className="space-y-1">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                              Tuning ideas
+                                            </p>
+                                            {latestSignalCheck.result.adjustment_suggestions.map((suggestion) => (
+                                              <p key={suggestion} className="text-sm text-foreground">
+                                                {suggestion}
+                                              </p>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {feedbackComparison ? (
+                                          <p className="text-sm text-muted-foreground">{feedbackComparison.description}</p>
+                                        ) : null}
+
+                                        {signalHistory.some((entry) => entry.follow_up_prompt) ? (
+                                          <div className="flex flex-wrap gap-2">
+                                            {signalHistory
+                                              .filter((entry) => entry.follow_up_prompt)
+                                              .map((entry) => (
+                                                <span
+                                                  key={entry.id}
+                                                  className="rounded-full border border-border/60 bg-background px-3 py-1 text-[11px] text-muted-foreground"
+                                                >
+                                                  {entry.follow_up_prompt}
+                                                </span>
+                                              ))}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    )}
+
                                     {links.length > 0 && (
                                       <div className="mt-4 flex flex-wrap gap-2">
                                         {links.map((link) => (
                                           <button
                                             key={`${link.store_id}-${recommendation.name}`}
                                             type="button"
-                                            onClick={() => window.open(link.search_url, "_blank", "noopener,noreferrer")}
+                                            onClick={() => {
+                                              const url = getOutboundProductUrl(link);
+                                              if (url) window.open(url, "_blank", "noopener,noreferrer");
+                                            }}
                                             className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-white"
                                             style={{ backgroundColor: link.brand_color || "#6C5CE7" }}
                                           >
-                                            Shop on {link.store_name}
+                                            {link.product_title ? `Shop ${link.product_title} on ${link.store_name}` : `Shop on ${link.store_name}`}
                                             <ExternalLink className="h-3.5 w-3.5" />
                                           </button>
                                         ))}

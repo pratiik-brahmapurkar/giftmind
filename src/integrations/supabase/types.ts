@@ -740,6 +740,67 @@ export type Database = {
           },
         ]
       }
+      signal_checks: {
+        Row: {
+          created_at: string
+          credits_used: number
+          follow_up_prompt: string | null
+          gift_name: string
+          id: string
+          parent_signal_check_id: string | null
+          result_payload: Json
+          revision_number: number
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number
+          follow_up_prompt?: string | null
+          gift_name: string
+          id?: string
+          parent_signal_check_id?: string | null
+          result_payload?: Json
+          revision_number?: number
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number
+          follow_up_prompt?: string | null
+          gift_name?: string
+          id?: string
+          parent_signal_check_id?: string | null
+          result_payload?: Json
+          revision_number?: number
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_checks_parent_signal_check_id_fkey"
+            columns: ["parent_signal_check_id"]
+            isOneToOne: false
+            referencedRelation: "signal_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_checks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "gift_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_checks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           active_plan: string | null

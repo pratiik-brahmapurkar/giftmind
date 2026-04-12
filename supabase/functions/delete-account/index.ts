@@ -134,6 +134,13 @@ serve(async (req: Request): Promise<Response> => {
     const failures: { step: string; message: string }[] = [];
 
     await attemptDelete(
+      "signal_checks",
+      () => supabaseAdmin.from("signal_checks").delete().eq("user_id", userId),
+      deletedTables,
+      failures,
+    );
+
+    await attemptDelete(
       "gift_feedback",
       () => supabaseAdmin.from("gift_feedback").delete().eq("user_id", userId),
       deletedTables,

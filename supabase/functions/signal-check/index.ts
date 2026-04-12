@@ -41,6 +41,8 @@ interface SignalCheckRequest {
   budget_spent?: number | null;
   currency: string;
   session_id: string;
+  follow_up_prompt?: string | null;
+  parent_signal_check_id?: string | null;
 }
 
 interface SignalCheckResult {
@@ -48,6 +50,15 @@ interface SignalCheckResult {
   potential_risks: string[];
   overall_message: string;
   confidence_note: string;
+  adjustment_suggestions: string[];
+}
+
+interface StoredSignalCheck {
+  id: string;
+  gift_name: string;
+  revision_number: number;
+  follow_up_prompt: string | null;
+  result_payload: unknown;
 }
 
 // ── Plans that have Signal Check access ────────────────────────────────────────
@@ -71,7 +82,12 @@ STRICT OUTPUT FORMAT (respond ONLY with this JSON):
     "Risk 1: any way this could be misinterpreted (include 0-2 risks)"
   ],
   "overall_message": "A 2-3 sentence summary of what this gift says about the relationship. Written in second person: 'This gift tells [recipient] that you...'",
-  "confidence_note": "One sentence about how well this gift matches the occasion and relationship. Example: 'This is a strong choice for a 3rd anniversary — personal without being over-the-top.'"
+  "confidence_note": "One sentence about how well this gift matches the occasion and relationship. Example: 'This is a strong choice for a 3rd anniversary — personal without being over-the-top.'",
+  "adjustment_suggestions": [
+    "Optional tuning idea 1 for steering the same gift differently",
+    "Optional tuning idea 2",
+    "Optional tuning idea 3 (include 0-3 ideas)"
+  ]
 }`;
 
 // ── JSON extraction helper (strips markdown fences if Claude adds them) ────────
@@ -92,6 +108,7 @@ function validateSignalCheckResult(parsed: unknown): parsed is SignalCheckResult
   if (!Array.isArray(obj.potential_risks)) return false;
   if (typeof obj.overall_message !== "string" || !obj.overall_message) return false;
   if (typeof obj.confidence_note !== "string" || !obj.confidence_note) return false;
+  if (!Array.isArray(obj.adjustment_suggestions)) return false;
 
   // Validate that all signal entries are strings
   for (const s of obj.positive_signals) {
@@ -99,6 +116,9 @@ function validateSignalCheckResult(parsed: unknown): parsed is SignalCheckResult
   }
   for (const r of obj.potential_risks) {
     if (typeof r !== "string") return false;
+  }
+  for (const suggestion of obj.adjustment_suggestions) {
+    if (typeof suggestion !== "string") return false;
   }
 
   return true;
@@ -168,6 +188,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const cleanGiftName = sanitizeString(body.gift_name, 200);
     const cleanGiftDescription = sanitizeString(body.gift_description || "", 500);
+    const cleanFollowUpPrompt = sanitizeString(body.follow_up_prompt || "", 240);
 
     if (!cleanGiftName) {
       return json({ error: "Missing required field: gift_name" }, 400);
@@ -198,6 +219,45 @@ serve(async (req: Request): Promise<Response> => {
 
     if (session.user_id !== user.id) {
       return json({ error: "Forbidden" }, 403);
+    }
+
+    const { data: existingChecks, error: signalChecksError } = await supabaseAdmin
+      .from("signal_checks")
+      .select("id, gift_name, revision_number, follow_up_prompt, result_payload")
+      .eq("user_id", user.id)
+      .eq("session_id", body.session_id)
+      .eq("gift_name", cleanGiftName)
+      .order("revision_number", { ascending: false });
+
+    if (signalChecksError) {
+      console.error("Failed to fetch existing signal checks:", signalChecksError.message);
+      return json({ error: "Failed to load saved signal checks" }, 500);
+    }
+
+    const savedChecks = (existingChecks ?? []) as StoredSignalCheck[];
+    const latestSavedCheck = savedChecks[0] ?? null;
+
+    if (!cleanFollowUpPrompt && latestSavedCheck) {
+      const storedResult = latestSavedCheck.result_payload;
+      if (validateSignalCheckResult(storedResult)) {
+        return json({
+          success: true,
+          signal: storedResult,
+          signal_check_id: latestSavedCheck.id,
+          revision_number: latestSavedCheck.revision_number,
+          credits_remaining: userData.credits_balance ?? 0,
+          reused_saved_result: true,
+        });
+      }
+    }
+
+    let parentSignalCheck = latestSavedCheck;
+    if (body.parent_signal_check_id) {
+      const explicitParent = savedChecks.find((check) => check.id === body.parent_signal_check_id);
+      if (!explicitParent) {
+        return json({ error: "Signal Check revision not found" }, 404);
+      }
+      parentSignalCheck = explicitParent;
     }
 
     const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString();
@@ -263,6 +323,11 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // ── 5. Build user message for Claude ─────────────────────────────────────
+    const parentContext =
+      cleanFollowUpPrompt && parentSignalCheck && validateSignalCheckResult(parentSignalCheck.result_payload)
+        ? `\nPREVIOUS SIGNAL CHECK:\n${JSON.stringify(parentSignalCheck.result_payload, null, 2)}\nFOLLOW-UP DIRECTION: ${cleanFollowUpPrompt}\nRevise the analysis to move in that direction if possible. If the direction clashes with the gift, explain that honestly and use adjustment_suggestions to suggest how to steer the signal.`
+        : "";
+
     const userMessage = `Analyze what this gift communicates:
 
 GIFT: ${cleanGiftName}
@@ -274,7 +339,7 @@ RELATIONSHIP: ${sanitizeString(body.recipient_relationship, 50)} (${sanitizeStri
 OCCASION: ${sanitizeString(body.occasion, 50)}
 ${body.relationship_stage ? `RELATIONSHIP STAGE: ${sanitizeString(body.relationship_stage, 50)}` : ""}
 
-What does giving this specific gift, for this occasion, to this person communicate?`;
+What does giving this specific gift, for this occasion, to this person communicate?${parentContext}`;
 
     // ── 6. Call Claude Sonnet API (ALWAYS Sonnet — premium differentiator) ────
     const controller = new AbortController();
@@ -358,14 +423,51 @@ What does giving this specific gift, for this occasion, to this person communica
     }
 
     // ── 10. Store signal check result in the gift session ────────────────────
+    let storedSignalCheckId: string | null = null;
+    const nextRevisionNumber = (latestSavedCheck?.revision_number ?? 0) + 1;
     if (body.session_id) {
       try {
-        const currentAiResponse = session?.ai_response ?? {};
+        const { data: insertedSignalCheck, error: insertSignalCheckError } = await supabaseAdmin
+          .from("signal_checks")
+          .insert({
+            user_id: user.id,
+            session_id: body.session_id,
+            gift_name: cleanGiftName,
+            parent_signal_check_id: cleanFollowUpPrompt ? (parentSignalCheck?.id ?? null) : null,
+            revision_number: nextRevisionNumber,
+            follow_up_prompt: cleanFollowUpPrompt || null,
+            result_payload: parsedResult,
+            credits_used: 0.5,
+          })
+          .select("id")
+          .single();
+
+        if (insertSignalCheckError) {
+          console.error("Failed to store signal check row:", insertSignalCheckError.message);
+        } else {
+          storedSignalCheckId = insertedSignalCheck.id;
+        }
+
+        const currentAiResponse =
+          session?.ai_response && typeof session.ai_response === "object" && !Array.isArray(session.ai_response)
+            ? session.ai_response as Record<string, unknown>
+            : {};
+        const existingSignalChecks =
+          currentAiResponse.signal_checks &&
+          typeof currentAiResponse.signal_checks === "object" &&
+          !Array.isArray(currentAiResponse.signal_checks)
+            ? currentAiResponse.signal_checks as Record<string, unknown>
+            : {};
         const updatedResponse = {
           ...currentAiResponse,
           signal_checks: {
-            ...(currentAiResponse?.signal_checks || {}),
-            [cleanGiftName]: parsedResult,
+            ...existingSignalChecks,
+            [cleanGiftName]: {
+              latest_signal_check_id: storedSignalCheckId,
+              revision_number: nextRevisionNumber,
+              follow_up_prompt: cleanFollowUpPrompt || null,
+              result: parsedResult,
+            },
           },
         };
 
@@ -393,7 +495,10 @@ What does giving this specific gift, for this occasion, to this person communica
         potential_risks: parsedResult.potential_risks,
         overall_message: parsedResult.overall_message,
         confidence_note: parsedResult.confidence_note,
+        adjustment_suggestions: parsedResult.adjustment_suggestions,
       },
+      signal_check_id: storedSignalCheckId,
+      revision_number: nextRevisionNumber,
       credits_remaining: deductResult.remaining_balance,
     });
   } catch (err) {
