@@ -127,7 +127,7 @@ const MyPeople = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("gift_sessions")
-        .select("recipient_id, created_at, status, selected_gift_name")
+        .select("recipient_id,created_at,status,selected_gift_name")
         .not("recipient_id", "is", null);
       if (error) throw error;
       return (data || []) as GiftSessionRow[];

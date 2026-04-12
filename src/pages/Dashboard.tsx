@@ -43,7 +43,7 @@ const Dashboard = () => {
     queryKey: ["dashboard-recipients", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data } = await supabase.from("recipients").select("id, name").eq("user_id", user.id);
+      const { data } = await supabase.from("recipients").select("id,name").eq("user_id", user.id);
       return data || [];
     },
     enabled: !!user,
@@ -55,7 +55,7 @@ const Dashboard = () => {
       if (!user) return [];
       const { data } = await supabase
         .from("gift_sessions")
-        .select("id, occasion, status, created_at, selected_gift_name, selected_gift_index, results, recipient_id")
+        .select("id,occasion,status,created_at,selected_gift_name,selected_gift_index,ai_response,recipient_id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(5);
@@ -209,8 +209,8 @@ const Dashboard = () => {
               const recipientName = recipientMap[session.recipient_id] || "Unknown";
               const initial = recipientName[0]?.toUpperCase() || "?";
               const isCompleted = session.status === "completed";
-              const recommendations = session.results && typeof session.results === "object"
-                ? ((session.results as any).recommendations || [])
+              const recommendations = session.ai_response && typeof session.ai_response === "object"
+                ? ((session.ai_response as any).recommendations || [])
                 : [];
               const chosenGiftName = session.selected_gift_name ||
                 (typeof session.selected_gift_index === "number" && Array.isArray(recommendations)
