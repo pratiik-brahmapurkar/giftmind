@@ -25,6 +25,14 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { FILTER_GROUPS, type ImportantDate, type RecipientFormData } from "@/components/recipients/constants";
 import { useUserPlan } from "@/hooks/useUserPlan";
+import {
+  buildRecipientInsertPayload,
+  buildRecipientUpdatePayload,
+  createRecipientAuthError,
+  createRecipientMutationError,
+  getRecipientRelationship,
+  type RecipientMutationError,
+} from "@/lib/recipients";
 import { sanitizeString } from "@/lib/validation";
 
 type SortOption = "recent" | "upcoming" | "most_gifted";
@@ -175,6 +183,8 @@ const MyPeople = () => {
 
       return {
         ...recipient,
+        relationship: getRecipientRelationship(recipient) || null,
+        interests: recipient.interests ?? [],
         gift_count: giftStats?.gift_count || 0,
         last_gift_date: giftStats?.last_gift_date || recipient.last_gift_date,
         next_important_date: nextDate?.entry || null,
@@ -188,7 +198,7 @@ const MyPeople = () => {
     }
     const group = FILTER_GROUPS[filterIdx];
     if (group.types.length > 0) {
-      list = list.filter((r: any) => group.types.includes(r.relationship_type));
+      list = list.filter((r) => group.types.includes(getRecipientRelationship(r)));
     }
     list = [...list].sort((a, b) => {
       if (sort === "upcoming") {
@@ -227,50 +237,47 @@ const MyPeople = () => {
 
   const createMutation = useMutation({
     mutationFn: async (form: RecipientFormData) => {
-      const { error } = await supabase.from("recipients").insert({
-        user_id: user!.id, name: form.name,
-        relationship_type: form.relationship_type as any,
-        relationship_depth: form.relationship_depth as any,
-        age_range: form.age_range ? (form.age_range as any) : null,
-        gender: form.gender ? (form.gender as any) : null,
-        interests: form.interests,
-        cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
-        country: form.country || null,
-        notes: form.notes || null,
-        important_dates: form.important_dates as any,
-      });
-      if (error) throw error;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw createRecipientAuthError("You must be logged in to add a person");
+
+      const payload = buildRecipientInsertPayload(authUser.id, form);
+      const { data, error } = await supabase
+        .from("recipients")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) throw createRecipientMutationError("insert", error, payload);
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipients"] });
+    onSuccess: (_, form) => {
+      queryClient.invalidateQueries({ queryKey: ["recipients", user?.id] });
       setModalOpen(false);
-      toast.success("Person added!");
+      toast.success(`${form.name} added!`);
     },
-    onError: () => toast.error("Failed to add person"),
+    onError: (error: RecipientMutationError) => toast.error(error.userMessage || "Failed to add person. Please try again."),
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, form }: { id: string; form: RecipientFormData }) => {
-      const { error } = await supabase.from("recipients").update({
-        name: form.name,
-        relationship_type: form.relationship_type as any,
-        relationship_depth: form.relationship_depth as any,
-        age_range: form.age_range ? (form.age_range as any) : null,
-        gender: form.gender ? (form.gender as any) : null,
-        interests: form.interests,
-        cultural_context: form.cultural_context ? (form.cultural_context as any) : null,
-        country: form.country || null,
-        notes: form.notes || null,
-        important_dates: form.important_dates as any,
-      }).eq("id", id);
-      if (error) throw error;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw createRecipientAuthError("You must be logged in to update a person");
+
+      const payload = buildRecipientUpdatePayload(form);
+      const { error } = await supabase
+        .from("recipients")
+        .update(payload)
+        .eq("id", id)
+        .eq("user_id", authUser.id);
+
+      if (error) throw createRecipientMutationError("update", error, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipients"] });
+      queryClient.invalidateQueries({ queryKey: ["recipients", user?.id] });
       setEditingId(null); setModalOpen(false);
       toast.success("Person updated!");
     },
-    onError: () => toast.error("Failed to update"),
+    onError: (error: RecipientMutationError) => toast.error(error.userMessage || "Failed to update person. Please try again."),
   });
 
   const deleteMutation = useMutation({
@@ -295,7 +302,7 @@ const MyPeople = () => {
   const editInitialData: RecipientFormData | undefined = editingRecipient
     ? {
         name: (editingRecipient as any).name,
-        relationship_type: (editingRecipient as any).relationship_type,
+        relationship_type: getRecipientRelationship(editingRecipient as any),
         relationship_depth: (editingRecipient as any).relationship_depth,
         age_range: (editingRecipient as any).age_range || "",
         gender: (editingRecipient as any).gender || "",

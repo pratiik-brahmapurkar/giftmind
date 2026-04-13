@@ -20,7 +20,8 @@ interface RecipientCardProps {
   recipient: {
     id: string;
     name: string;
-    relationship_type: string;
+    relationship?: string | null;
+    relationship_type?: string | null;
     interests: string[];
     last_gift_date: string | null;
     gift_count?: number;
@@ -64,10 +65,11 @@ function formatMMDD(mmdd: string): string {
 
 const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }: RecipientCardProps) => {
   const initial = recipient.name.charAt(0).toUpperCase();
-  const rel = RELATIONSHIP_TYPES.find((r) => r.value === recipient.relationship_type);
-  const relLabel = rel?.label ?? recipient.relationship_type;
-  const avatarColor = RELATIONSHIP_AVATAR_COLORS[recipient.relationship_type] || "#6C5CE7";
-  const badgeClass = RELATIONSHIP_BADGE_COLORS[recipient.relationship_type] || "bg-muted text-muted-foreground";
+  const relationship = recipient.relationship ?? recipient.relationship_type ?? "";
+  const rel = RELATIONSHIP_TYPES.find((r) => r.value === relationship);
+  const relLabel = rel?.label ?? relationship;
+  const avatarColor = RELATIONSHIP_AVATAR_COLORS[relationship] || "#6C5CE7";
+  const badgeClass = RELATIONSHIP_BADGE_COLORS[relationship] || "bg-muted text-muted-foreground";
 
   const dates: { label: string; date: string; recurring?: boolean }[] =
     [...(Array.isArray(recipient.important_dates) ? recipient.important_dates : [])].sort((a, b) => {
@@ -84,8 +86,9 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }:
     });
 
   const maxInterests = 3;
-  const shownInterests = recipient.interests.slice(0, maxInterests);
-  const overflow = recipient.interests.length - maxInterests;
+  const interests = recipient.interests ?? [];
+  const shownInterests = interests.slice(0, maxInterests);
+  const overflow = interests.length - maxInterests;
   const giftCount = recipient.gift_count || 0;
 
   return (

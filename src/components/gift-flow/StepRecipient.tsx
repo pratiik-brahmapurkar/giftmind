@@ -14,6 +14,12 @@ import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import type { Recipient } from "@/hooks/useGiftSession";
 import { RELATIONSHIP_COLORS } from "@/lib/geoConfig";
+import {
+  buildRecipientInsertPayload,
+  createRecipientAuthError,
+  createRecipientMutationError,
+  type RecipientMutationError,
+} from "@/lib/recipients";
 import { cn } from "@/lib/utils";
 import CrossBorderSelect from "./CrossBorderSelect";
 
@@ -88,25 +94,17 @@ export default function StepRecipient({
 
   const addRecipient = useMutation({
     mutationFn: async (form: RecipientFormData) => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw createRecipientAuthError("You must be logged in to add a person");
+
+      const payload = buildRecipientInsertPayload(authUser.id, form);
       const { data, error } = await supabase
         .from("recipients")
-        .insert({
-          user_id: user!.id,
-          name: form.name,
-          relationship: form.relationship_type,
-          relationship_depth: form.relationship_depth || null,
-          age_range: form.age_range || null,
-          gender: form.gender || null,
-          interests: form.interests,
-          cultural_context: form.cultural_context || null,
-          country: form.country || null,
-          notes: form.notes || null,
-          important_dates: form.important_dates,
-        })
+        .insert(payload)
         .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes")
         .single();
 
-      if (error) throw error;
+      if (error) throw createRecipientMutationError("insert", error, payload);
       return data as RecipientRecord;
     },
     onSuccess: (data) => {
@@ -118,8 +116,8 @@ export default function StepRecipient({
       setModalOpen(false);
       toast.success("Recipient added");
     },
-    onError: () => {
-      toast.error("Could not add recipient");
+    onError: (error: RecipientMutationError) => {
+      toast.error(error.userMessage || "Could not add recipient");
     },
   });
 

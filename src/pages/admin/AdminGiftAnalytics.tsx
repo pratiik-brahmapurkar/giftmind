@@ -73,7 +73,7 @@ const AdminGiftAnalytics = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipients")
-        .select("id, name, relationship_type");
+        .select("id, name, relationship");
       if (error) throw error;
       return data || [];
     },
@@ -98,8 +98,8 @@ const AdminGiftAnalytics = () => {
   }, [profiles]);
 
   const recipientMap = useMemo(() => {
-    const m: Record<string, { name: string; relationship_type: string }> = {};
-    recipients.forEach((r) => { m[r.id] = { name: r.name, relationship_type: r.relationship_type }; });
+    const m: Record<string, { name: string; relationship: string | null }> = {};
+    recipients.forEach((r) => { m[r.id] = { name: r.name, relationship: r.relationship }; });
     return m;
   }, [recipients]);
 
@@ -182,7 +182,7 @@ const AdminGiftAnalytics = () => {
     const counts: Record<string, number> = {};
     sessions.forEach((s) => {
       if (s.recipient_id && recipientMap[s.recipient_id]) {
-        const rt = recipientMap[s.recipient_id].relationship_type;
+        const rt = recipientMap[s.recipient_id].relationship || "";
         const label = RELATIONSHIP_LABELS[rt] || rt;
         counts[label] = (counts[label] || 0) + 1;
       }

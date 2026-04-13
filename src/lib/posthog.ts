@@ -6,17 +6,30 @@ const ENABLE_POSTHOG_IN_DEV = import.meta.env.VITE_ENABLE_POSTHOG_IN_DEV === "tr
 
 let initialized = false;
 
+function hasValidPosthogKey(value: string | undefined) {
+  if (!value) return false;
+
+  const normalized = value.trim();
+  if (!normalized) return false;
+
+  const lowered = normalized.toLowerCase();
+  return lowered !== "placeholder" && lowered !== "your_posthog_api_key" && !lowered.includes("placeholder");
+}
+
 export function initPosthog() {
   if (!import.meta.env.PROD && !ENABLE_POSTHOG_IN_DEV) return;
   // Only initialize if user has accepted cookies
   const consent = localStorage.getItem('gm_cookie_consent');
   if (consent !== 'accepted') return;
   if (initialized) return;
-  if (!POSTHOG_KEY) return;
+  if (!hasValidPosthogKey(POSTHOG_KEY)) {
+    console.log("PostHog: No API key configured, skipping initialization");
+    return;
+  }
   
-  posthog.init(POSTHOG_KEY, {
+  posthog.init(POSTHOG_KEY.trim(), {
     api_host: POSTHOG_HOST,
-    loaded: (ph) => { initialized = true; },
+    loaded: () => { initialized = true; },
     autocapture: false,  // We'll track manually for precision
     capture_pageview: true,
     capture_pageleave: true,
