@@ -13,7 +13,10 @@ function hasValidPosthogKey(value: string | undefined) {
   if (!normalized) return false;
 
   const lowered = normalized.toLowerCase();
-  return lowered !== "placeholder" && lowered !== "your_posthog_api_key" && !lowered.includes("placeholder");
+  return lowered !== "placeholder"
+    && lowered !== "your_posthog_api_key"
+    && !lowered.includes("placeholder")
+    && !lowered.startsWith("phc_placeholder");
 }
 
 export function initPosthog() {

@@ -1,10 +1,6 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -22,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { format } from "date-fns";
+import type { CreditTransaction } from "@/hooks/useCredits";
 import { cn } from "@/lib/utils";
 
 const TYPE_CONFIG: Record<
@@ -33,10 +30,15 @@ const TYPE_CONFIG: Record<
     emoji: "✅",
     className: "bg-emerald-100 text-emerald-700 border-emerald-200",
   },
+  usage: {
+    label: "Used",
+    emoji: "➖",
+    className: "bg-red-100 text-red-700 border-red-200",
+  },
   used: {
     label: "Used",
-    emoji: "🎁",
-    className: "bg-purple-100 text-purple-700 border-purple-200",
+    emoji: "➖",
+    className: "bg-red-100 text-red-700 border-red-200",
   },
   bonus: {
     label: "Bonus",
@@ -51,41 +53,74 @@ const TYPE_CONFIG: Record<
   referral: {
     label: "Referral",
     emoji: "🔗",
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  refund: {
+    label: "Refund",
+    emoji: "↩",
+    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  },
+  admin_grant: {
+    label: "Admin Grant",
+    emoji: "🛠",
+    className: "bg-violet-100 text-violet-700 border-violet-200",
   },
 };
 
 const PAGE_SIZE = 20;
 
-const CreditHistoryTab = () => {
-  const { user } = useAuth();
+interface CreditHistoryTabProps {
+  transactions: CreditTransaction[];
+  isLoading: boolean;
+}
+
+function getTransactionDetails(transaction: CreditTransaction) {
+  if (!transaction.metadata || typeof transaction.metadata !== "object" || Array.isArray(transaction.metadata)) {
+    return "—";
+  }
+
+  const metadata = transaction.metadata as Record<string, unknown>;
+
+  if (typeof metadata.reason === "string") {
+    if (metadata.reason === "signup_bonus") return "Signup bonus";
+    if (metadata.reason === "referral_reward") return "Referral reward";
+    return metadata.reason.replace(/_/g, " ");
+  }
+
+  if (typeof metadata.notes === "string" && metadata.notes.trim()) {
+    return metadata.notes;
+  }
+
+  if (typeof metadata.referral_code === "string") {
+    return `Referral code ${metadata.referral_code}`;
+  }
+
+  if (typeof metadata.batch_expires_at === "string") {
+    return `Batch expires ${format(new Date(metadata.batch_expires_at), "MMM d, yyyy")}`;
+  }
+
+  return "—";
+}
+
+const CreditHistoryTab = ({ transactions, isLoading }: CreditHistoryTabProps) => {
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(0);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["credit-transactions", filterType, page],
-    queryFn: async () => {
-      let query = supabase
-        .from("credit_transactions")
-        .select("*", { count: "exact" })
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+  const filteredTransactions = useMemo(() => {
+    if (filterType === "all") return transactions;
 
-      if (filterType !== "all") {
-        query = query.eq("type", filterType);
+    return transactions.filter((transaction) => {
+      if (filterType === "usage") {
+        return transaction.type === "usage" || transaction.type === "used";
       }
 
-      const { data, error, count } = await query;
-      if (error) throw error;
-      return { rows: data || [], total: count || 0 };
-    },
-    enabled: !!user,
-  });
+      return transaction.type === filterType;
+    });
+  }, [filterType, transactions]);
 
-  const rows = data?.rows || [];
-  const total = data?.total || 0;
+  const total = filteredTransactions.length;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const rows = filteredTransactions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="space-y-4">
@@ -97,24 +132,19 @@ const CreditHistoryTab = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            {Object.entries(TYPE_CONFIG).map(([value, cfg]) => (
+            {["purchase", "usage", "bonus", "refund", "admin_grant", "referral"].map((value) => {
+              const cfg = TYPE_CONFIG[value];
+              return (
               <SelectItem key={value} value={value}>
                 {cfg.emoji} {cfg.label}
               </SelectItem>
-            ))}
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
 
       {/* Empty state */}
-      {isLoading && (
-        <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map((idx) => (
-            <Skeleton key={idx} className="h-11 w-full rounded-md" />
-          ))}
-        </div>
-      )}
-
       {!isLoading && rows.length === 0 && (
         <div className="text-center py-16">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
@@ -134,13 +164,12 @@ const CreditHistoryTab = () => {
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
                   <TableHead className="hidden sm:table-cell">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((tx) => {
-                  const cfg = TYPE_CONFIG[tx.type] || TYPE_CONFIG.used;
+                  const cfg = TYPE_CONFIG[tx.type] || TYPE_CONFIG.usage;
                   const isPositive = tx.amount > 0;
                   return (
                     <TableRow key={tx.id}>
@@ -164,11 +193,8 @@ const CreditHistoryTab = () => {
                         {isPositive ? "+" : ""}
                         {tx.amount}
                       </TableCell>
-                      <TableCell className="text-right text-sm text-foreground">
-                        {tx.balance_after}
-                      </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
-                        {tx.details || "—"}
+                        {getTransactionDetails(tx)}
                       </TableCell>
                     </TableRow>
                   );

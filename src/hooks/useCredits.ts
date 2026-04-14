@@ -1,147 +1,169 @@
-import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizePlan, type PlanKey } from "@/lib/plans";
+import type { Json } from "@/integrations/supabase/types";
+
+export interface CreditBatch {
+  id: string;
+  package_name: string;
+  credits_purchased: number;
+  credits_remaining: number;
+  expires_at: string;
+  is_expired: boolean;
+  created_at: string;
+}
+
+export interface CreditTransaction {
+  id: string;
+  type: "purchase" | "usage" | "bonus" | "refund" | "admin_grant" | "referral" | "used" | "expired";
+  amount: number;
+  metadata: Json;
+  created_at: string;
+}
 
 export interface UseCreditsReturn {
   balance: number;
+  batches: CreditBatch[];
+  transactions: CreditTransaction[];
   isLoading: boolean;
   nearestExpiry: { credits: number; daysLeft: number } | null;
-  expiringBatches: Array<{
-    id: string;
-    credits: number;
-    daysLeft: number;
-    expiresAt: string;
-    packageName: string;
-  }>;
   isLow: boolean;
   isEmpty: boolean;
-  activePlan: PlanKey;
   refresh: () => Promise<void>;
 }
 
-function getDaysLeft(expiresAt: string) {
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  return Math.max(0, Math.ceil(ms / 86_400_000));
-}
-
 export function useCredits(): UseCreditsReturn {
-  const { user } = useAuth();
   const [balance, setBalance] = useState(0);
-  const [activePlan, setActivePlan] = useState<PlanKey>("free");
-  const [nearestExpiry, setNearestExpiry] = useState<UseCreditsReturn["nearestExpiry"]>(null);
-  const [expiringBatches, setExpiringBatches] = useState<UseCreditsReturn["expiringBatches"]>([]);
+  const [batches, setBatches] = useState<CreditBatch[]>([]);
+  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!user) {
+  useEffect(() => {
+    let active = true;
+
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (active && user) {
+        setUserId(user.id);
+      }
+      if (active && !user) {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const fetchCredits = useCallback(async () => {
+    if (!userId) {
       setBalance(0);
-      setActivePlan("free");
-      setNearestExpiry(null);
-      setExpiringBatches([]);
+      setBatches([]);
+      setTransactions([]);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
 
-    const [{ data: profile }, { data: batches }] = await Promise.all([
-      supabase
-        .from("users")
-        .select("credits_balance, active_plan")
-        .eq("id", user.id)
-        .single(),
-      supabase
-        .from("credit_batches")
-        .select("id, credits_remaining, expires_at, package_name")
-        .eq("user_id", user.id)
-        .gt("credits_remaining", 0)
-        .not("expires_at", "is", null)
-        .gte("expires_at", new Date().toISOString())
-        .order("expires_at", { ascending: true })
-        .limit(5),
-    ]);
+    try {
+      const [{ data: userData }, { data: batchData }, { data: txData }] = await Promise.all([
+        supabase
+          .from("users")
+          .select("credits_balance")
+          .eq("id", userId)
+          .single(),
+        supabase
+          .from("credit_batches")
+          .select("id, package_name, credits_purchased, credits_remaining, expires_at, is_expired, created_at")
+          .eq("user_id", userId)
+          .eq("is_expired", false)
+          .gt("credits_remaining", 0)
+          .gt("expires_at", new Date().toISOString())
+          .order("expires_at", { ascending: true }),
+        supabase
+          .from("credit_transactions")
+          .select("id, type, amount, metadata, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ]);
 
-    setBalance(profile?.credits_balance ?? 0);
-    setActivePlan(normalizePlan(profile?.active_plan));
-
-    const activeBatches = (batches || []).map((batch) => ({
-      id: batch.id,
-      credits: batch.credits_remaining ?? 0,
-      daysLeft: getDaysLeft(batch.expires_at),
-      expiresAt: batch.expires_at,
-      packageName: batch.package_name ?? "credits",
-    }));
-
-    const batch = activeBatches[0];
-    if (batch?.expiresAt) {
-      setNearestExpiry({
-        credits: batch.credits,
-        daysLeft: batch.daysLeft,
-      });
-    } else {
-      setNearestExpiry(null);
+      setBalance(userData?.credits_balance ?? 0);
+      setBatches((batchData ?? []).map((batch) => ({
+        ...batch,
+        is_expired: batch.is_expired ?? false,
+        created_at: batch.created_at ?? new Date().toISOString(),
+      })));
+      setTransactions((txData ?? []).map((tx) => ({
+        ...tx,
+        type: tx.type as CreditTransaction["type"],
+        metadata: tx.metadata ?? null,
+        created_at: tx.created_at ?? new Date().toISOString(),
+      })));
+    } catch (error) {
+      console.error("Failed to fetch credits:", error);
+    } finally {
+      setIsLoading(false);
     }
-    setExpiringBatches(activeBatches);
-
-    setIsLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (userId) {
+      void fetchCredits();
+    }
+  }, [userId, fetchCredits]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
-    const userChannel = supabase
-      .channel(`credits-users-${user.id}`)
+    const channel = supabase
+      .channel(`credits-user-${userId}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "users",
-          filter: `id=eq.${user.id}`,
+          filter: `id=eq.${userId}`,
         },
         (payload) => {
-          const next = payload.new as { credits_balance?: number; active_plan?: string };
-          if (typeof next.credits_balance === "number") setBalance(next.credits_balance);
-          if (typeof next.active_plan === "string") setActivePlan(normalizePlan(next.active_plan));
-        },
-      )
-      .subscribe();
+          if (payload.new && "credits_balance" in payload.new) {
+            setBalance((payload.new as { credits_balance?: number }).credits_balance ?? 0);
+          }
 
-    const batchChannel = supabase
-      .channel(`credits-batches-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "credit_batches",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void refresh();
+          void fetchCredits();
         },
       )
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(userChannel);
-      void supabase.removeChannel(batchChannel);
+      void supabase.removeChannel(channel);
     };
-  }, [refresh, user]);
+  }, [userId, fetchCredits]);
+
+  const nearestExpiry = useMemo(() => {
+    if (batches.length === 0) return null;
+
+    const nearest = batches[0];
+    const daysLeft = Math.ceil(
+      (new Date(nearest.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+    );
+
+    return {
+      credits: nearest.credits_remaining,
+      daysLeft,
+    };
+  }, [batches]);
 
   return {
     balance,
+    batches,
+    transactions,
     isLoading,
     nearestExpiry,
-    expiringBatches,
     isLow: balance > 0 && balance <= 3,
     isEmpty: balance === 0,
-    activePlan,
-    refresh,
+    refresh: fetchCredits,
   };
 }
