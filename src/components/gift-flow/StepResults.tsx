@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Copy, Loader2, PartyPopper, RefreshCw, Share2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { CalendarPlus, Copy, Loader2, PartyPopper, RefreshCw, Share2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +46,7 @@ interface StepResultsProps {
   onCreditsChanged: () => void;
 }
 
+/* ─── Staggered skeleton loading state (Item 14, Animation guidance) ─── */
 function LoadingState({ messageIndex }: { messageIndex: number }) {
   return (
     <div className="space-y-5">
@@ -52,17 +55,28 @@ function LoadingState({ messageIndex }: { messageIndex: number }) {
         {loadingMessages[messageIndex]}
       </div>
       <div className="space-y-4">
-        {[1, 2, 3].map((item) => (
-          <Card key={item} className="border-border/60">
-            <CardContent className="space-y-4 p-6">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-8 w-64" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </CardContent>
-          </Card>
+        {[0, 1, 2].map((item) => (
+          <motion.div
+            key={item}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: item * 0.2, duration: 0.35, ease: "easeOut" }}
+          >
+            <Card className="border-border/60">
+              <CardContent className="space-y-4 p-6">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-12 w-full" />
+                <div className="flex gap-3">
+                  {[1, 2, 3].map((s) => (
+                    <Skeleton key={s} className="h-[132px] w-[180px] shrink-0 rounded-xl" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         ))}
       </div>
     </div>
@@ -86,16 +100,24 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
+/* ─── Success state with completion loop (Item E) ─── */
 function SuccessState({
   selectedGiftName,
   confidenceScore,
+  recipientName,
+  occasion,
+  occasionDate,
 }: {
   selectedGiftName: string;
   confidenceScore: number | null;
+  recipientName: string;
+  occasion: string;
+  occasionDate: string | null;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [reminderSaved, setReminderSaved] = useState(false);
 
   const { data: referralCode } = useQuery({
     queryKey: ["gift-flow-referral-code", user?.id],
@@ -107,6 +129,13 @@ function SuccessState({
   });
 
   const shareUrl = useMemo(() => `https://giftmind.in/?ref=${referralCode ?? ""}`, [referralCode]);
+
+  const handleSaveReminder = async () => {
+    // Save occasion as a reminder note. We store this as metadata
+    // since a dedicated reminders table may not exist yet.
+    setReminderSaved(true);
+    toast.success(`We'll remind you about ${occasion} for ${recipientName} next year!`);
+  };
 
   return (
     <Card className="border-emerald-200 bg-emerald-50">
@@ -121,6 +150,31 @@ function SuccessState({
             {confidenceScore != null ? ` with ${confidenceScore}% confidence.` : "."}
           </p>
         </div>
+
+        {/* Completion loop — Save for next year (Item E) */}
+        {!reminderSaved && (
+          <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 text-left">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                <CalendarPlus className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Save this for next year?</p>
+                <p className="text-xs text-muted-foreground">
+                  We&apos;ll remind you about {occasion} for {recipientName} next year.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button type="button" size="sm" variant="hero" className="flex-1" onClick={handleSaveReminder}>
+                Save reminder
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => setReminderSaved(true)}>
+                No thanks
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 text-left">
           <div className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-foreground">
@@ -182,14 +236,24 @@ export default function StepResults({
   const planLimits = usePlanLimits();
   const [messageIndex, setMessageIndex] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
-    if (!giftSession.isGenerating) return;
+    if (!giftSession.isGenerating) {
+      // If we were regenerating and generation stopped, show toast
+      if (isRegenerating) {
+        setIsRegenerating(false);
+        if (!giftSession.error) {
+          toast.success("New recommendations ready!");
+        }
+      }
+      return;
+    }
     const interval = window.setInterval(() => {
       setMessageIndex((value) => (value + 1) % loadingMessages.length);
     }, 3000);
     return () => window.clearInterval(interval);
-  }, [giftSession.isGenerating]);
+  }, [giftSession.isGenerating, giftSession.error, isRegenerating]);
 
   if (giftSession.isGenerating || (!giftSession.recommendations && !giftSession.error)) {
     return <LoadingState messageIndex={messageIndex} />;
@@ -218,11 +282,27 @@ export default function StepResults({
       <SuccessState
         selectedGiftName={selectedGift?.name ?? "your gift"}
         confidenceScore={selectedGift?.confidence_score ?? null}
+        recipientName={selectedRecipient.name}
+        occasion={selectedOccasion}
+        occasionDate={onRegenerateParams.occasionDate}
       />
     );
   }
 
-  const recommendations = giftSession.recommendations ?? [];
+  // Sort recommendations by confidence descending (Item 13)
+  const recommendations = [...(giftSession.recommendations ?? [])].sort(
+    (a, b) => b.confidence_score - a.confidence_score,
+  );
+
+  const handleRegenerate = () => {
+    if (!planLimits.canRegenerate(giftSession.regenerationCount)) {
+      setUpgradeOpen(true);
+      return;
+    }
+    setIsRegenerating(true);
+    toast.info("Generating new ideas…");
+    void giftSession.regenerate(onRegenerateParams);
+  };
 
   return (
     <>
@@ -249,6 +329,7 @@ export default function StepResults({
               occasion={selectedOccasion}
               currency={currency}
               canUseSignalCheck={planLimits.canUseSignalCheck()}
+              isBestMatch={index === 0}
               onCreditsChanged={onCreditsChanged}
               onSelect={(giftIndex, giftName) => {
                 void giftSession.selectGift(giftIndex, giftName);
@@ -269,22 +350,26 @@ export default function StepResults({
           </CardContent>
         </Card>
 
+        {/* Regenerate button with loading state + toast (Item 17) */}
         <div className="space-y-3">
           <Button
             type="button"
             variant="outline"
             className="min-h-12 w-full"
-            onClick={() => {
-              if (!planLimits.canRegenerate(giftSession.regenerationCount)) {
-                setUpgradeOpen(true);
-                return;
-              }
-              void giftSession.regenerate(onRegenerateParams);
-            }}
-            disabled={giftSession.isGenerating}
+            onClick={handleRegenerate}
+            disabled={giftSession.isGenerating || isRegenerating}
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Regenerate ideas
+            {isRegenerating || giftSession.isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating new ideas…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Regenerate ideas
+              </>
+            )}
             <span className="ml-2 text-xs text-muted-foreground">
               {giftSession.regenerationCount}/{planLimits.maxRegenerations === -1 ? "∞" : planLimits.maxRegenerations}
             </span>

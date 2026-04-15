@@ -179,6 +179,29 @@ export const BUDGET_INSIGHTS: Record<string, string> = {
   high_colleague: "💡 This is generous for a colleague. ₹1,500–3,000 is typical for professional relationships.",
 };
 
+/* ─── Shipping cost estimates for cross-border nudges ─── */
+export const SHIPPING_COST_ESTIMATES: Record<string, { min: number; max: number; currency: string }> = {
+  "IN→US": { min: 10, max: 25, currency: "USD" },
+  "IN→GB": { min: 8, max: 20, currency: "GBP" },
+  "IN→AE": { min: 6, max: 15, currency: "AED" },
+  "IN→AU": { min: 12, max: 30, currency: "AUD" },
+  "IN→CA": { min: 10, max: 25, currency: "CAD" },
+  "IN→SG": { min: 8, max: 18, currency: "SGD" },
+  "IN→DE": { min: 8, max: 22, currency: "EUR" },
+  "IN→FR": { min: 8, max: 22, currency: "EUR" },
+  "US→IN": { min: 800, max: 2000, currency: "INR" },
+  "US→GB": { min: 8, max: 20, currency: "GBP" },
+  "US→AE": { min: 10, max: 25, currency: "AED" },
+  "GB→IN": { min: 800, max: 2000, currency: "INR" },
+  "GB→US": { min: 8, max: 20, currency: "USD" },
+  "AE→IN": { min: 500, max: 1500, currency: "INR" },
+  "AE→US": { min: 10, max: 25, currency: "USD" },
+};
+
+export function getShippingEstimate(fromCountry: string, toCountry: string) {
+  return SHIPPING_COST_ESTIMATES[`${fromCountry}→${toCountry}`] ?? null;
+}
+
 /* ─── Supported countries for cross-border gifting ─── */
 export interface SupportedCountry {
   code: string;

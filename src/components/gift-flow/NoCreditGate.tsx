@@ -1,8 +1,11 @@
-import { Gift, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Gift, ArrowLeft, CreditCard, LayoutGrid } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import PricingCards from "@/components/pricing/PricingCards";
 
 export default function NoCreditGate() {
+  const navigate = useNavigate();
+
   return (
     <div className="flex min-h-[70vh] items-center justify-center py-10">
       <div className="w-full max-w-5xl space-y-8 rounded-[28px] border border-border bg-card p-6 shadow-sm md:p-10">
@@ -16,9 +19,37 @@ export default function NoCreditGate() {
           <p className="mt-3 text-sm text-muted-foreground md:text-base">
             Unlock more AI gift sessions, more stores, and premium tools like Signal Check.
           </p>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button
+              type="button"
+              variant="hero"
+              size="lg"
+              className="min-h-12 gap-2"
+              onClick={() => navigate("/credits")}
+            >
+              <CreditCard className="h-4 w-4" />
+              Buy Credits
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="min-h-12 gap-2"
+              onClick={() => {
+                const pricingSection = document.getElementById("pricing-section");
+                pricingSection?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              View Plans
+            </Button>
+          </div>
         </div>
 
-        <PricingCards highlightPlan="popular" compact />
+        <div id="pricing-section">
+          <PricingCards highlightPlan="popular" compact />
+        </div>
 
         <div className="text-center">
           <Link

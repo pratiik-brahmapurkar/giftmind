@@ -6,11 +6,22 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { detectUserCountry, detectUserCurrency } from "@/lib/geoConfig";
 import { useGiftSession, type Recipient } from "@/hooks/useGiftSession";
 import { normalizePlan, type PlanKey } from "@/lib/plans";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
 import NoCreditGate from "@/components/gift-flow/NoCreditGate";
 import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
@@ -19,10 +30,15 @@ import StepProgress from "@/components/gift-flow/StepProgress";
 import StepRecipient from "@/components/gift-flow/StepRecipient";
 import StepResults from "@/components/gift-flow/StepResults";
 
+/* ─── Easing curves (Animation guidance) ─── */
+const FORWARD_EASE = [0.22, 1, 0.36, 1] as const;
+const BACKWARD_EASE = [0.55, 0, 1, 0.45] as const;
+
 export default function GiftFlow() {
   const { user, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const giftSession = useGiftSession();
+  const planLimits = usePlanLimits();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(1);
@@ -40,6 +56,12 @@ export default function GiftFlow() {
   const [creditsBalance, setCreditsBalance] = useState(0);
   const [userCountry, setUserCountry] = useState(detectUserCountry());
   const [isCheckingCredits, setIsCheckingCredits] = useState(true);
+
+  // New state for redesign features
+  const [isPreloaded, setIsPreloaded] = useState(false);
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [showResetWarning, setShowResetWarning] = useState(false);
+  const [pendingStep, setPendingStep] = useState<number | null>(null);
 
   const hasGeneratedRef = useRef(false);
   const previousSnapshotRef = useRef("");
@@ -74,12 +96,32 @@ export default function GiftFlow() {
     void refreshProfile();
   }, [authLoading, user]);
 
+  // First-time detection (Item 3)
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    async function checkFirstTime() {
+      const { count } = await supabase
+        .from("gift_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("status", "completed");
+
+      setIsFirstTime((count ?? 0) === 0);
+    }
+
+    void checkFirstTime();
+  }, [user, authLoading]);
+
+  // Query param preloading (Item 6)
   useEffect(() => {
     const recipientId = searchParams.get("recipient");
     const occasion = searchParams.get("occasion");
+
     if (occasion) {
       setSelectedOccasion(occasion);
     }
+
     if (!recipientId || !user) return;
 
     async function preloadRecipient() {
@@ -87,7 +129,7 @@ export default function GiftFlow() {
         .from("recipients")
         .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes")
         .eq("id", recipientId)
-        .eq("user_id", user.id)
+        .eq("user_id", user!.id)
         .single();
 
       if (!data) return;
@@ -106,6 +148,7 @@ export default function GiftFlow() {
       });
       setRecipientCountry(data.country);
       setIsCrossBorder(Boolean(data.country));
+      setIsPreloaded(true);
     }
 
     void preloadRecipient();
@@ -157,6 +200,7 @@ export default function GiftFlow() {
     [budgetMax, budgetMin, contextTags, currency, occasionDate, recipientCountry, selectedOccasion, selectedRecipient?.id, specialContext],
   );
 
+  // Session reset with warning (Item 16)
   useEffect(() => {
     if (!previousSnapshotRef.current) {
       previousSnapshotRef.current = inputSnapshot;
@@ -164,12 +208,12 @@ export default function GiftFlow() {
     }
 
     if (previousSnapshotRef.current !== inputSnapshot && hasGeneratedRef.current) {
-      hasGeneratedRef.current = false;
-      giftSession.resetSession();
+      // Don't silently reset — show warning instead
+      // Reset only happens through confirmReset
     }
 
     previousSnapshotRef.current = inputSnapshot;
-  }, [giftSession, inputSnapshot]);
+  }, [inputSnapshot]);
 
   useEffect(() => {
     if (currentStep !== 5 || !generationParams || hasGeneratedRef.current) return;
@@ -198,14 +242,48 @@ export default function GiftFlow() {
       }
     }
 
+    // Session reset warning (Item 16)
+    if (hasGeneratedRef.current && nextStep < 5) {
+      setShowResetWarning(true);
+      setPendingStep(nextStep);
+      return;
+    }
+
     setDirection(nextStep > currentStep ? 1 : -1);
     setCurrentStep(nextStep);
   };
 
   const goBack = () => {
     if (currentStep === 1) return;
+
+    const targetStep = Math.max(1, currentStep - 1);
+
+    // Session reset warning (Item 16)
+    if (hasGeneratedRef.current && currentStep === 5) {
+      setShowResetWarning(true);
+      setPendingStep(targetStep);
+      return;
+    }
+
     setDirection(-1);
-    setCurrentStep((step) => Math.max(1, step - 1));
+    setCurrentStep(targetStep);
+  };
+
+  const confirmReset = () => {
+    hasGeneratedRef.current = false;
+    giftSession.resetSession();
+    setShowResetWarning(false);
+
+    if (pendingStep != null) {
+      setDirection(pendingStep < currentStep ? -1 : 1);
+      setCurrentStep(pendingStep);
+      setPendingStep(null);
+    }
+  };
+
+  const cancelReset = () => {
+    setShowResetWarning(false);
+    setPendingStep(null);
   };
 
   const stepContent = () => {
@@ -221,6 +299,8 @@ export default function GiftFlow() {
             onCrossBorderChange={setIsCrossBorder}
             onContinue={() => goToStep(2)}
             userPlan={userPlan}
+            isFirstTime={isFirstTime}
+            isPreloaded={isPreloaded}
           />
         );
       case 2:
@@ -248,6 +328,8 @@ export default function GiftFlow() {
             isCrossBorder={isCrossBorder}
             recipientCountry={recipientCountry}
             relationship={selectedRecipient?.relationship ?? null}
+            userCountry={userCountry}
+            onCurrencyChange={setCurrency}
             onContinue={() => goToStep(4)}
             onBack={goBack}
           />
@@ -262,6 +344,8 @@ export default function GiftFlow() {
             onContinue={() => goToStep(5)}
             onSkip={() => goToStep(5)}
             onBack={goBack}
+            canUseSignalCheck={planLimits.canUseSignalCheck()}
+            creditsBalance={creditsBalance}
           />
         );
       case 5:
@@ -284,6 +368,8 @@ export default function GiftFlow() {
         return null;
     }
   };
+
+  const activeEase = direction > 0 ? FORWARD_EASE : BACKWARD_EASE;
 
   return (
     <DashboardLayout>
@@ -323,7 +409,10 @@ export default function GiftFlow() {
                 initial={{ opacity: 0, x: direction > 0 ? 28 : -28 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: direction > 0 ? -28 : 28 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
+                transition={{
+                  duration: 0.25,
+                  ease: activeEase as unknown as number[],
+                }}
               >
                 {stepContent()}
               </motion.div>
@@ -331,6 +420,24 @@ export default function GiftFlow() {
           </div>
         )}
       </div>
+
+      {/* Session reset warning dialog (Item 16) */}
+      <AlertDialog open={showResetWarning} onOpenChange={cancelReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear current recommendations?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing your inputs will clear your current AI recommendations. You&apos;ll need to use another credit to generate new ones.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay on results</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmReset}>
+              Go back and change
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
