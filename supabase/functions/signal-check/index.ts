@@ -1,35 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  AIFallbackError,
+  AIProviderError,
+  callAIWithFallback,
+  getProviderChain,
+  parseAIJson,
+} from "../_shared/ai-providers.ts";
 import { parseJsonBody, sanitizeString, validateRelationship } from "../_shared/validate.ts";
 
-// ── Environment ────────────────────────────────────────────────────────────────
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
-// ── Supabase admin client (service role — bypasses RLS) ────────────────────────
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
-
-// TODO: Before production, change Access-Control-Allow-Origin to:
-// 'https://giftmind.in' (or your production domain)
-// ── CORS headers ───────────────────────────────────────────────────────────────
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ── Helper: JSON response ──────────────────────────────────────────────────────
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-// ── Types ──────────────────────────────────────────────────────────────────────
 interface SignalCheckRequest {
   gift_name: string;
   gift_description?: string;
@@ -61,99 +46,139 @@ interface StoredSignalCheck {
   result_payload: unknown;
 }
 
-// ── Plans that have Signal Check access ────────────────────────────────────────
 const ALLOWED_PLANS = ["confident", "gifting-pro"];
 
-// ── System prompt ──────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are a relationship and gifting psychologist. Your job is to analyze what a specific gift communicates about the giver-recipient relationship.
+const SIGNAL_CHECK_SYSTEM_PROMPT = `You are a relationship psychologist analyzing what a gift communicates.
 
-Be specific, insightful, and honest. Don't just say "it shows you care" — explain the SPECIFIC signals this gift sends based on the relationship type, occasion, and gift choice.
+For the given gift and recipient, analyze:
+- overall_message: what the gift says about the relationship (1-2 sentences)
+- positive_signals: 2-3 things the gift communicates positively
+- potential_risks: 0-2 things to be careful about (can be empty array)
+- confidence_note: how confident you are in this analysis
+- adjustment_suggestions: 0-3 ways to steer the same gift more clearly if needed
 
-Consider: What does the price point signal? What does the level of personalization signal? What effort level does it imply? Could it be misinterpreted? What would the recipient likely think about the giver after receiving this?
+RULES:
+- Be honest, not just positive
+- Consider relationship depth (new vs close)
+- Consider cultural norms
+- Return strict JSON only
 
-STRICT OUTPUT FORMAT (respond ONLY with this JSON):
+FORMAT:
 {
-  "positive_signals": [
-    "Signal 1: specific positive message this gift sends",
-    "Signal 2: another positive signal",
-    "Signal 3: another (include 2-4 signals)"
-  ],
-  "potential_risks": [
-    "Risk 1: any way this could be misinterpreted (include 0-2 risks)"
-  ],
-  "overall_message": "A 2-3 sentence summary of what this gift says about the relationship. Written in second person: 'This gift tells [recipient] that you...'",
-  "confidence_note": "One sentence about how well this gift matches the occasion and relationship. Example: 'This is a strong choice for a 3rd anniversary — personal without being over-the-top.'",
-  "adjustment_suggestions": [
-    "Optional tuning idea 1 for steering the same gift differently",
-    "Optional tuning idea 2",
-    "Optional tuning idea 3 (include 0-3 ideas)"
-  ]
+  "overall_message": "...",
+  "positive_signals": ["...", "...", "..."],
+  "potential_risks": ["..."],
+  "confidence_note": "...",
+  "adjustment_suggestions": ["..."]
 }`;
 
-// ── JSON extraction helper (strips markdown fences if Claude adds them) ────────
-function extractJSON(raw: string): string {
-  let text = raw.trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-  }
-  return text;
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
-// ── Response validation ────────────────────────────────────────────────────────
 function validateSignalCheckResult(parsed: unknown): parsed is SignalCheckResult {
   if (typeof parsed !== "object" || parsed === null) return false;
+
   const obj = parsed as Record<string, unknown>;
-
-  if (!Array.isArray(obj.positive_signals) || obj.positive_signals.length === 0) return false;
-  if (!Array.isArray(obj.potential_risks)) return false;
-  if (typeof obj.overall_message !== "string" || !obj.overall_message) return false;
-  if (typeof obj.confidence_note !== "string" || !obj.confidence_note) return false;
-  if (!Array.isArray(obj.adjustment_suggestions)) return false;
-
-  // Validate that all signal entries are strings
-  for (const s of obj.positive_signals) {
-    if (typeof s !== "string") return false;
-  }
-  for (const r of obj.potential_risks) {
-    if (typeof r !== "string") return false;
-  }
-  for (const suggestion of obj.adjustment_suggestions) {
-    if (typeof suggestion !== "string") return false;
-  }
-
-  return true;
+  return (
+    Array.isArray(obj.positive_signals) &&
+    Array.isArray(obj.potential_risks) &&
+    Array.isArray(obj.adjustment_suggestions) &&
+    typeof obj.overall_message === "string" &&
+    typeof obj.confidence_note === "string" &&
+    obj.positive_signals.every((value) => typeof value === "string") &&
+    obj.potential_risks.every((value) => typeof value === "string") &&
+    obj.adjustment_suggestions.every((value) => typeof value === "string")
+  );
 }
 
-// ── Main handler ───────────────────────────────────────────────────────────────
-serve(async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+function buildSignalCheckMessage(body: SignalCheckRequest, parentContext: string): string {
+  return `Analyze this gift:
+
+GIFT: ${sanitizeString(body.gift_name, 200)}
+${body.gift_description ? `Description: ${sanitizeString(body.gift_description, 500)}` : ""}
+${body.budget_spent != null ? `Approximate value: ${sanitizeString(body.currency, 10)} ${body.budget_spent}` : ""}
+
+RECIPIENT:
+- Name: ${sanitizeString(body.recipient_name, 100)}
+- Relationship: ${sanitizeString(body.recipient_relationship, 50)}
+- Depth: ${sanitizeString(body.recipient_relationship_depth || "not specified", 50)}
+- Occasion: ${sanitizeString(body.occasion, 60)}
+${body.relationship_stage ? `- Relationship stage: ${sanitizeString(body.relationship_stage, 50)}` : ""}
+
+${parentContext}
+
+What does this gift say about the relationship? Return JSON only.`;
+}
+
+function mapAIError(error: unknown) {
+  if (error instanceof AIFallbackError || error instanceof AIProviderError) {
+    const type = error instanceof AIFallbackError ? error.finalType : error.type;
+
+    if (type === "rate_limit") {
+      return {
+        status: 429,
+        body: { error: "Signal Check is busy right now. Please wait a minute and try again." },
+      };
+    }
+
+    if (type === "invalid_response") {
+      return {
+        status: 502,
+        body: { error: "Signal Check returned an invalid analysis. Please try again." },
+      };
+    }
+
+    return {
+      status: type === "timeout" ? 504 : 502,
+      body: { error: "Signal Check temporarily unavailable. Please try again." },
+    };
   }
 
-  // Only allow POST
+  return {
+    status: 500,
+    body: { error: "Signal Check temporarily unavailable. Please try again." },
+  };
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
 
   try {
-    // ── 1. Authenticate the caller ───────────────────────────────────────────
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "Missing Authorization header" }, 401);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return json({ error: "Supabase environment is not configured" }, 500);
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
     const {
       data: { user },
       error: authError,
-    } = await supabaseAdmin.auth.getUser(token);
+    } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
 
     if (authError || !user) {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    // ── 2. Check plan access ─────────────────────────────────────────────────
     const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
       .select("active_plan, credits_balance")
@@ -165,46 +190,34 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "Failed to retrieve user profile" }, 500);
     }
 
-    const userPlan = userData.active_plan ?? "spark";
-
-    if (!ALLOWED_PLANS.includes(userPlan)) {
+    const plan = userData.active_plan || "spark";
+    if (!ALLOWED_PLANS.includes(plan)) {
       return json(
         {
           error: "PLAN_RESTRICTED",
           message: "Signal Check is available on Confident and Gifting Pro plans.",
           upgrade_to: "confident",
-          preview: "This gift communicates that you...",
         },
         403,
       );
     }
 
-    // ── 3. Parse + validate request body ─────────────────────────────────────
-    const parsedBody = await parseJsonBody<SignalCheckRequest>(req, json);
-    if (parsedBody.response) {
-      return parsedBody.response;
+    if ((userData.credits_balance || 0) < 0.5) {
+      return json({ error: "NO_CREDITS", message: "Not enough credits for Signal Check" }, 402);
     }
+
+    const parsedBody = await parseJsonBody<SignalCheckRequest>(req, json);
+    if (parsedBody.response) return parsedBody.response;
     const body = parsedBody.data!;
 
-    const cleanGiftName = sanitizeString(body.gift_name, 200);
-    const cleanGiftDescription = sanitizeString(body.gift_description || "", 500);
-    const cleanFollowUpPrompt = sanitizeString(body.follow_up_prompt || "", 240);
-
-    if (!cleanGiftName) {
-      return json({ error: "Missing required field: gift_name" }, 400);
+    if (!body.gift_name) {
+      return json({ error: "gift_name is required" }, 400);
     }
-    if (!body.recipient_relationship) {
-      return json({ error: "Missing required field: recipient_relationship" }, 400);
-    }
-    if (!validateRelationship(body.recipient_relationship)) {
-      return json({ error: "Invalid recipient relationship" }, 400);
+    if (!body.recipient_relationship || !validateRelationship(body.recipient_relationship)) {
+      return json({ error: "recipient_relationship is required" }, 400);
     }
     if (!body.session_id) {
-      return json({ error: "Missing required field: session_id" }, 400);
-    }
-    if (!ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY is not set");
-      return json({ error: "Configuration error" }, 500);
+      return json({ error: "session_id is required" }, 400);
     }
 
     const { data: session, error: sessionError } = await supabaseAdmin
@@ -226,7 +239,7 @@ serve(async (req: Request): Promise<Response> => {
       .select("id, gift_name, revision_number, follow_up_prompt, result_payload")
       .eq("user_id", user.id)
       .eq("session_id", body.session_id)
-      .eq("gift_name", cleanGiftName)
+      .eq("gift_name", sanitizeString(body.gift_name, 200))
       .order("revision_number", { ascending: false });
 
     if (signalChecksError) {
@@ -237,7 +250,7 @@ serve(async (req: Request): Promise<Response> => {
     const savedChecks = (existingChecks ?? []) as StoredSignalCheck[];
     const latestSavedCheck = savedChecks[0] ?? null;
 
-    if (!cleanFollowUpPrompt && latestSavedCheck) {
+    if (!sanitizeString(body.follow_up_prompt || "", 240) && latestSavedCheck) {
       const storedResult = latestSavedCheck.result_payload;
       if (validateSignalCheckResult(storedResult)) {
         return json({
@@ -274,10 +287,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     if ((rateLimitCount ?? 0) >= 30) {
-      return json(
-        { error: "RATE_LIMITED", message: "Too many requests. Please wait." },
-        429,
-      );
+      return json({ error: "RATE_LIMITED", message: "Too many requests. Please wait." }, 429);
     }
 
     const { error: rateLimitInsertError } = await supabaseAdmin
@@ -287,7 +297,7 @@ serve(async (req: Request): Promise<Response> => {
         identifier: user.id,
         metadata: {
           session_id: body.session_id,
-          gift_name: cleanGiftName,
+          gift_name: sanitizeString(body.gift_name, 200),
         },
       });
 
@@ -296,18 +306,14 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "Failed to validate request rate" }, 500);
     }
 
-    // ── 4. Deduct 0.5 credits ────────────────────────────────────────────────
-    const { data: deductResult, error: rpcError } = await supabaseAdmin.rpc(
-      "deduct_user_credit",
-      {
-        p_user_id: user.id,
-        p_session_id: body.session_id,
-        p_amount: 0.5,
-      },
-    );
+    const { data: deductResult, error: rpcError } = await supabaseAdmin.rpc("deduct_user_credit", {
+      p_user_id: user.id,
+      p_session_id: body.session_id,
+      p_amount: 0.5,
+    });
 
     if (rpcError) {
-      console.error("RPC error:", rpcError.message);
+      console.error("Signal Check credit deduction failed:", rpcError.message);
       return json({ error: "Failed to process credit deduction" }, 500);
     }
 
@@ -322,188 +328,116 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // ── 5. Build user message for Claude ─────────────────────────────────────
+    const cleanFollowUpPrompt = sanitizeString(body.follow_up_prompt || "", 240);
     const parentContext =
       cleanFollowUpPrompt && parentSignalCheck && validateSignalCheckResult(parentSignalCheck.result_payload)
-        ? `\nPREVIOUS SIGNAL CHECK:\n${JSON.stringify(parentSignalCheck.result_payload, null, 2)}\nFOLLOW-UP DIRECTION: ${cleanFollowUpPrompt}\nRevise the analysis to move in that direction if possible. If the direction clashes with the gift, explain that honestly and use adjustment_suggestions to suggest how to steer the signal.`
+        ? `PREVIOUS SIGNAL CHECK:\n${JSON.stringify(parentSignalCheck.result_payload, null, 2)}\nFOLLOW-UP DIRECTION: ${cleanFollowUpPrompt}\nRevise the analysis in that direction if it fits. If it does not fit, explain why and use adjustment_suggestions.`
         : "";
 
-    const userMessage = `Analyze what this gift communicates:
+    const chain = getProviderChain(plan, "signal-check");
+    const result = await callAIWithFallback(chain, {
+      systemPrompt: SIGNAL_CHECK_SYSTEM_PROMPT,
+      userMessage: buildSignalCheckMessage(body, parentContext),
+      maxTokens: 1000,
+      temperature: 0.6,
+      responseFormat: "json",
+    });
 
-GIFT: ${cleanGiftName}
-DESCRIPTION: ${cleanGiftDescription || "Not provided"}
-APPROXIMATE VALUE: ${body.currency} ${body.budget_spent ?? "Not specified"}
-
-RECIPIENT: ${sanitizeString(body.recipient_name, 100)}
-RELATIONSHIP: ${sanitizeString(body.recipient_relationship, 50)} (${sanitizeString(body.recipient_relationship_depth || "not specified", 50)})
-OCCASION: ${sanitizeString(body.occasion, 50)}
-${body.relationship_stage ? `RELATIONSHIP STAGE: ${sanitizeString(body.relationship_stage, 50)}` : ""}
-
-What does giving this specific gift, for this occasion, to this person communicate?${parentContext}`;
-
-    // ── 6. Call Claude Sonnet API (ALWAYS Sonnet — premium differentiator) ────
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
-
-    let anthropicResponse: Response;
+    let parsed: unknown;
     try {
-      anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 800,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: userMessage }],
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if ((err as Error)?.name === "AbortError") {
-        return json(
-          { error: "Signal Check timed out, please try again" },
-          504,
-        );
-      }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
+      parsed = parseAIJson(result.text);
+    } catch (parseError) {
+      console.error("Failed to parse signal check JSON:", parseError);
+      return json({ error: "Could not parse signal analysis" }, 502);
     }
 
-    // ── 7. Handle Anthropic error responses ──────────────────────────────────
-    if (!anthropicResponse.ok) {
-      const status = anthropicResponse.status;
-      console.error(`Anthropic API error: ${status}`);
-
-      if (status === 429) {
-        return json({ error: "Please try again in a moment" }, 429);
-      }
-      if (status === 401 || status === 403) {
-        return json({ error: "Configuration error" }, 500);
-      }
-      if (status >= 500) {
-        return json({ error: "AI service temporarily unavailable" }, 502);
-      }
-
-      return json({ error: "AI service error" }, 502);
+    if (!validateSignalCheckResult(parsed)) {
+      return json({ error: "Could not parse signal analysis" }, 502);
     }
 
-    // ── 8. Parse Anthropic response ──────────────────────────────────────────
-    const anthropicData = await anthropicResponse.json();
-    const rawText: string = anthropicData?.content?.[0]?.text ?? "";
-
-    if (!rawText) {
-      console.error("Empty response from Anthropic:", JSON.stringify(anthropicData));
-      return json({ error: "AI response format error" }, 500);
-    }
-
-    // ── 9. Extract, parse, and validate JSON ─────────────────────────────────
-    let parsedResult: SignalCheckResult;
-    try {
-      const extracted = extractJSON(rawText);
-      const parsed = JSON.parse(extracted);
-
-      if (!validateSignalCheckResult(parsed)) {
-        console.error(
-          "Signal check response failed validation. Parsed:",
-          JSON.stringify(parsed).substring(0, 500),
-        );
-        return json({ error: "Could not parse signal analysis" }, 500);
-      }
-
-      parsedResult = parsed;
-    } catch {
-      console.error("Failed to parse signal check JSON. Raw:", rawText.substring(0, 500));
-      return json({ error: "Could not parse signal analysis" }, 500);
-    }
-
-    // ── 10. Store signal check result in the gift session ────────────────────
     let storedSignalCheckId: string | null = null;
     const nextRevisionNumber = (latestSavedCheck?.revision_number ?? 0) + 1;
-    if (body.session_id) {
-      try {
-        const { data: insertedSignalCheck, error: insertSignalCheckError } = await supabaseAdmin
-          .from("signal_checks")
-          .insert({
-            user_id: user.id,
-            session_id: body.session_id,
-            gift_name: cleanGiftName,
-            parent_signal_check_id: cleanFollowUpPrompt ? (parentSignalCheck?.id ?? null) : null,
+
+    try {
+      const { data: insertedSignalCheck, error: insertSignalCheckError } = await supabaseAdmin
+        .from("signal_checks")
+        .insert({
+          user_id: user.id,
+          session_id: body.session_id,
+          gift_name: sanitizeString(body.gift_name, 200),
+          parent_signal_check_id: cleanFollowUpPrompt ? (parentSignalCheck?.id ?? null) : null,
+          revision_number: nextRevisionNumber,
+          follow_up_prompt: cleanFollowUpPrompt || null,
+          result_payload: parsed,
+          credits_used: 0.5,
+        })
+        .select("id")
+        .single();
+
+      if (insertSignalCheckError) {
+        console.error("Failed to store signal check row:", insertSignalCheckError.message);
+      } else {
+        storedSignalCheckId = insertedSignalCheck.id;
+      }
+
+      const currentAiResponse =
+        session.ai_response && typeof session.ai_response === "object" && !Array.isArray(session.ai_response)
+          ? session.ai_response as Record<string, unknown>
+          : {};
+      const existingSignalChecks =
+        currentAiResponse.signal_checks &&
+        typeof currentAiResponse.signal_checks === "object" &&
+        !Array.isArray(currentAiResponse.signal_checks)
+          ? currentAiResponse.signal_checks as Record<string, unknown>
+          : {};
+
+      const updatedResponse = {
+        ...currentAiResponse,
+        signal_checks: {
+          ...existingSignalChecks,
+          [sanitizeString(body.gift_name, 200)]: {
+            latest_signal_check_id: storedSignalCheckId,
             revision_number: nextRevisionNumber,
             follow_up_prompt: cleanFollowUpPrompt || null,
-            result_payload: parsedResult,
-            credits_used: 0.5,
-          })
-          .select("id")
-          .single();
-
-        if (insertSignalCheckError) {
-          console.error("Failed to store signal check row:", insertSignalCheckError.message);
-        } else {
-          storedSignalCheckId = insertedSignalCheck.id;
-        }
-
-        const currentAiResponse =
-          session?.ai_response && typeof session.ai_response === "object" && !Array.isArray(session.ai_response)
-            ? session.ai_response as Record<string, unknown>
-            : {};
-        const existingSignalChecks =
-          currentAiResponse.signal_checks &&
-          typeof currentAiResponse.signal_checks === "object" &&
-          !Array.isArray(currentAiResponse.signal_checks)
-            ? currentAiResponse.signal_checks as Record<string, unknown>
-            : {};
-        const updatedResponse = {
-          ...currentAiResponse,
-          signal_checks: {
-            ...existingSignalChecks,
-            [cleanGiftName]: {
-              latest_signal_check_id: storedSignalCheckId,
-              revision_number: nextRevisionNumber,
-              follow_up_prompt: cleanFollowUpPrompt || null,
-              result: parsedResult,
+            result: parsed,
+            meta: {
+              provider: result.provider,
+              latency_ms: result.latencyMs,
+              attempt: result.attemptNumber,
             },
           },
-        };
+        },
+      };
 
-        const { error: updateError } = await supabaseAdmin
-          .from("gift_sessions")
-          .update({ ai_response: updatedResponse })
-          .eq("id", body.session_id)
-          .eq("user_id", user.id);
+      const { error: updateError } = await supabaseAdmin
+        .from("gift_sessions")
+        .update({ ai_response: updatedResponse })
+        .eq("id", body.session_id)
+        .eq("user_id", user.id);
 
-        if (updateError) {
-          // Non-fatal — log and continue. The client still gets their signal check.
-          console.error("Failed to update gift_session with signal check:", updateError.message);
-        }
-      } catch (storeErr) {
-        // Non-fatal — log and continue
-        console.error("Error storing signal check:", storeErr);
+      if (updateError) {
+        console.error("Failed to update gift_session with signal check:", updateError.message);
       }
+    } catch (storeError) {
+      console.error("Error storing signal check:", storeError);
     }
 
-    // ── 11. Return success ───────────────────────────────────────────────────
     return json({
       success: true,
-      signal: {
-        positive_signals: parsedResult.positive_signals,
-        potential_risks: parsedResult.potential_risks,
-        overall_message: parsedResult.overall_message,
-        confidence_note: parsedResult.confidence_note,
-        adjustment_suggestions: parsedResult.adjustment_suggestions,
-      },
+      signal: parsed,
       signal_check_id: storedSignalCheckId,
       revision_number: nextRevisionNumber,
       credits_remaining: deductResult.remaining_balance,
+      _meta: {
+        provider: result.provider,
+        credits_used: 0.5,
+        latency_ms: result.latencyMs,
+        attempt: result.attemptNumber,
+      },
     });
-  } catch (err) {
-    // ── 12. Catch-all error handler ──────────────────────────────────────────
-    console.error("Unhandled error in signal-check:", err);
-    return json({ error: "An unexpected error occurred. Please try again." }, 500);
+  } catch (error) {
+    console.error("Signal check error:", error);
+    const mapped = mapAIError(error);
+    return json(mapped.body, mapped.status);
   }
 });

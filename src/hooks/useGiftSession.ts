@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProductResult } from "@/lib/productLinks";
 
@@ -36,8 +36,11 @@ export interface GiftSessionState {
   occasionInsight: string | null;
   budgetAssessment: string | null;
   culturalNote: string | null;
+  aiProviderUsed: string | null;
+  aiLatencyMs: number | null;
+  aiAttempt: number | null;
   error: string | null;
-  errorType: "NO_CREDITS" | "RATE_LIMITED" | "AI_ERROR" | "AUTH_REQUIRED" | "GENERIC" | null;
+  errorType: "NO_CREDITS" | "RATE_LIMITED" | "AI_ERROR" | "AI_PARSE_ERROR" | "AUTH_REQUIRED" | "GENERIC" | null;
   regenerationCount: number;
   selectedGiftIndex: number | null;
   isComplete: boolean;
@@ -57,6 +60,22 @@ interface GenerateGiftParams {
   userPlan: string;
 }
 
+interface GenerateGiftsResponse {
+  recommendations: GiftRecommendation[];
+  occasion_insight: string | null;
+  budget_assessment: string | null;
+  cultural_note: string | null;
+  _meta?: {
+    provider?: string | null;
+    latency_ms?: number | null;
+    attempt?: number | null;
+  };
+  error?: string;
+  errorType?: string;
+  message?: string;
+  retry_after?: number;
+}
+
 async function getAccessToken() {
   const { data } = await supabase.auth.getSession();
   if (data.session?.access_token) return data.session.access_token;
@@ -71,20 +90,30 @@ async function getFunctionErrorDetails(error: unknown) {
   const fallback = getErrorMessage(error);
 
   if (typeof error !== "object" || !error || !("context" in error)) {
-    return { status: null as number | null, message: fallback };
+    return {
+      status: null as number | null,
+      message: fallback,
+      payload: null as Record<string, unknown> | null,
+    };
   }
 
   const context = (error as { context?: Response }).context;
   if (!(context instanceof Response)) {
-    return { status: null as number | null, message: fallback };
+    return {
+      status: null as number | null,
+      message: fallback,
+      payload: null as Record<string, unknown> | null,
+    };
   }
 
   let message = fallback;
+  let payload: Record<string, unknown> | null = null;
 
   try {
-    const payload = await context.clone().json();
-    if (payload && typeof payload === "object") {
-      const data = payload as { error?: string; message?: string };
+    const parsed = await context.clone().json();
+    if (parsed && typeof parsed === "object") {
+      payload = parsed as Record<string, unknown>;
+      const data = parsed as { error?: string; message?: string };
       message = data.message || data.error || fallback;
     }
   } catch {
@@ -96,7 +125,7 @@ async function getFunctionErrorDetails(error: unknown) {
     }
   }
 
-  return { status: context.status, message };
+  return { status: context.status, message, payload };
 }
 
 async function invokeAuthedFunction<TResponse>(name: string, body: Record<string, unknown>) {
@@ -133,6 +162,9 @@ const initialState: GiftSessionState = {
   occasionInsight: null,
   budgetAssessment: null,
   culturalNote: null,
+  aiProviderUsed: null,
+  aiLatencyMs: null,
+  aiAttempt: null,
   error: null,
   errorType: null,
   regenerationCount: 0,
@@ -145,6 +177,37 @@ function getErrorMessage(error: unknown) {
     return String((error as { message?: string }).message ?? "Something went wrong");
   }
   return "Something went wrong";
+}
+
+function normalizeGiftErrorType(
+  rawType: unknown,
+  status: number | null,
+  message: string,
+): GiftSessionState["errorType"] {
+  const explicit = typeof rawType === "string" ? rawType.toUpperCase() : "";
+  const upperMessage = message.toUpperCase();
+
+  if (explicit === "NO_CREDITS" || status === 402 || upperMessage.includes("NO_CREDITS") || upperMessage.includes("INSUFFICIENT CREDITS")) {
+    return "NO_CREDITS";
+  }
+
+  if (explicit === "RATE_LIMITED" || status === 429 || upperMessage.includes("RATE_LIMIT")) {
+    return "RATE_LIMITED";
+  }
+
+  if (explicit === "AI_PARSE_ERROR" || upperMessage.includes("INVALID RESPONSE") || upperMessage.includes("AI RESPONSE WAS INVALID")) {
+    return "AI_PARSE_ERROR";
+  }
+
+  if (explicit === "AUTH_REQUIRED" || status === 401 || upperMessage.includes("AUTH") || upperMessage.includes("UNAUTHORIZED")) {
+    return "AUTH_REQUIRED";
+  }
+
+  if (explicit === "GENERIC") {
+    return "GENERIC";
+  }
+
+  return "AI_ERROR";
 }
 
 function isNoCreditError(error: unknown) {
@@ -166,6 +229,11 @@ async function getCurrentUserId() {
 
 export function useGiftSession() {
   const [state, setState] = useState<GiftSessionState>(initialState);
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const createSession = useCallback(
     async (data: {
@@ -241,7 +309,11 @@ export function useGiftSession() {
 
   const callAI = useCallback(
     async (params: GenerateGiftParams & { sessionId: string; isRegeneration?: boolean }) => {
-      const response = await invokeAuthedFunction<any>("generate-gifts", {
+      const accessToken = await getAccessToken();
+      const functions = supabase.functions;
+      functions.setAuth(accessToken);
+
+      const response = await functions.invoke<GenerateGiftsResponse>("generate-gifts", {
         recipient: {
           name: params.recipient.name,
           relationship: params.recipient.relationship,
@@ -267,7 +339,27 @@ export function useGiftSession() {
       });
 
       if (response.error) {
-        throw response.error;
+        const details = await getFunctionErrorDetails(response.error);
+        const type = normalizeGiftErrorType(
+          details.payload?.errorType,
+          details.status,
+          details.message,
+        );
+
+        throw {
+          type,
+          message: details.message,
+          retryAfter:
+            typeof details.payload?.retry_after === "number" ? details.payload.retry_after : null,
+        };
+      }
+
+      if (response.data?.error) {
+        throw {
+          type: normalizeGiftErrorType(response.data.errorType, null, response.data.error),
+          message: response.data.message || response.data.error,
+          retryAfter: typeof response.data.retry_after === "number" ? response.data.retry_after : null,
+        };
       }
 
       return response.data;
@@ -310,13 +402,17 @@ export function useGiftSession() {
     [],
   );
 
-  const generateGifts = useCallback(
-    async (params: GenerateGiftParams) => {
+  const runGeneration = useCallback(
+    async (
+      params: GenerateGiftParams,
+      options: { isRegeneration: boolean; parseRetryAttempt: number },
+    ) => {
+      const currentState = stateRef.current;
       const shouldReuseSession =
-        Boolean(state.sessionId) &&
-        state.recommendations === null &&
-        state.errorType !== "NO_CREDITS" &&
-        !state.isComplete;
+        Boolean(currentState.sessionId) &&
+        currentState.recommendations === null &&
+        currentState.errorType !== "NO_CREDITS" &&
+        !currentState.isComplete;
 
       setState((prev) => ({
         ...prev,
@@ -326,13 +422,20 @@ export function useGiftSession() {
         errorType: null,
         recommendations: shouldReuseSession ? prev.recommendations : null,
         productResults: shouldReuseSession ? prev.productResults : null,
+        aiProviderUsed: null,
+        aiLatencyMs: null,
+        aiAttempt: null,
         isComplete: false,
       }));
 
       try {
-        let sessionId = state.sessionId;
+        let sessionId = currentState.sessionId;
 
-        if (!shouldReuseSession || !sessionId) {
+        if (options.isRegeneration && !sessionId) {
+          throw { type: "GENERIC", message: "Session missing. Please start again." };
+        }
+
+        if (!options.isRegeneration && (!shouldReuseSession || !sessionId)) {
           sessionId = await createSession({
             recipientId: params.recipient.id,
             recipientCountry: params.recipientCountry,
@@ -359,18 +462,20 @@ export function useGiftSession() {
 
               const currentUserId = await getCurrentUserId();
               if (currentUserId) {
-                await supabase.from("gift_sessions").update({ status: "abandoned" }).eq("id", sessionId).eq("user_id", currentUserId);
+                await supabase
+                  .from("gift_sessions")
+                  .update({ status: "abandoned" })
+                  .eq("id", sessionId)
+                  .eq("user_id", currentUserId);
               }
               return;
             }
 
-            console.error("Credit deduction failed (not a credit issue):", creditError);
+            const message = getErrorMessage(creditError) || "Something went wrong while checking credits. Please try again.";
             setState((prev) => ({
               ...prev,
               isGenerating: false,
-              error: isNoCreditError(creditError)
-                ? "No credits available"
-                : getErrorMessage(creditError) || "Something went wrong while checking credits. Please try again.",
+              error: message,
               errorType:
                 typeof creditError === "object" &&
                 creditError &&
@@ -384,9 +489,14 @@ export function useGiftSession() {
           }
         }
 
+        if (!sessionId) {
+          throw { type: "GENERIC", message: "Session missing. Please start again." };
+        }
+
         const aiResult = await callAI({
           ...params,
           sessionId,
+          isRegeneration: options.isRegeneration,
         });
 
         setState((prev) => ({
@@ -396,9 +506,13 @@ export function useGiftSession() {
           occasionInsight: aiResult.occasion_insight,
           budgetAssessment: aiResult.budget_assessment,
           culturalNote: aiResult.cultural_note,
+          aiProviderUsed: aiResult._meta?.provider ?? null,
+          aiLatencyMs: aiResult._meta?.latency_ms ?? null,
+          aiAttempt: aiResult._meta?.attempt ?? null,
           isGenerating: false,
           error: null,
           errorType: null,
+          regenerationCount: options.isRegeneration ? prev.regenerationCount + 1 : prev.regenerationCount,
         }));
 
         setState((prev) => ({ ...prev, isSearchingProducts: true }));
@@ -428,94 +542,53 @@ export function useGiftSession() {
             .eq("user_id", currentUserId ?? "");
         }
       } catch (error) {
-        const message = getErrorMessage(error);
-        const upper = message.toUpperCase();
+        const typedError =
+          typeof error === "object" && error && "type" in error
+            ? error as { type?: GiftSessionState["errorType"]; message?: string }
+            : { type: undefined, message: getErrorMessage(error) };
+
+        if (typedError.type === "AI_PARSE_ERROR" && options.parseRetryAttempt < 1) {
+          window.setTimeout(() => {
+            void runGeneration(params, {
+              ...options,
+              parseRetryAttempt: options.parseRetryAttempt + 1,
+            });
+          }, 2000);
+          return;
+        }
+
+        const normalizedType = normalizeGiftErrorType(
+          typedError.type,
+          null,
+          typedError.message || getErrorMessage(error),
+        );
+
         setState((prev) => ({
           ...prev,
           isGenerating: false,
           isSearchingProducts: false,
-          error: upper.includes("AUTH")
+          error: normalizedType === "AUTH_REQUIRED"
             ? "Your session expired. Please sign in again and retry."
-            : message,
-          errorType: upper.includes("AUTH")
-            ? "AUTH_REQUIRED"
-            : upper.includes("RATE")
-              ? "RATE_LIMITED"
-              : "AI_ERROR",
+            : typedError.message || getErrorMessage(error),
+          errorType: normalizedType,
         }));
       }
     },
-    [callAI, createSession, deductCredit, searchProducts, state.errorType, state.isComplete, state.recommendations, state.sessionId],
+    [callAI, createSession, deductCredit, searchProducts],
+  );
+
+  const generateGifts = useCallback(
+    async (params: GenerateGiftParams) => {
+      await runGeneration(params, { isRegeneration: false, parseRetryAttempt: 0 });
+    },
+    [runGeneration],
   );
 
   const regenerate = useCallback(
     async (params: GenerateGiftParams) => {
-      if (!state.sessionId) return;
-
-      setState((prev) => ({
-        ...prev,
-        isGenerating: true,
-        isSearchingProducts: false,
-        error: null,
-        errorType: null,
-      }));
-
-      try {
-        const aiResult = await callAI({
-          ...params,
-          sessionId: state.sessionId,
-          isRegeneration: true,
-        });
-
-        setState((prev) => ({
-          ...prev,
-          recommendations: aiResult.recommendations,
-          occasionInsight: aiResult.occasion_insight,
-          budgetAssessment: aiResult.budget_assessment,
-          culturalNote: aiResult.cultural_note,
-          isGenerating: false,
-          error: null,
-          errorType: null,
-          regenerationCount: prev.regenerationCount + 1,
-        }));
-
-        setState((prev) => ({ ...prev, isSearchingProducts: true }));
-
-        const products = await searchProducts({
-          recommendations: aiResult.recommendations,
-          recipientCountry: params.recipientCountry,
-          userCountry: params.userCountry,
-          currency: params.currency,
-          budgetMin: params.budgetMin,
-          budgetMax: params.budgetMax,
-          userPlan: params.userPlan,
-        });
-
-        setState((prev) => ({
-          ...prev,
-          productResults: products,
-          isSearchingProducts: false,
-        }));
-
-        if (products && state.sessionId) {
-          const currentUserId = await getCurrentUserId();
-          await supabase
-            .from("gift_sessions")
-            .update({ product_results: products })
-            .eq("id", state.sessionId)
-            .eq("user_id", currentUserId ?? "");
-        }
-      } catch (error) {
-        setState((prev) => ({
-          ...prev,
-          isGenerating: false,
-          isSearchingProducts: false,
-          error: getErrorMessage(error),
-          errorType: "AI_ERROR",
-        }));
-      }
+      await runGeneration(params, { isRegeneration: true, parseRetryAttempt: 0 });
     },
-    [callAI, searchProducts, state.sessionId],
+    [runGeneration],
   );
 
   const selectGift = useCallback(

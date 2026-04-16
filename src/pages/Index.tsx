@@ -22,21 +22,7 @@ const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (loading || !user) return;
-    supabase
-      .from("users")
-      .select("has_completed_onboarding")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data && !data.has_completed_onboarding) {
-          navigate("/onboarding", { replace: true });
-        } else {
-          navigate("/dashboard", { replace: true });
-        }
-      });
-  }, [user, loading, navigate]);
+
   return (
     <div className="min-h-screen">
       <SEOHead 

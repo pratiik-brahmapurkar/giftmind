@@ -440,9 +440,14 @@ export type Database = {
       }
       gift_sessions: {
         Row: {
+          ai_attempt_number: number | null
+          ai_latency_ms: number | null
           ai_model_used: string | null
+          ai_provider_used: string | null
           ai_prompt_used: string | null
           ai_response: Json | null
+          ai_tokens_input: number | null
+          ai_tokens_output: number | null
           budget_max: number | null
           budget_min: number | null
           confidence_score: number | null
@@ -466,9 +471,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_attempt_number?: number | null
+          ai_latency_ms?: number | null
           ai_model_used?: string | null
+          ai_provider_used?: string | null
           ai_prompt_used?: string | null
           ai_response?: Json | null
+          ai_tokens_input?: number | null
+          ai_tokens_output?: number | null
           budget_max?: number | null
           budget_min?: number | null
           confidence_score?: number | null
@@ -492,9 +502,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_attempt_number?: number | null
+          ai_latency_ms?: number | null
           ai_model_used?: string | null
+          ai_provider_used?: string | null
           ai_prompt_used?: string | null
           ai_response?: Json | null
+          ai_tokens_input?: number | null
+          ai_tokens_output?: number | null
           budget_max?: number | null
           budget_min?: number | null
           confidence_score?: number | null

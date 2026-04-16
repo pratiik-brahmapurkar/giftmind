@@ -60,6 +60,8 @@ serve(async (req: Request): Promise<Response> => {
 
     return json({
       anthropic: Boolean(Deno.env.get("ANTHROPIC_API_KEY")),
+      google_ai: Boolean(Deno.env.get("GOOGLE_AI_API_KEY")),
+      groq: Boolean(Deno.env.get("GROQ_API_KEY")),
       resend: Boolean(Deno.env.get("RESEND_API_KEY")),
       cron: Boolean(Deno.env.get("CRON_SECRET")),
       paypal: Boolean(

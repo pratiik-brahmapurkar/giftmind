@@ -83,12 +83,23 @@ function LoadingState({ messageIndex }: { messageIndex: number }) {
   );
 }
 
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+function ErrorState({
+  icon,
+  title,
+  message,
+  onRetry,
+}: {
+  icon: string;
+  title: string;
+  message: string;
+  onRetry: () => void;
+}) {
   return (
-    <Card className="border-destructive/30 bg-destructive/5">
+    <Card className="border-border/60">
       <CardContent className="space-y-4 p-6 text-center">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-foreground">Something went wrong</h2>
+          <div className="text-5xl">{icon}</div>
+          <h2 className="text-xl font-semibold text-foreground">{title}</h2>
           <p className="text-sm text-muted-foreground">{message}</p>
         </div>
         <Button type="button" variant="hero" onClick={onRetry}>
@@ -263,9 +274,41 @@ export default function StepResults({
     return <NoCreditGate />;
   }
 
-  if (giftSession.error && giftSession.errorType !== "NO_CREDITS" && !giftSession.recommendations) {
+  if (
+    giftSession.error &&
+    giftSession.errorType !== "NO_CREDITS" &&
+    !giftSession.recommendations
+  ) {
+    if (giftSession.errorType === "AI_PARSE_ERROR" || giftSession.errorType === "AI_ERROR") {
+      return (
+        <ErrorState
+          icon="🤔"
+          title="AI had trouble with this one"
+          message="This sometimes happens. Let's try again."
+          onRetry={() => {
+            void giftSession.generateGifts(onRegenerateParams);
+          }}
+        />
+      );
+    }
+
+    if (giftSession.errorType === "RATE_LIMITED") {
+      return (
+        <ErrorState
+          icon="⏰"
+          title="Too many requests"
+          message="You've hit the rate limit. Please wait a minute and try again."
+          onRetry={() => {
+            void giftSession.generateGifts(onRegenerateParams);
+          }}
+        />
+      );
+    }
+
     return (
       <ErrorState
+        icon="⚠️"
+        title="Something went wrong"
         message={giftSession.error}
         onRetry={() => {
           void giftSession.generateGifts(onRegenerateParams);
@@ -347,6 +390,11 @@ export default function StepResults({
             {giftSession.occasionInsight && <p className="text-sm text-foreground">{giftSession.occasionInsight}</p>}
             {giftSession.budgetAssessment && <p className="text-sm text-foreground">{giftSession.budgetAssessment}</p>}
             {giftSession.culturalNote && <p className="text-sm text-foreground">{giftSession.culturalNote}</p>}
+            {import.meta.env.DEV && giftSession.aiProviderUsed ? (
+              <div className="text-center text-xs text-gray-400">
+                AI: {giftSession.aiProviderUsed} ({giftSession.aiLatencyMs ?? "?"}ms, attempt {giftSession.aiAttempt ?? "?"})
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

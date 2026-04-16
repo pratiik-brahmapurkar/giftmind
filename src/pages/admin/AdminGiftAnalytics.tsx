@@ -276,6 +276,62 @@ const AdminGiftAnalytics = () => {
     return { storeData, topProducts, totalClicks, estimatedRevenue };
   }, [sessions]);
 
+  const providerMetrics = useMemo(() => {
+    const providerCounts: Record<string, { sessions: number; fallbackSessions: number; latencyTotal: number; latencyCount: number }> = {};
+    let trackedSessions = 0;
+    let fallbackSessions = 0;
+    let latencyTotal = 0;
+    let latencyCount = 0;
+
+    sessions.forEach((session) => {
+      if (!session.ai_provider_used) return;
+
+      const provider = session.ai_provider_used;
+      const attempt = session.ai_attempt_number || 1;
+      const latency = session.ai_latency_ms || 0;
+
+      if (!providerCounts[provider]) {
+        providerCounts[provider] = {
+          sessions: 0,
+          fallbackSessions: 0,
+          latencyTotal: 0,
+          latencyCount: 0,
+        };
+      }
+
+      providerCounts[provider].sessions += 1;
+      trackedSessions += 1;
+
+      if (attempt > 1) {
+        providerCounts[provider].fallbackSessions += 1;
+        fallbackSessions += 1;
+      }
+
+      if (latency > 0) {
+        providerCounts[provider].latencyTotal += latency;
+        providerCounts[provider].latencyCount += 1;
+        latencyTotal += latency;
+        latencyCount += 1;
+      }
+    });
+
+    const rows = Object.entries(providerCounts)
+      .map(([provider, value]) => ({
+        provider,
+        sessions: value.sessions,
+        fallbackRate: value.sessions > 0 ? (value.fallbackSessions / value.sessions) * 100 : 0,
+        avgLatencyMs: value.latencyCount > 0 ? Math.round(value.latencyTotal / value.latencyCount) : null,
+      }))
+      .sort((a, b) => b.sessions - a.sessions);
+
+    return {
+      rows,
+      trackedSessions,
+      fallbackRate: trackedSessions > 0 ? (fallbackSessions / trackedSessions) * 100 : 0,
+      avgLatencyMs: latencyCount > 0 ? Math.round(latencyTotal / latencyCount) : null,
+    };
+  }, [sessions]);
+
   // === SESSION LOG ===
   const filtered = useMemo(() => {
     let list = sessions;
@@ -341,6 +397,46 @@ const AdminGiftAnalytics = () => {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">AI Provider Usage</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+            <span>Tracked sessions: <strong className="text-foreground">{providerMetrics.trackedSessions}</strong></span>
+            <span>Fallback rate: <strong className="text-foreground">{providerMetrics.fallbackRate.toFixed(1)}%</strong></span>
+            <span>Avg latency: <strong className="text-foreground">{providerMetrics.avgLatencyMs ?? "—"} ms</strong></span>
+          </div>
+
+          {providerMetrics.rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No AI provider metadata yet. Run the SQL migration first, then generate new sessions.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Provider</TableHead>
+                  <TableHead className="text-right">Sessions</TableHead>
+                  <TableHead className="text-right">Fallback Rate</TableHead>
+                  <TableHead className="text-right">Avg Latency</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {providerMetrics.rows.map((row) => (
+                  <TableRow key={row.provider}>
+                    <TableCell>
+                      <Badge variant="outline">{row.provider}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{row.sessions}</TableCell>
+                    <TableCell className="text-right">{row.fallbackRate.toFixed(1)}%</TableCell>
+                    <TableCell className="text-right">{row.avgLatencyMs ?? "—"} ms</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
