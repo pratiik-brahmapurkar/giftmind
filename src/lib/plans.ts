@@ -1,4 +1,4 @@
-export type PlanKey = "free" | "starter" | "popular" | "pro";
+export type PlanKey = "spark" | "thoughtful" | "confident" | "gifting-pro";
 export type StoresLevel = "basic" | "standard" | "all";
 
 export interface PlanLimits {
@@ -14,7 +14,7 @@ export interface PlanLimits {
 }
 
 export const PLAN_CONFIG: Record<PlanKey, PlanLimits> = {
-  free: {
+  spark: {
     recipients: 1,
     regenerations: 1,
     reminders: 0,
@@ -23,9 +23,9 @@ export const PLAN_CONFIG: Record<PlanKey, PlanLimits> = {
     hasPriorityAi: false,
     hasHistoryExport: false,
     storeAccess: ["amazon"],
-    label: "Free",
+    label: "Spark ✨",
   },
-  starter: {
+  thoughtful: {
     recipients: 5,
     regenerations: 2,
     reminders: 0,
@@ -34,9 +34,9 @@ export const PLAN_CONFIG: Record<PlanKey, PlanLimits> = {
     hasPriorityAi: false,
     hasHistoryExport: false,
     storeAccess: ["amazon", "flipkart"],
-    label: "Starter",
+    label: "Thoughtful 💝",
   },
-  popular: {
+  confident: {
     recipients: 15,
     regenerations: 3,
     reminders: 3,
@@ -45,9 +45,9 @@ export const PLAN_CONFIG: Record<PlanKey, PlanLimits> = {
     hasPriorityAi: false,
     hasHistoryExport: false,
     storeAccess: ["amazon", "flipkart", "myntra", "etsy", "others"],
-    label: "Popular",
+    label: "Confident 🎯",
   },
-  pro: {
+  "gifting-pro": {
     recipients: Number.POSITIVE_INFINITY,
     regenerations: Number.POSITIVE_INFINITY,
     reminders: Number.POSITIVE_INFINITY,
@@ -56,33 +56,33 @@ export const PLAN_CONFIG: Record<PlanKey, PlanLimits> = {
     hasPriorityAi: true,
     hasHistoryExport: true,
     storeAccess: ["amazon", "flipkart", "myntra", "etsy", "others"],
-    label: "Pro",
+    label: "Gifting Pro 🚀",
   },
 };
 
 export function normalizePlan(plan?: string | null): PlanKey {
-  if (plan === "starter" || plan === "popular" || plan === "pro") return plan;
-  return "free";
+  if (plan === "spark" || plan === "thoughtful" || plan === "confident" || plan === "gifting-pro") return plan;
+  return "spark";
 }
 
 export function getUpgradePlanForFeature(plan: PlanKey, feature: string): PlanKey {
   const featureMap: Record<string, PlanKey> = {
-    signal_check: "popular",
-    batch_mode: "popular",
-    more_recipients: plan === "free" ? "starter" : "popular",
-    more_regenerations: plan === "free" ? "starter" : "popular",
-    more_stores: plan === "free" ? "starter" : "popular",
-    priority_ai: "pro",
-    export: "pro",
+    signal_check: "confident",
+    batch_mode: "confident",
+    more_recipients: plan === "spark" ? "thoughtful" : "confident",
+    more_regenerations: plan === "spark" ? "thoughtful" : "confident",
+    more_stores: plan === "spark" ? "thoughtful" : "confident",
+    priority_ai: "gifting-pro",
+    history_export: "gifting-pro",
   };
 
-  return featureMap[feature] ?? "popular";
+  return featureMap[feature] ?? "confident";
 }
 
-export function getNextPlan(plan: PlanKey): Exclude<PlanKey, "free"> {
-  if (plan === "free") return "starter";
-  if (plan === "starter") return "popular";
-  return "pro";
+export function getNextPlan(plan: PlanKey): Exclude<PlanKey, "spark"> {
+  if (plan === "spark") return "thoughtful";
+  if (plan === "thoughtful") return "confident";
+  return "gifting-pro";
 }
 
 export function getStoresLevel(storeAccess: string[]): StoresLevel {

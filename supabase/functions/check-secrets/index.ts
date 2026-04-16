@@ -62,7 +62,10 @@ serve(async (req: Request): Promise<Response> => {
       anthropic: Boolean(Deno.env.get("ANTHROPIC_API_KEY")),
       resend: Boolean(Deno.env.get("RESEND_API_KEY")),
       cron: Boolean(Deno.env.get("CRON_SECRET")),
-      paypal: Boolean(Deno.env.get("PAYPAL_CLIENT_ID") || Deno.env.get("PAYPAL_SECRET")),
+      paypal: Boolean(
+        Deno.env.get("PAYPAL_CLIENT_ID") &&
+          (Deno.env.get("PAYPAL_CLIENT_SECRET") || Deno.env.get("PAYPAL_SECRET")),
+      ),
       razorpay: Boolean(Deno.env.get("RAZORPAY_KEY_ID") || Deno.env.get("RAZORPAY_KEY_SECRET")),
       posthog: Boolean(Deno.env.get("POSTHOG_API_KEY")),
       sentry: Boolean(Deno.env.get("SENTRY_DSN")),

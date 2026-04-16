@@ -54,6 +54,7 @@ interface GiftRequest {
   recipient_country?: string | null;
   user_plan: string;
   session_id: string;
+  is_regeneration?: boolean;
 }
 
 interface GiftRecommendation {
@@ -94,14 +95,14 @@ RELATIONSHIP CALIBRATION:
 - Parent: Respectful, thoughtful. Experiences and personalized items beat generic.
 - Close Friend: Fun, personal, shows you "get" them. Inside jokes welcome.
 - Colleague/Boss: Professional, safe, not too personal. Universal appeal matters.
-- New Relationship (< 6 months): SUBTLE. Don't overcommit. ₹500-2000/$15-30 range. 
+- New Relationship (< 6 months): SUBTLE. Don't overcommit. $15-30 range.
   Experiences > objects. A great playlist > an expensive watch.
 - Acquaintance: Safe, universally appreciated, consumable (food, candles, plants).
 
 CULTURAL RULES (apply when relevant):
 INDIA:
 - Diwali: Gifts symbolizing prosperity. NO leather for Hindu recipients. 
-  Shagun amounts should end in 1 (₹501, ₹1001). Avoid black/white wrapping.
+  Shagun amounts should end in 1. Avoid black/white wrapping.
 - Raksha Bandhan: Rakhi + gift combo for brothers/sisters.
 - Holi: Colors, sweets, playful items.
 - General: "Soan papdi syndrome" — avoid generic sweet boxes. Be specific.
@@ -143,7 +144,7 @@ STRICT OUTPUT FORMAT (respond ONLY with this JSON, no markdown, no explanation):
     }
   ],
   "occasion_insight": "One line about this occasion's gifting dynamics. Example: 'Anniversary gifts carry double weight — they signal both romantic attentiveness AND relationship investment.'",
-  "budget_assessment": "Whether their budget is appropriate. Example: 'Your budget of ₹2,000-5,000 is generous for a close friend's birthday — you have room for something truly personal.'",
+  "budget_assessment": "Whether their budget is appropriate. Example: 'Your budget of $30-50 is generous for a close friend's birthday — you have room for something truly personal.'",
   "cultural_note": "Any cultural consideration, or null if not applicable. Example: 'For Diwali, this gift avoids leather and features gold tones — both culturally appropriate choices.'"
 }
 
@@ -158,10 +159,23 @@ CRITICAL RULES:
 
 // ── Model selection based on user plan ────────────────────────────────────────
 function selectModel(plan: string): string {
-  if (plan === "pro") {
+  if (plan === "gifting-pro") {
     return "claude-sonnet-4-20250514";
   }
+  if (plan === "spark" || plan === "thoughtful" || plan === "confident") {
+    return "claude-haiku-4-5-20251001";
+  }
   return "claude-haiku-4-5-20251001";
+}
+
+function regenerationLimit(plan: string): number {
+  const limits: Record<string, number> = {
+    spark: 1,
+    thoughtful: 2,
+    confident: 3,
+    "gifting-pro": -1,
+  };
+  return limits[plan] ?? limits.spark;
 }
 
 // ── JSON extraction helper (strips markdown fences if Claude adds them) ────────
@@ -257,6 +271,7 @@ serve(async (req: Request): Promise<Response> => {
       context_tags,
       recipient_country,
       session_id,
+      is_regeneration,
     } = body;
 
     // ── 3. Validate required fields ──────────────────────────────────────────
@@ -302,7 +317,7 @@ serve(async (req: Request): Promise<Response> => {
     // ── 4. Enforce session ownership and server-side rate limit ──────────────
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("gift_sessions")
-      .select("id, user_id")
+      .select("id, user_id, regeneration_count")
       .eq("id", session_id)
       .single();
 
@@ -344,8 +359,24 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "Failed to retrieve user profile" }, 500);
     }
 
+    const activePlan = userData.active_plan ?? "spark";
+    if (is_regeneration) {
+      const maxRegenerations = regenerationLimit(activePlan);
+      const currentRegenerations = session.regeneration_count ?? 0;
+      if (maxRegenerations !== -1 && currentRegenerations >= maxRegenerations) {
+        return json(
+          {
+            error: "REGENERATION_LIMIT_REACHED",
+            message: `Your plan allows ${maxRegenerations} regeneration${maxRegenerations === 1 ? "" : "s"} per session.`,
+            upgrade_to: activePlan === "spark" ? "thoughtful" : "confident",
+          },
+          403,
+        );
+      }
+    }
+
     // ── 5. Select AI model based on the server-side plan ─────────────────────
-    const selectedModel = selectModel(userData.active_plan ?? "free");
+    const selectedModel = selectModel(activePlan);
 
     // ── 6. Determine country context ─────────────────────────────────────────
     const recipientCountry = sanitizeString(recipient_country ?? cleanRecipientCountry ?? "", 20).toUpperCase() || null;
@@ -471,6 +502,7 @@ Return your response as valid JSON matching the specified format.`;
         .update({
           ai_response: parsedResponse,
           confidence_score: topConfidence,
+          ...(is_regeneration ? { regeneration_count: (session.regeneration_count ?? 0) + 1 } : {}),
           status: "active",
         })
         .eq("id", session_id)

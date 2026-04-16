@@ -125,7 +125,7 @@ const CrossBorderSection = ({
                     </SelectTrigger>
                     <SelectContent className="max-h-[280px]">
                       <SelectGroup>
-                        <SelectLabel className="text-xs text-muted-foreground">Popular</SelectLabel>
+                        <SelectLabel className="text-xs text-muted-foreground">Common</SelectLabel>
                         {tier1.map((c) => (
                           <SelectItem key={c.code} value={c.code}>
                             {c.flag} {c.name}

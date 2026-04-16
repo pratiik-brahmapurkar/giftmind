@@ -53,7 +53,6 @@ const TAB_CONFIG = [
 
 type TabValue = (typeof TAB_CONFIG)[number]["value"];
 
-const CURRENCY_OPTIONS = ["INR", "USD", "EUR", "GBP", "AED", "CAD", "AUD", "SGD"];
 const MODEL_OPTIONS = ["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"];
 const STORE_LEVEL_OPTIONS = ["basic", "standard", "all"];
 
@@ -215,7 +214,7 @@ function buildTemplatePreview(template: string, settings: SettingsRecord) {
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111827;">
           <h2 style="color:#6C5CE7; margin-bottom: 12px;">Welcome to ${brand}</h2>
           <p>Hi Priya,</p>
-          <p>You now have <strong>${settings.free_credits} free credits</strong> to try AI gift recommendations.</p>
+          <p>You now have <strong>${settings.free_credits} free credits on Spark ✨ — no card needed</strong> to try AI gift recommendations.</p>
           <p>Add your first person, choose an occasion, and get 3 gift ideas with confidence scores.</p>
           <a href="https://giftmind.in/onboarding" style="display:inline-block; padding: 12px 18px; background:#6C5CE7; color:#fff; text-decoration:none; border-radius:8px; font-weight:600;">Get started</a>
         </div>`,
@@ -845,16 +844,6 @@ const AdminSettings = () => {
               </div>
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Default Currency</Label>
-                  <Select value={generalForm.default_currency} onValueChange={(value) => setGeneralForm((prev) => ({ ...prev, default_currency: value }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {CURRENCY_OPTIONS.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Default currency for users whose country isn't detected.</p>
-                </div>
-                <div className="space-y-2">
                   <Label>Default Language</Label>
                   <Select value={generalForm.default_language} onValueChange={(value) => setGeneralForm((prev) => ({ ...prev, default_language: value }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -885,8 +874,8 @@ const AdminSettings = () => {
                 <h3 className="text-sm font-semibold text-foreground">Model Selection</h3>
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   {[
-                    { key: "ai_model_free", label: "Model for Free/Starter/Popular plans", note: "Cheaper model for standard users.", cost: "Cost: ~$0.003 per gift session." },
-                    { key: "ai_model_pro", label: "Model for Pro plan", note: "Premium model for Pro users. Better quality.", cost: "Cost: ~$0.035 per gift session." },
+                    { key: "ai_model_free", label: "Model for Spark/Thoughtful/Confident plans", note: "Cheaper model for standard users.", cost: "Cost: ~$0.003 per gift session." },
+                    { key: "ai_model_pro", label: "Model for Gifting Pro plan", note: "Premium model for Gifting Pro users. Better quality.", cost: "Cost: ~$0.035 per gift session." },
                     { key: "ai_model_signal", label: "Model for Signal Check", note: "Always Sonnet — this is the premium differentiator.", cost: "Cost: ~$0.01 per signal check." },
                   ].map((field) => (
                     <div key={field.key} className="space-y-2 rounded-lg border p-4">
@@ -932,8 +921,8 @@ const AdminSettings = () => {
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div className="grid gap-2 md:grid-cols-2">
-                    <div>Free/Starter/Popular sessions (80%): <strong>{Math.round(monthlySessionsCount * 0.8)}</strong> × $0.003 = <strong>{formatCurrencyAmount(monthlyFreeCost)}</strong></div>
-                    <div>Pro sessions (20%): <strong>{Math.round(monthlySessionsCount * 0.2)}</strong> × $0.035 = <strong>{formatCurrencyAmount(monthlyProCost)}</strong></div>
+                    <div>Spark/Thoughtful/Confident sessions (80%): <strong>{Math.round(monthlySessionsCount * 0.8)}</strong> × $0.003 = <strong>{formatCurrencyAmount(monthlyFreeCost)}</strong></div>
+                    <div>Gifting Pro sessions (20%): <strong>{Math.round(monthlySessionsCount * 0.2)}</strong> × $0.035 = <strong>{formatCurrencyAmount(monthlyProCost)}</strong></div>
                     <div>Signal Checks (15% of sessions): <strong>{Math.round(monthlySessionsCount * 0.15)}</strong> × $0.010 = <strong>{formatCurrencyAmount(monthlySignalCost)}</strong></div>
                     <div className="font-semibold text-foreground">Estimated total: {formatCurrencyAmount(monthlyTotalCost)}/month</div>
                   </div>
@@ -1027,14 +1016,7 @@ const AdminSettings = () => {
                         <CardContent className="space-y-3">
                           {[
                             ["Credits", "credits"],
-                            ["INR", "price_inr"],
                             ["USD", "price_usd"],
-                            ["EUR", "price_eur"],
-                            ["GBP", "price_gbp"],
-                            ["AED", "price_aed"],
-                            ["CAD", "price_cad"],
-                            ["AUD", "price_aud"],
-                            ["SGD", "price_sgd"],
                             ["Validity (days)", "validity_days"],
                             ["Max People", "max_recipients"],
                             ["Max Regens", "max_regenerations"],

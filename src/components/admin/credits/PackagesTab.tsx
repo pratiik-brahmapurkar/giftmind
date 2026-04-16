@@ -19,18 +19,17 @@ interface PackageForm {
   id?: string;
   name: string;
   credits: number;
-  price_inr: number;
   price_usd: number;
   validity_days: number;
-  badge_text: string;
+  badge: string;
   features: string;
   is_active: boolean;
   sort_order: number;
 }
 
 const emptyForm: PackageForm = {
-  name: "", credits: 0, price_inr: 0, price_usd: 0,
-  validity_days: 365, badge_text: "", features: "", is_active: true, sort_order: 0,
+  name: "", credits: 0, price_usd: 0,
+  validity_days: 30, badge: "", features: "", is_active: true, sort_order: 0,
 };
 
 const PackagesTab = () => {
@@ -56,10 +55,9 @@ const PackagesTab = () => {
         id: pkg.id,
         name: pkg.name,
         credits: pkg.credits,
-        price_inr: Number(pkg.price_inr),
         price_usd: Number(pkg.price_usd),
         validity_days: pkg.validity_days,
-        badge_text: pkg.badge_text || "",
+        badge: pkg.badge || "",
         features: (pkg.features || []).join("\n"),
         is_active: pkg.is_active,
         sort_order: pkg.sort_order,
@@ -76,10 +74,16 @@ const PackagesTab = () => {
       const payload = {
         name: editPkg.name,
         credits: editPkg.credits,
-        price_inr: editPkg.price_inr,
+        price_inr: editPkg.price_usd,
+        price_eur: editPkg.price_usd,
+        price_gbp: editPkg.price_usd,
+        price_aed: editPkg.price_usd,
+        price_cad: editPkg.price_usd,
+        price_aud: editPkg.price_usd,
+        price_sgd: editPkg.price_usd,
         price_usd: editPkg.price_usd,
         validity_days: editPkg.validity_days,
-        badge_text: editPkg.badge_text || null,
+        badge: editPkg.badge || null,
         features: editPkg.features.split("\n").map((f) => f.trim()).filter(Boolean),
         is_active: editPkg.is_active,
         sort_order: editPkg.sort_order,
@@ -133,8 +137,8 @@ const PackagesTab = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-base">{pkg.name}</CardTitle>
-                    {pkg.badge_text && (
-                      <Badge className="mt-1 bg-primary/10 text-primary border-primary/20">{pkg.badge_text}</Badge>
+                    {pkg.badge && (
+                      <Badge className="mt-1 bg-primary/10 text-primary border-primary/20">{pkg.badge}</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -150,8 +154,7 @@ const PackagesTab = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">₹{Number(pkg.price_inr)}</span>
-                  <span className="text-sm text-muted-foreground">/ ${Number(pkg.price_usd)}</span>
+                  <span className="text-2xl font-bold">${Number(pkg.price_usd).toFixed(2)}</span>
                 </div>
                 <div className="text-sm space-y-1">
                   <p><span className="font-medium">{pkg.credits}</span> credits</p>
@@ -193,19 +196,13 @@ const PackagesTab = () => {
                   <Input type="number" value={editPkg.validity_days} onChange={(e) => setEditPkg({ ...editPkg, validity_days: Number(e.target.value) })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Price INR (₹)</Label>
-                  <Input type="number" step="0.01" value={editPkg.price_inr} onChange={(e) => setEditPkg({ ...editPkg, price_inr: Number(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Price USD ($)</Label>
-                  <Input type="number" step="0.01" value={editPkg.price_usd} onChange={(e) => setEditPkg({ ...editPkg, price_usd: Number(e.target.value) })} />
-                </div>
+              <div>
+                <Label>Price USD ($)</Label>
+                <Input type="number" step="0.01" value={editPkg.price_usd} onChange={(e) => setEditPkg({ ...editPkg, price_usd: Number(e.target.value) })} />
               </div>
               <div>
                 <Label>Badge Text</Label>
-                <Input value={editPkg.badge_text} onChange={(e) => setEditPkg({ ...editPkg, badge_text: e.target.value })} placeholder="e.g. Most Popular" />
+                <Input value={editPkg.badge} onChange={(e) => setEditPkg({ ...editPkg, badge: e.target.value })} placeholder="e.g. Best Value" />
               </div>
               <div>
                 <Label>Features (one per line)</Label>

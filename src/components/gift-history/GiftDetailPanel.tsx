@@ -70,8 +70,8 @@ const GiftDetailPanel = ({ session, onClose }: Props) => {
             </div>
             {session.budget_min != null && session.budget_max != null && (
               <p className="text-sm text-muted-foreground">
-                Budget: {session.currency === "INR" ? "₹" : session.currency === "GBP" ? "£" : "$"}
-                {session.budget_min.toLocaleString()} – {session.currency === "INR" ? "₹" : session.currency === "GBP" ? "£" : "$"}
+                Budget: $
+                {session.budget_min.toLocaleString()} – $
                 {session.budget_max.toLocaleString()}
               </p>
             )}

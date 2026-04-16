@@ -62,7 +62,7 @@ interface StoredSignalCheck {
 }
 
 // ── Plans that have Signal Check access ────────────────────────────────────────
-const ALLOWED_PLANS = ["popular", "pro"];
+const ALLOWED_PLANS = ["confident", "gifting-pro"];
 
 // ── System prompt ──────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are a relationship and gifting psychologist. Your job is to analyze what a specific gift communicates about the giver-recipient relationship.
@@ -165,14 +165,14 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "Failed to retrieve user profile" }, 500);
     }
 
-    const userPlan = userData.active_plan ?? "free";
+    const userPlan = userData.active_plan ?? "spark";
 
     if (!ALLOWED_PLANS.includes(userPlan)) {
       return json(
         {
           error: "PLAN_RESTRICTED",
-          message: "Signal Check is available on Popular and Pro plans.",
-          upgrade_to: "popular",
+          message: "Signal Check is available on Confident and Gifting Pro plans.",
+          upgrade_to: "confident",
           preview: "This gift communicates that you...",
         },
         403,

@@ -129,7 +129,7 @@ export default function StepContext({
                 See what your gift says about the relationship — like a gift therapist.
               </p>
               <p className="text-xs text-muted-foreground/70">
-                {canUseSignalCheck ? "1 credit per gift" : "Available on Popular plan"}
+                {canUseSignalCheck ? "1 credit per gift" : "Available on Confident plan"}
               </p>
             </div>
           </div>

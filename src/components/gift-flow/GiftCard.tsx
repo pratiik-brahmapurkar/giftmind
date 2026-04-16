@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { GiftRecommendation, Recipient } from "@/hooks/useGiftSession";
 import type { ProductResult } from "@/lib/productLinks";
 import { cn } from "@/lib/utils";
-import { getCurrencySymbol } from "@/lib/geoConfig";
+import { getPlanConfig } from "@/lib/geoConfig";
 import ProductLinks from "./ProductLinks";
 import SignalCheck from "./SignalCheck";
 
@@ -71,6 +71,7 @@ export default function GiftCard({
   onTrackClick,
 }: GiftCardProps) {
   const badge = getConfidenceBadge(gift.confidence_score);
+  const planConfig = getPlanConfig(userPlan);
   const [cautionOpen, setCautionOpen] = useState(false);
 
   return (
@@ -101,11 +102,11 @@ export default function GiftCard({
 
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 font-medium text-foreground">
-            {getCurrencySymbol(currency)}
+            $
             {gift.price_anchor.toLocaleString()}
           </span>
           <span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">{gift.product_category}</span>
-          <span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">{userPlan} plan</span>
+          <span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">{planConfig.name} plan</span>
         </div>
 
         {/* Collapsible "What not to do" warning (Item 15) */}

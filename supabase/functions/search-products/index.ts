@@ -125,10 +125,10 @@ function json(body: unknown, status = 200) {
 
 // ── Plan-based store limits ────────────────────────────────────────────────────
 const STORE_LIMITS: Record<string, number> = {
-  free: 1,      // Amazon only (top-priority store)
-  starter: 2,   // Amazon + 1 local store
-  popular: 99,  // All stores
-  pro: 99,      // All stores
+  spark: 1,         // Amazon only (top-priority store)
+  thoughtful: 2,    // Amazon + 1 local store
+  confident: 99,    // All stores
+  "gifting-pro": 99, // All stores
 };
 
 // ── Build an affiliate search URL from store config ────────────────────────────
@@ -307,7 +307,35 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    // ── 1. Parse request body ──────────────────────────────────────────────────
+    // ── 1. Authenticate caller ────────────────────────────────────────────────
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json({ error: "Missing Authorization header" }, 401);
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
+    const { data: userData, error: userDataError } = await supabaseAdmin
+      .from("users")
+      .select("active_plan")
+      .eq("id", user.id)
+      .single();
+
+    if (userDataError || !userData) {
+      return json({ error: "Failed to retrieve user profile" }, 500);
+    }
+
+    const serverPlan = userData.active_plan ?? "spark";
+
+    // ── 2. Parse request body ─────────────────────────────────────────────────
     const parsedBody = await parseJsonBody<SearchRequest>(req, json);
     if (parsedBody.response) {
       return parsedBody.response;
@@ -321,7 +349,6 @@ serve(async (req: Request): Promise<Response> => {
       currency,
       budget_min,
       budget_max,
-      user_plan,
     } = body;
 
     // ── 2. Validate required fields ────────────────────────────────────────────
@@ -331,7 +358,7 @@ serve(async (req: Request): Promise<Response> => {
     if (!validateBudget(budget_min, budget_max)) {
       return json({ error: "Invalid budget range" }, 400);
     }
-    if (!validatePlan(user_plan)) {
+    if (!validatePlan(serverPlan)) {
       return json({ error: "Invalid user plan" }, 400);
     }
     if (recipient_country && !validateCountryCode(recipient_country)) {
@@ -399,8 +426,8 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // ── 5. Apply plan-based store limit ────────────────────────────────────────
-    const maxStores = STORE_LIMITS[user_plan] ?? 1;
-    const unlockPlan = maxStores <= 1 ? "starter" : "popular";
+    const maxStores = STORE_LIMITS[serverPlan] ?? 1;
+    const unlockPlan = maxStores <= 1 ? "thoughtful" : "confident";
 
     // ── 6. Build results per gift concept ──────────────────────────────────────
     const results: GiftResult[] = cleanGiftConcepts.map((concept): GiftResult => {
@@ -471,6 +498,7 @@ serve(async (req: Request): Promise<Response> => {
         total_stores_available: allStores.length,
         stores_shown: Math.min(maxStores, allStores.length),
         is_cross_border: isCrossBorder,
+        server_plan: serverPlan,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

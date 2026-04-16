@@ -1,10 +1,10 @@
-import { Gift, ArrowLeft, CreditCard, LayoutGrid } from "lucide-react";
+import { Gift, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import PricingCards from "@/components/pricing/PricingCards";
 
 export default function NoCreditGate() {
   const navigate = useNavigate();
+  const handleBuy = (slug: string) => navigate(`/credits?plan=${slug}`);
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center py-10">
@@ -17,38 +17,12 @@ export default function NoCreditGate() {
             You&apos;ve used all your free credits
           </h1>
           <p className="mt-3 text-sm text-muted-foreground md:text-base">
-            Unlock more AI gift sessions, more stores, and premium tools like Signal Check.
+            Get more credits to keep finding perfect gifts.
           </p>
-
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Button
-              type="button"
-              variant="hero"
-              size="lg"
-              className="min-h-12 gap-2"
-              onClick={() => navigate("/credits")}
-            >
-              <CreditCard className="h-4 w-4" />
-              Buy Credits
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="min-h-12 gap-2"
-              onClick={() => {
-                const pricingSection = document.getElementById("pricing-section");
-                pricingSection?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              <LayoutGrid className="h-4 w-4" />
-              View Plans
-            </Button>
-          </div>
         </div>
 
         <div id="pricing-section">
-          <PricingCards highlightPlan="popular" compact />
+          <PricingCards compact onBuyClick={handleBuy} />
         </div>
 
         <div className="text-center">
@@ -57,7 +31,7 @@ export default function NoCreditGate() {
             className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            ← Back to Dashboard
           </Link>
         </div>
       </div>

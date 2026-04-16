@@ -808,7 +808,6 @@ export type Database = {
           country: string | null
           created_at: string | null
           credits_balance: number | null
-          currency_preference: string | null
           email: string
           full_name: string | null
           has_completed_onboarding: boolean | null
@@ -827,7 +826,6 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           credits_balance?: number | null
-          currency_preference?: string | null
           email: string
           full_name?: string | null
           has_completed_onboarding?: boolean | null
@@ -846,7 +844,6 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           credits_balance?: number | null
-          currency_preference?: string | null
           email?: string
           full_name?: string | null
           has_completed_onboarding?: boolean | null

@@ -31,26 +31,6 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { COUNTRY_OPTIONS } from "@/components/recipients/constants";
 
-const CURRENCIES = [
-  { value: "INR", label: "₹ INR" },
-  { value: "USD", label: "$ USD" },
-  { value: "GBP", label: "£ GBP" },
-  { value: "EUR", label: "€ EUR" },
-  { value: "AED", label: "د.إ AED" },
-  { value: "CAD", label: "$ CAD" },
-  { value: "AUD", label: "$ AUD" },
-  { value: "SGD", label: "$ SGD" },
-];
-
-const getCurrencyForCountry = (c: string) => {
-  const map: Record<string, string> = {
-    IN: "INR", US: "USD", GB: "GBP", AE: "AED",
-    FR: "EUR", DE: "EUR", IT: "EUR", ES: "EUR", NL: "EUR",
-    CA: "CAD", AU: "AUD", SG: "SGD"
-  };
-  return map[c] || "USD";
-};
-
 const Profile = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -58,8 +38,7 @@ const Profile = () => {
   const [copied, setCopied] = useState(false);
 
   const [fullName, setFullName] = useState("");
-  const [country, setCountry] = useState("IN");
-  const [currencyPref, setCurrencyPref] = useState("INR");
+  const [country, setCountry] = useState("US");
   const [language, setLanguage] = useState("en");
 
   const { data: profile, isLoading } = useQuery({
@@ -79,8 +58,7 @@ const Profile = () => {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || "");
-      setCountry((profile as any).country || "IN");
-      setCurrencyPref((profile as any).currency_preference || "INR");
+      setCountry((profile as any).country || "US");
       setLanguage((profile as any).language || "en");
     }
   }, [profile]);
@@ -106,14 +84,11 @@ const Profile = () => {
         .update({
           full_name: fullName,
           country,
-          currency_preference: currencyPref,
           language,
           updated_at: new Date().toISOString(),
         } as any)
         .eq("id", user!.id);
       if (error) throw error;
-      
-      localStorage.setItem("gm_currency", currencyPref);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -145,16 +120,6 @@ const Profile = () => {
     onError: () => toast.error("Failed to upload avatar"),
   });
 
-  const handleCountryChange = (val: string) => {
-    setCountry(val);
-    setCurrencyPref(getCurrencyForCountry(val));
-  };
-  
-  const handleCurrencyChange = (val: string) => {
-    setCurrencyPref(val);
-    localStorage.setItem("gm_currency", val);
-  };
-
   const referralCode = profile?.referral_code || user?.id?.slice(0, 8) || "XXXXXX";
   const referralLink = `https://giftmind.in/?ref=${referralCode}`;
   
@@ -171,7 +136,7 @@ const Profile = () => {
   };
 
   const whatsappMsg = encodeURIComponent(
-    `I found an amazing AI gifting tool! 🎁 It tells you exactly what to gift, why it works, and where to buy. Get 5 free credits (instead of 3): ${referralLink}`
+    `I found an amazing AI gifting tool! 🎁 Get 5 free credits: ${referralLink}`
   );
 
   const emailSubject = encodeURIComponent("Check out GiftMind — AI gift recommendations");
@@ -248,7 +213,7 @@ const Profile = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Where do you live?</Label>
-                  <Select value={country} onValueChange={handleCountryChange}>
+                  <Select value={country} onValueChange={setCountry}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {COUNTRY_OPTIONS.map((c) => (
@@ -256,19 +221,7 @@ const Profile = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[10px] text-muted-foreground mt-1">This sets your default currency and store preferences.</p>
-                </div>
-                <div>
-                  <Label>Display prices in</Label>
-                  <Select value={currencyPref} onValueChange={handleCurrencyChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[10px] text-muted-foreground mt-1">Auto-set from your country. Change if you prefer a different currency.</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">This helps match store links for your region.</p>
                 </div>
               </div>
               <div>

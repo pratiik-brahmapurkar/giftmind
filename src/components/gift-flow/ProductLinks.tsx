@@ -3,7 +3,7 @@ import { ExternalLink, Globe2, Lock, TicketPercent, Truck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
-import { detectUserCountry, SUPPORTED_COUNTRIES } from "@/lib/geoConfig";
+import { detectUserCountry, getUpgradeText, SUPPORTED_COUNTRIES } from "@/lib/geoConfig";
 import type { ProductLink as ProductLinkRecord, LockedStore } from "@/lib/productLinks";
 
 interface ProductLinksProps {
@@ -14,18 +14,9 @@ interface ProductLinksProps {
   onTrackClick: (product: ProductLinkRecord) => void;
 }
 
-function formatPrice(amount: number | null | undefined, currency: string | null | undefined) {
+function formatPrice(amount: number | null | undefined) {
   if (amount == null) return null;
-
-  try {
-    return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
-      style: "currency",
-      currency: currency || "USD",
-      maximumFractionDigits: currency === "INR" ? 0 : 2,
-    }).format(amount);
-  } catch {
-    return `${currency || "USD"} ${amount}`;
-  }
+  return `$${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 function stockBadge(product: ProductLinkRecord) {
@@ -55,6 +46,8 @@ export default function ProductLinks({
   const userCountry = detectUserCountry();
   const crossBorderCountry = recipientCountry && recipientCountry !== userCountry ? recipientCountry : null;
   const crossBorderMeta = SUPPORTED_COUNTRIES.find((country) => country.code === crossBorderCountry);
+  const currentPlan = lockedStores.some((store) => store.unlock_plan === "thoughtful") ? "spark" : "thoughtful";
+  const upgradeText = getUpgradeText(currentPlan, "more_stores");
 
   return (
     <>
@@ -128,11 +121,11 @@ export default function ProductLinks({
                     {product.price_amount != null ? (
                       <div className="flex items-center gap-2">
                         <span className="text-base font-semibold text-foreground">
-                          {formatPrice(product.price_amount, product.price_currency)}
+                          {formatPrice(product.price_amount)}
                         </span>
                         {product.original_price_amount && product.original_price_amount > product.price_amount ? (
                           <span className="text-xs text-muted-foreground line-through">
-                            {formatPrice(product.original_price_amount, product.price_currency)}
+                            {formatPrice(product.original_price_amount)}
                           </span>
                         ) : null}
                       </div>
@@ -188,7 +181,7 @@ export default function ProductLinks({
               key={store.store_id}
               className="min-w-[180px] cursor-pointer border-border/60 bg-muted/30 opacity-80 transition-opacity hover:opacity-100"
               onClick={() => {
-                setUpgradeReason(`Unlock ${store.store_name} with the ${store.unlock_plan} plan.`);
+                setUpgradeReason(`${upgradeText} to unlock ${store.store_name}.`);
                 setUpgradeOpen(true);
               }}
             >
@@ -201,7 +194,7 @@ export default function ProductLinks({
                 </div>
                 <div className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground">
                   <Lock className="h-4 w-4" />
-                  Unlock with {store.unlock_plan}
+                  {upgradeText}
                 </div>
               </CardContent>
             </Card>
@@ -213,7 +206,7 @@ export default function ProductLinks({
         </p>
       </div>
 
-      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} reason={upgradeReason} highlightPlan="popular" />
+      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} reason={upgradeReason} highlightPlan="confident" />
     </>
   );
 }

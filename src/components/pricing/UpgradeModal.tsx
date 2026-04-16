@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -6,26 +7,27 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import PricingCards, { CurrencyKey } from "./PricingCards";
+import PricingCards from "./PricingCards";
+import type { PlanSlug } from "@/lib/geoConfig";
 import { trackEvent } from "@/lib/posthog";
 
 interface UpgradeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  highlightPlan?: "starter" | "popular" | "pro";
+  highlightPlan?: PlanSlug;
   reason?: string;
-  defaultCurrency?: CurrencyKey;
-  onSelectPlan?: (planKey: string, currency: CurrencyKey) => void;
+  onBuyClick?: (planKey: string) => void;
 }
 
 export default function UpgradeModal({
   open,
   onOpenChange,
-  highlightPlan = "popular",
+  highlightPlan = "confident",
   reason,
-  defaultCurrency,
-  onSelectPlan,
+  onBuyClick,
 }: UpgradeModalProps) {
+  const navigate = useNavigate();
+
   useEffect(() => {
     if (open) {
       if (reason) {
@@ -41,6 +43,15 @@ export default function UpgradeModal({
     }
   }, [open, highlightPlan, reason]);
 
+  const handleBuy = (planKey: string) => {
+    if (onBuyClick) {
+      onBuyClick(planKey);
+      return;
+    }
+    onOpenChange(false);
+    navigate(`/credits?plan=${planKey}`);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
@@ -54,7 +65,7 @@ export default function UpgradeModal({
             </DialogDescription>
           )}
         </DialogHeader>
-        <PricingCards highlightPlan={highlightPlan} compact defaultCurrency={defaultCurrency} onSelectPlan={onSelectPlan} />
+        <PricingCards highlightPlan={highlightPlan} compact onBuyClick={handleBuy} />
       </DialogContent>
     </Dialog>
   );

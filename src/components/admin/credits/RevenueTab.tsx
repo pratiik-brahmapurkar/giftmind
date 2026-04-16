@@ -111,16 +111,16 @@ const RevenueTab = () => {
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: "Revenue This Month", value: `₹${stats.revenueThisMonth.toLocaleString()}` },
-          { label: "Revenue Last Month", value: `₹${stats.revenueLastMonth.toLocaleString()}` },
+          { label: "Revenue This Month", value: `$${stats.revenueThisMonth.toLocaleString()}` },
+          { label: "Revenue Last Month", value: `$${stats.revenueLastMonth.toLocaleString()}` },
           {
             label: "MoM Growth",
             value: `${stats.momGrowth >= 0 ? "+" : ""}${stats.momGrowth.toFixed(1)}%`,
             icon: stats.momGrowth >= 0 ? TrendingUp : TrendingDown,
             color: stats.momGrowth >= 0 ? "text-green-500" : "text-red-500",
           },
-          { label: "Lifetime Revenue", value: `₹${stats.lifetime.toLocaleString()}` },
-          { label: "ARPU", value: `₹${stats.arpu.toFixed(0)}` },
+          { label: "Lifetime Revenue", value: `$${stats.lifetime.toLocaleString()}` },
+          { label: "ARPU", value: `$${stats.arpu.toFixed(0)}` },
         ].map((s) => (
           <Card key={s.label}>
             <CardContent className="pt-6">

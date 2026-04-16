@@ -70,8 +70,9 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "User profile not found" }, 404);
     }
 
-    if ((userProfile.active_plan ?? "free") !== "pro") {
-      return json({ error: "Data export is available on Pro plan" }, 403);
+    const userPlan = userProfile.active_plan ?? "spark";
+    if (userPlan !== "gifting-pro") {
+      return json({ error: "Data export is available on Gifting Pro plan" }, 403);
     }
 
     const [

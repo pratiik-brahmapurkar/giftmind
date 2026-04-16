@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { detectUserCountry, detectUserCurrency } from "@/lib/geoConfig";
+import { detectUserCountry } from "@/lib/geoConfig";
 import { useGiftSession, type Recipient } from "@/hooks/useGiftSession";
 import { normalizePlan, type PlanKey } from "@/lib/plans";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
@@ -49,10 +49,10 @@ export default function GiftFlow() {
   const [occasionDate, setOccasionDate] = useState<string | null>(null);
   const [budgetMin, setBudgetMin] = useState<number | null>(null);
   const [budgetMax, setBudgetMax] = useState<number | null>(null);
-  const [currency, setCurrency] = useState(detectUserCurrency());
+  const currency = "USD";
   const [specialContext, setSpecialContext] = useState("");
   const [contextTags, setContextTags] = useState<string[]>([]);
-  const [userPlan, setUserPlan] = useState<PlanKey>("free");
+  const [userPlan, setUserPlan] = useState<PlanKey>("spark");
   const [creditsBalance, setCreditsBalance] = useState(0);
   const [userCountry, setUserCountry] = useState(detectUserCountry());
   const [isCheckingCredits, setIsCheckingCredits] = useState(true);
@@ -69,8 +69,7 @@ export default function GiftFlow() {
   const refreshProfile = async () => {
     if (!user) {
       setCreditsBalance(0);
-      setUserPlan("free");
-      setCurrency(detectUserCurrency());
+      setUserPlan("spark");
       setUserCountry(detectUserCountry());
       setIsCheckingCredits(false);
       return;
@@ -80,13 +79,12 @@ export default function GiftFlow() {
 
     const { data } = await supabase
       .from("users")
-      .select("credits_balance, active_plan, country, currency_preference")
+      .select("credits_balance, active_plan, country")
       .eq("id", user.id)
       .single();
 
     setCreditsBalance(data?.credits_balance ?? 0);
     setUserPlan(normalizePlan(data?.active_plan));
-    setCurrency(data?.currency_preference || detectUserCurrency());
     setUserCountry(data?.country || detectUserCountry());
     setIsCheckingCredits(false);
   };
@@ -324,12 +322,10 @@ export default function GiftFlow() {
               setBudgetMin(min);
               setBudgetMax(max);
             }}
-            currency={currency}
             isCrossBorder={isCrossBorder}
             recipientCountry={recipientCountry}
             relationship={selectedRecipient?.relationship ?? null}
             userCountry={userCountry}
-            onCurrencyChange={setCurrency}
             onContinue={() => goToStep(4)}
             onBack={goBack}
           />
@@ -397,7 +393,7 @@ export default function GiftFlow() {
 
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground">
                 <Coins className="h-4 w-4 text-primary" />
-                {creditsBalance} credits
+                🪙 {creditsBalance}
               </div>
             </div>
 

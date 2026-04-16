@@ -15,7 +15,7 @@ const ProductPreview = () => {
             See what <span className="text-primary">confident gifting</span> looks like
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Here's a real GiftMind recommendation for "Anniversary gift for wife, ₹2,000–5,000 budget"
+            Here's a real GiftMind recommendation for "Anniversary gift for wife, $30–50 budget"
           </p>
         </motion.div>
 
@@ -74,7 +74,7 @@ const ProductPreview = () => {
 
             {/* Price & availability */}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">₹1,500 – ₹3,000</span>
+              <span className="text-sm font-semibold text-foreground">$30 – $50</span>
               <span className="text-xs text-muted-foreground">Available on Amazon, Etsy & more</span>
             </div>
           </div>

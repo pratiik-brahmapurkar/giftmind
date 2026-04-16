@@ -8,10 +8,12 @@ import BuyCreditsTab from "@/components/credits/BuyCreditsTab";
 import CreditHistoryTab from "@/components/credits/CreditHistoryTab";
 import { SEOHead } from "@/components/common/SEOHead";
 import { useCredits } from "@/hooks/useCredits";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import { Coins } from "lucide-react";
 
 const Credits = () => {
-  const { balance, batches, transactions, isLoading, nearestExpiry, isEmpty } = useCredits();
+  const { balance, batches, transactions, isLoading, nearestExpiry, isEmpty, refresh } = useCredits();
+  const { plan } = useUserPlan();
   const [activeTab, setActiveTab] = useState("buy");
 
   const formatDate = (value: string) =>
@@ -34,7 +36,7 @@ const Credits = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="text-[40px] font-bold leading-none text-primary">{balance} credits</div>
+              <div className="text-[40px] font-bold leading-none text-primary">🪙 {balance} credits available</div>
 
               {nearestExpiry && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -48,7 +50,7 @@ const Credits = () => {
                   <div className="space-y-2 text-sm text-muted-foreground">
                     {batches.map((batch) => (
                       <p key={batch.id}>
-                        • {batch.package_name}: {batch.credits_remaining} remaining (expires {formatDate(batch.expires_at)})
+                        {batch.package_name}: {batch.credits_remaining} remaining (expires {formatDate(batch.expires_at)})
                       </p>
                     ))}
                   </div>
@@ -76,7 +78,7 @@ const Credits = () => {
           </TabsList>
 
           <TabsContent value="buy">
-            <BuyCreditsTab />
+            <BuyCreditsTab currentPlan={plan} onPurchaseComplete={refresh} />
           </TabsContent>
 
           <TabsContent value="history">

@@ -16,6 +16,14 @@ const faqs = [
     a: "We auto-detect your country and show relevant local stores. For example: Amazon, Flipkart, Myntra in India · Amazon, Etsy, Uncommon Goods in the US · Amazon, John Lewis, NOTHS in the UK · Amazon, Fnac, Cdiscount in France — and many more across 12 regions. New stores are added regularly.",
   },
   {
+    q: "How much does it cost?",
+    a: "Start free with 3 credits. Thoughtful is $2.99 for 25 sessions, Confident is $5.99 for 75, and Gifting Pro is $14.99 for 200.",
+  },
+  {
+    q: "What currency do you charge in?",
+    a: "All prices are in USD. PayPal accepts cards from 200+ countries and handles currency conversion automatically.",
+  },
+  {
     q: "What happens when my credits expire?",
     a: "Unused credits expire after your plan's validity period. Your saved people, gift history, and account stay forever — only unused credits expire. You can buy more anytime.",
   },

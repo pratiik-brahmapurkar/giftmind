@@ -280,7 +280,7 @@ const Dashboard = () => {
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">Batch Mode</p>
                 <p className="text-xs text-muted-foreground">
-                  Find gifts for your entire Diwali list in one session. Available on Popular and above.
+                  Find gifts for your entire Diwali list in one session. Available on Confident and above.
                 </p>
               </div>
             </CardContent>
@@ -291,8 +291,8 @@ const Dashboard = () => {
       <UpgradeModal
         open={batchUpgradeOpen}
         onOpenChange={setBatchUpgradeOpen}
-        highlightPlan="popular"
-        reason="Batch mode is available on Popular and above. Find gifts for your entire Diwali list in one session."
+        highlightPlan="confident"
+        reason="Batch mode is available on Confident and above. Find gifts for your entire Diwali list in one session."
       />
     </DashboardLayout>
   );

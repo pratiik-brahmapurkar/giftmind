@@ -66,11 +66,11 @@ export function validateRelationship(rel: string): boolean {
 }
 
 export function validatePlan(plan: string): boolean {
-  return ["free", "starter", "popular", "pro"].includes(plan);
+  return ["spark", "thoughtful", "confident", "gifting-pro"].includes(plan);
 }
 
 export function validateCurrency(currency: string): boolean {
-  return ["INR", "USD", "EUR", "GBP", "AED", "CAD", "AUD", "SGD"].includes(currency?.toUpperCase());
+  return currency?.toUpperCase() === "USD";
 }
 
 export function validateReferralCode(code: string): boolean {

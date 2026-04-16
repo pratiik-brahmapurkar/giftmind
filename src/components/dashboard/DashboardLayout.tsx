@@ -87,8 +87,7 @@ const CreditPill = ({ credits, nearestExpiry }: CreditPillProps) => {
     <Popover>
       <PopoverTrigger asChild>
         <button className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer", pillClass)}>
-          <Coins className="w-4 h-4" />
-          <span>{credits}</span>
+          <span>🪙 {credits}</span>
           {nearestExpiry && (
             <span className="text-[10px] font-normal opacity-80">
               · {nearestExpiry.credits} expiring
@@ -101,7 +100,7 @@ const CreditPill = ({ credits, nearestExpiry }: CreditPillProps) => {
         {credits > 0 ? (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-2xl font-bold text-foreground">{credits}</span>
+              <span className="text-2xl font-bold text-foreground">🪙 {credits}</span>
               <span className="text-xs text-muted-foreground">available</span>
             </div>
             {nearestExpiry && (

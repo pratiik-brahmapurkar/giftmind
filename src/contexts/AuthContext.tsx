@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_IN' && session) {
           // Identify user for Posthog
           supabase.from("users")
-            .select("active_plan, country, currency_preference, created_at")
+            .select("active_plan, country, created_at")
             .eq("id", session.user.id)
             .single()
             .then(({ data }) => {
@@ -51,7 +51,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   email: session.user.email,
                   plan: normalizedPlan,
                   country: data.country,
-                  currency: data.currency_preference,
                   signup_date: data.created_at,
                 });
                 setSentryUser(session.user.id, normalizedPlan);

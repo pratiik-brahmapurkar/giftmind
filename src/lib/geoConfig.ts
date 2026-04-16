@@ -1,96 +1,204 @@
-export const CURRENCIES = [
-  { code: "INR", symbol: "₹", flag: "🇮🇳" },
-  { code: "USD", symbol: "$", flag: "🇺🇸" },
-  { code: "EUR", symbol: "€", flag: "🇪🇺" },
-  { code: "GBP", symbol: "£", flag: "🇬🇧" },
-  { code: "AED", symbol: "د.إ", flag: "🇦🇪" },
-  { code: "CAD", symbol: "C$", flag: "🇨🇦" },
-  { code: "AUD", symbol: "A$", flag: "🇦🇺" },
-  { code: "SGD", symbol: "S$", flag: "🇸🇬" },
-] as const;
+// src/lib/geoConfig.ts
+// Universal USD pricing — zero localization
+
+// ─── Plan Configuration ───
+
+export const PLANS = {
+  spark: {
+    name: 'Spark',
+    slug: 'spark',
+    emoji: '✨',
+    badge: null,
+    price: 0,
+    credits: 3,
+    validityDays: 7,
+    perSession: '$0',
+    savings: '',
+    maxRecipients: 1,
+    maxRegenerations: 1,
+    maxReminders: 0,
+    storesLevel: 'basic' as const,
+    hasSignalCheck: false,
+    hasBatchMode: false,
+    hasPriorityAi: false,
+    hasHistoryExport: false,
+    features: [
+      '3 gift sessions',
+      'Save 1 person',
+      '1 regeneration',
+      'Amazon links only',
+      'Confidence scores',
+      '7-day validity',
+    ],
+    lockedFeatures: [
+      { text: 'Signal Check', unlockPlan: 'confident' },
+      { text: 'Batch mode', unlockPlan: 'confident' },
+      { text: 'Priority AI', unlockPlan: 'gifting-pro' },
+    ],
+    buttonText: 'Current Plan',
+    buttonVariant: 'outline' as const,
+  },
+  thoughtful: {
+    name: 'Thoughtful',
+    slug: 'thoughtful',
+    emoji: '💝',
+    badge: '💝',
+    price: 2.99,
+    credits: 25,
+    validityDays: 30,
+    perSession: '$0.12',
+    savings: '',
+    maxRecipients: 5,
+    maxRegenerations: 2,
+    maxReminders: 0,
+    storesLevel: 'basic' as const,
+    hasSignalCheck: false,
+    hasBatchMode: false,
+    hasPriorityAi: false,
+    hasHistoryExport: false,
+    features: [
+      '25 gift sessions',
+      'Save up to 5 people',
+      '2 regenerations per session',
+      'Amazon + 1 local store',
+      'Confidence scores',
+      '30-day validity',
+    ],
+    lockedFeatures: [
+      { text: 'Signal Check', unlockPlan: 'confident' },
+      { text: 'Batch mode', unlockPlan: 'confident' },
+    ],
+    buttonText: 'Get Thoughtful',
+    buttonVariant: 'outline' as const,
+  },
+  confident: {
+    name: 'Confident',
+    slug: 'confident',
+    emoji: '🎯',
+    badge: '🎯 Best Value',
+    price: 5.99,
+    credits: 75,
+    validityDays: 60,
+    perSession: '$0.08',
+    savings: 'Save 33%',
+    maxRecipients: 15,
+    maxRegenerations: 3,
+    maxReminders: 3,
+    storesLevel: 'all' as const,
+    hasSignalCheck: true,
+    hasBatchMode: true,
+    hasPriorityAi: false,
+    hasHistoryExport: false,
+    features: [
+      '75 gift sessions',
+      'Save up to 15 people',
+      '3 regenerations per session',
+      'All stores in your region',
+      'Signal Check — see what your gift says',
+      'Batch mode for festivals',
+      '3 occasion reminders',
+      '60-day validity',
+    ],
+    lockedFeatures: [
+      { text: 'Priority AI', unlockPlan: 'gifting-pro' },
+      { text: 'Export history', unlockPlan: 'gifting-pro' },
+    ],
+    buttonText: 'Get Best Value',
+    buttonVariant: 'default' as const,
+    isRecommended: true,
+  },
+  'gifting-pro': {
+    name: 'Gifting Pro',
+    slug: 'gifting-pro',
+    emoji: '🚀',
+    badge: '🚀 Power Gifter',
+    price: 14.99,
+    credits: 200,
+    validityDays: 90,
+    perSession: '$0.07',
+    savings: 'Save 37%',
+    maxRecipients: -1,
+    maxRegenerations: -1,
+    maxReminders: -1,
+    storesLevel: 'all' as const,
+    hasSignalCheck: true,
+    hasBatchMode: true,
+    hasPriorityAi: true,
+    hasHistoryExport: true,
+    features: [
+      '200 gift sessions',
+      'Unlimited people',
+      'Unlimited regenerations',
+      'All stores in your region',
+      'Signal Check',
+      'Batch mode for festivals',
+      'Unlimited occasion reminders',
+      'Priority AI — faster & smarter',
+      'Export gift history',
+      '90-day validity',
+    ],
+    lockedFeatures: [],
+    buttonText: 'Go Pro 🚀',
+    buttonVariant: 'default' as const,
+    isDark: true,
+  },
+} as const;
+
+export type PlanSlug = keyof typeof PLANS;
+
+export function getPlanConfig(slug: string) {
+  return PLANS[slug as PlanSlug] || PLANS.spark;
+}
+
+// ─── Budget Chips (USD only, no alternatives) ───
+
+export const BUDGET_CHIPS = [
+  { label: 'Under $15', min: 0, max: 15 },
+  { label: '$15 – 30', min: 15, max: 30 },
+  { label: '$30 – 50', min: 30, max: 50 },
+  { label: '$50 – 100', min: 50, max: 100 },
+  { label: '$100 – 200', min: 100, max: 200 },
+  { label: '$200+', min: 200, max: 1000 },
+];
+
+// ─── Upgrade Helpers ───
+
+export function getUpgradePlan(currentPlan: string, feature: string): PlanSlug {
+  const map: Record<string, PlanSlug> = {
+    'signal_check': 'confident',
+    'batch_mode': 'confident',
+    'more_recipients': currentPlan === 'spark' ? 'thoughtful' : 'confident',
+    'more_stores': currentPlan === 'spark' ? 'thoughtful' : 'confident',
+    'more_regenerations': currentPlan === 'spark' ? 'thoughtful' : 'confident',
+    'priority_ai': 'gifting-pro',
+    'history_export': 'gifting-pro',
+    'reminders': 'confident',
+  };
+  return map[feature] || 'confident';
+}
+
+export function getUpgradeText(currentPlan: string, feature: string): string {
+  const plan = PLANS[getUpgradePlan(currentPlan, feature)];
+  return `Unlock with ${plan.name} ${plan.emoji}`;
+}
+
+// ─── Countries (for store geo-targeting only, NOT for currency) ───
 
 export const SUPPORTED_COUNTRIES = [
-  { code: "IN", name: "India", flag: "🇮🇳", currency: "INR" },
-  { code: "US", name: "United States", flag: "🇺🇸", currency: "USD" },
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧", currency: "GBP" },
-  { code: "AE", name: "United Arab Emirates", flag: "🇦🇪", currency: "AED" },
-  { code: "FR", name: "France", flag: "🇫🇷", currency: "EUR" },
-  { code: "DE", name: "Germany", flag: "🇩🇪", currency: "EUR" },
-  { code: "IT", name: "Italy", flag: "🇮🇹", currency: "EUR" },
-  { code: "ES", name: "Spain", flag: "🇪🇸", currency: "EUR" },
-  { code: "NL", name: "Netherlands", flag: "🇳🇱", currency: "EUR" },
-  { code: "CA", name: "Canada", flag: "🇨🇦", currency: "CAD" },
-  { code: "AU", name: "Australia", flag: "🇦🇺", currency: "AUD" },
-  { code: "SG", name: "Singapore", flag: "🇸🇬", currency: "SGD" },
-  { code: "OTHER", name: "Other Country", flag: "🌍", currency: "USD" },
+  { code: 'IN', name: 'India', flag: '🇮🇳' },
+  { code: 'US', name: 'United States', flag: '🇺🇸' },
+  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪' },
+  { code: 'FR', name: 'France', flag: '🇫🇷' },
+  { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+  { code: 'IT', name: 'Italy', flag: '🇮🇹' },
+  { code: 'ES', name: 'Spain', flag: '🇪🇸' },
+  { code: 'NL', name: 'Netherlands', flag: '🇳🇱' },
+  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+  { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+  { code: 'SG', name: 'Singapore', flag: '🇸🇬' },
+  { code: 'OTHER', name: 'Other Country', flag: '🌍' },
 ] as const;
-
-export const BUDGET_CHIPS: Record<string, Array<{ label: string; min: number; max: number }>> = {
-  INR: [
-    { label: "Under ₹500", min: 0, max: 500 },
-    { label: "₹500 – 1.5K", min: 500, max: 1500 },
-    { label: "₹1.5K – 3K", min: 1500, max: 3000 },
-    { label: "₹3K – 5K", min: 3000, max: 5000 },
-    { label: "₹5K – 10K", min: 5000, max: 10000 },
-    { label: "₹10K+", min: 10000, max: 50000 },
-  ],
-  USD: [
-    { label: "Under $15", min: 0, max: 15 },
-    { label: "$15 – 30", min: 15, max: 30 },
-    { label: "$30 – 50", min: 30, max: 50 },
-    { label: "$50 – 100", min: 50, max: 100 },
-    { label: "$100 – 200", min: 100, max: 200 },
-    { label: "$200+", min: 200, max: 1000 },
-  ],
-  EUR: [
-    { label: "Under €10", min: 0, max: 10 },
-    { label: "€10 – 30", min: 10, max: 30 },
-    { label: "€30 – 50", min: 30, max: 50 },
-    { label: "€50 – 100", min: 50, max: 100 },
-    { label: "€100 – 200", min: 100, max: 200 },
-    { label: "€200+", min: 200, max: 1000 },
-  ],
-  GBP: [
-    { label: "Under £10", min: 0, max: 10 },
-    { label: "£10 – 25", min: 10, max: 25 },
-    { label: "£25 – 50", min: 25, max: 50 },
-    { label: "£50 – 75", min: 50, max: 75 },
-    { label: "£75 – 150", min: 75, max: 150 },
-    { label: "£150+", min: 150, max: 750 },
-  ],
-  AED: [
-    { label: "Under 50", min: 0, max: 50 },
-    { label: "50 – 100", min: 50, max: 100 },
-    { label: "100 – 200", min: 100, max: 200 },
-    { label: "200 – 400", min: 200, max: 400 },
-    { label: "400 – 750", min: 400, max: 750 },
-    { label: "750+", min: 750, max: 3000 },
-  ],
-  CAD: [
-    { label: "Under C$20", min: 0, max: 20 },
-    { label: "C$20 – 40", min: 20, max: 40 },
-    { label: "C$40 – 75", min: 40, max: 75 },
-    { label: "C$75 – 150", min: 75, max: 150 },
-    { label: "C$150 – 250", min: 150, max: 250 },
-    { label: "C$250+", min: 250, max: 1000 },
-  ],
-  AUD: [
-    { label: "Under A$20", min: 0, max: 20 },
-    { label: "A$20 – 50", min: 20, max: 50 },
-    { label: "A$50 – 75", min: 50, max: 75 },
-    { label: "A$75 – 150", min: 75, max: 150 },
-    { label: "A$150 – 300", min: 150, max: 300 },
-    { label: "A$300+", min: 300, max: 1500 },
-  ],
-  SGD: [
-    { label: "Under S$20", min: 0, max: 20 },
-    { label: "S$20 – 40", min: 20, max: 40 },
-    { label: "S$40 – 75", min: 40, max: 75 },
-    { label: "S$75 – 150", min: 75, max: 150 },
-    { label: "S$150 – 250", min: 150, max: 250 },
-    { label: "S$250+", min: 250, max: 1000 },
-  ],
-};
 
 export const UNIVERSAL_OCCASIONS = [
   { id: "birthday", emoji: "🎂", label: "Birthday" },
@@ -211,21 +319,6 @@ export const STORE_COLORS: Record<string, string> = {
   "1800flowers": "#7B2D8E",
 };
 
-export function detectUserCurrency(): string {
-  const saved = localStorage.getItem("gm_currency");
-  if (saved) return saved;
-
-  const lang = navigator.language || "";
-  if (lang.startsWith("hi") || lang === "en-IN") return "INR";
-  if (lang.startsWith("fr") || lang.startsWith("de") || lang.startsWith("it") || lang.startsWith("es") || lang.startsWith("nl")) return "EUR";
-  if (lang === "en-GB") return "GBP";
-  if (lang === "en-AU") return "AUD";
-  if (lang === "en-CA") return "CAD";
-  if (lang.startsWith("ar")) return "AED";
-
-  return "USD";
-}
-
 export function detectUserCountry(): string {
   const lang = navigator.language || "";
   if (lang.startsWith("hi") || lang === "en-IN") return "IN";
@@ -239,8 +332,4 @@ export function detectUserCountry(): string {
   if (lang.startsWith("nl")) return "NL";
   if (lang.startsWith("ar")) return "AE";
   return "US";
-}
-
-export function getCurrencySymbol(code: string): string {
-  return CURRENCIES.find((currency) => currency.code === code)?.symbol || "$";
 }

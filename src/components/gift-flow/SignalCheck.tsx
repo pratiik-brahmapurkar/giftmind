@@ -155,13 +155,13 @@ export default function SignalCheck({
             <Lock className="h-4 w-4" />
             Signal Check
           </span>
-          Unlock on Popular
+          🔒 Unlock with Confident 🎯
         </Button>
         <UpgradeModal
           open={upgradeOpen}
           onOpenChange={setUpgradeOpen}
-          highlightPlan="popular"
-          reason="Signal Check is available on Popular and Pro plans."
+          highlightPlan="confident"
+          reason="Signal Check is available on Confident and Gifting Pro plans."
         />
       </>
     );
@@ -305,8 +305,8 @@ export default function SignalCheck({
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        highlightPlan="popular"
-        reason="Signal Check is available on Popular and Pro plans."
+        highlightPlan="confident"
+        reason="Signal Check is available on Confident and Gifting Pro plans."
       />
     </>
   );

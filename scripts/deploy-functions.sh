@@ -8,6 +8,7 @@ supabase functions deploy signal-check --no-verify-jwt
 supabase functions deploy process-referral --no-verify-jwt
 supabase functions deploy award-referral-credits --no-verify-jwt
 supabase functions deploy admin-grant-credits --no-verify-jwt
+supabase functions deploy paypal-checkout --no-verify-jwt
 supabase functions deploy generate-blog-draft --no-verify-jwt
 supabase functions deploy send-expiry-warnings --no-verify-jwt
 supabase functions deploy send-occasion-reminders --no-verify-jwt
@@ -24,5 +25,6 @@ echo "Run manually:"
 echo "supabase secrets set ANTHROPIC_API_KEY=sk-ant-..."
 echo "supabase secrets set RESEND_API_KEY=re_..."
 echo "supabase secrets set CRON_SECRET=your_random_secret"
+echo "supabase secrets set PAYPAL_CLIENT_ID=... PAYPAL_CLIENT_SECRET=... PAYPAL_ENV=sandbox"
 
 echo "Done! Verify with: supabase functions list"

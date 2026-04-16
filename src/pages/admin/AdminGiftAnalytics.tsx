@@ -32,12 +32,12 @@ const COLORS = [
 const PAGE_SIZE = 25;
 
 const BUDGET_RANGES = [
-  { label: "Under ₹500", min: 0, max: 500 },
-  { label: "₹500–1.5K", min: 500, max: 1500 },
-  { label: "₹1.5K–3K", min: 1500, max: 3000 },
-  { label: "₹3K–5K", min: 3000, max: 5000 },
-  { label: "₹5K–10K", min: 5000, max: 10000 },
-  { label: "₹10K+", min: 10000, max: Infinity },
+  { label: "Under $15", min: 0, max: 15 },
+  { label: "$15–30", min: 15, max: 30 },
+  { label: "$30–50", min: 30, max: 50 },
+  { label: "$50–100", min: 50, max: 100 },
+  { label: "$100–200", min: 100, max: 200 },
+  { label: "$200+", min: 200, max: Infinity },
 ];
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
@@ -271,7 +271,7 @@ const AdminGiftAnalytics = () => {
     const topProducts = Object.values(prodMap).sort((a, b) => b.clicks - a.clicks).slice(0, 10);
 
     const totalClicks = Object.values(storeCounts).reduce((a, b) => a + b, 0);
-    const estimatedRevenue = totalClicks * 0.05 * 1500 * 0.06; // 5% conv × ₹1500 AOV × 6% commission
+    const estimatedRevenue = totalClicks * 0.05 * 45 * 0.06;
 
     return { storeData, topProducts, totalClicks, estimatedRevenue };
   }, [sessions]);
@@ -479,10 +479,10 @@ const AdminGiftAnalytics = () => {
         <Card>
           <CardHeader><CardTitle className="text-base">Estimated Affiliate Revenue</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div className="text-3xl font-bold">₹{productClicks.estimatedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+            <div className="text-3xl font-bold">${productClicks.estimatedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
             <div className="text-xs text-muted-foreground space-y-1">
               <p>Total product clicks: <strong>{productClicks.totalClicks}</strong></p>
-              <p>Est. conversion rate: 5% · Avg order value: ₹1,500 · Avg commission: 6%</p>
+              <p>Est. conversion rate: 5% · Avg order value: $45 · Avg commission: 6%</p>
               <p className="italic mt-2">This is an estimate based on industry averages.</p>
             </div>
           </CardContent>
@@ -575,7 +575,7 @@ const AdminGiftAnalytics = () => {
                         </TableCell>
                         <TableCell className="text-sm hidden md:table-cell">{s.occasion || "—"}</TableCell>
                         <TableCell className="text-sm hidden lg:table-cell">
-                          {s.budget_min && s.budget_max ? `₹${s.budget_min}–${s.budget_max}` : "—"}
+                          {s.budget_min && s.budget_max ? `$${s.budget_min}–$${s.budget_max}` : "—"}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <Badge variant={s.status === "completed" ? "default" : "outline"}

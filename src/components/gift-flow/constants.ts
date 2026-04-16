@@ -39,94 +39,19 @@ export const OCCASION_GROUPS = [
 // Flat list for backward compat
 export const OCCASIONS = OCCASION_GROUPS.flatMap((g) => g.occasions);
 
-/* ─── Multi-currency budget presets ─── */
-export type BudgetCurrencyKey = "INR" | "USD" | "EUR" | "GBP" | "AED" | "CAD" | "AUD" | "SGD";
-
 export interface BudgetPreset {
   label: string;
   min: number;
   max: number;
 }
 
-export const BUDGET_PRESETS_BY_CURRENCY: Record<BudgetCurrencyKey, BudgetPreset[]> = {
-  INR: [
-    { label: "Under ₹500", min: 0, max: 500 },
-    { label: "₹500–1.5K", min: 500, max: 1500 },
-    { label: "₹1.5K–3K", min: 1500, max: 3000 },
-    { label: "₹3K–5K", min: 3000, max: 5000 },
-    { label: "₹5K–10K", min: 5000, max: 10000 },
-    { label: "₹10K+", min: 10000, max: 50000 },
-  ],
-  USD: [
-    { label: "Under $15", min: 0, max: 15 },
-    { label: "$15–30", min: 15, max: 30 },
-    { label: "$30–50", min: 30, max: 50 },
-    { label: "$50–100", min: 50, max: 100 },
-    { label: "$100–200", min: 100, max: 200 },
-    { label: "$200+", min: 200, max: 1000 },
-  ],
-  EUR: [
-    { label: "Under €10", min: 0, max: 10 },
-    { label: "€10–30", min: 10, max: 30 },
-    { label: "€30–50", min: 30, max: 50 },
-    { label: "€50–100", min: 50, max: 100 },
-    { label: "€100–200", min: 100, max: 200 },
-    { label: "€200+", min: 200, max: 1000 },
-  ],
-  GBP: [
-    { label: "Under £10", min: 0, max: 10 },
-    { label: "£10–25", min: 10, max: 25 },
-    { label: "£25–50", min: 25, max: 50 },
-    { label: "£50–75", min: 50, max: 75 },
-    { label: "£75–150", min: 75, max: 150 },
-    { label: "£150+", min: 150, max: 1000 },
-  ],
-  AED: [
-    { label: "Under 50", min: 0, max: 50 },
-    { label: "50–100", min: 50, max: 100 },
-    { label: "100–200", min: 100, max: 200 },
-    { label: "200–400", min: 200, max: 400 },
-    { label: "400–750", min: 400, max: 750 },
-    { label: "750+", min: 750, max: 5000 },
-  ],
-  CAD: [
-    { label: "Under C$20", min: 0, max: 20 },
-    { label: "C$20–40", min: 20, max: 40 },
-    { label: "C$40–75", min: 40, max: 75 },
-    { label: "C$75–150", min: 75, max: 150 },
-    { label: "C$150–250", min: 150, max: 250 },
-    { label: "C$250+", min: 250, max: 1000 },
-  ],
-  AUD: [
-    { label: "Under A$20", min: 0, max: 20 },
-    { label: "A$20–50", min: 20, max: 50 },
-    { label: "A$50–75", min: 50, max: 75 },
-    { label: "A$75–150", min: 75, max: 150 },
-    { label: "A$150–300", min: 150, max: 300 },
-    { label: "A$300+", min: 300, max: 2000 },
-  ],
-  SGD: [
-    { label: "Under S$20", min: 0, max: 20 },
-    { label: "S$20–40", min: 20, max: 40 },
-    { label: "S$40–75", min: 40, max: 75 },
-    { label: "S$75–150", min: 75, max: 150 },
-    { label: "S$150–250", min: 150, max: 250 },
-    { label: "S$250+", min: 250, max: 1000 },
-  ],
-};
-
-// Legacy compat
-export const BUDGET_PRESETS = BUDGET_PRESETS_BY_CURRENCY.INR;
-
-export const CURRENCIES = [
-  { value: "INR", symbol: "₹" },
-  { value: "USD", symbol: "$" },
-  { value: "EUR", symbol: "€" },
-  { value: "GBP", symbol: "£" },
-  { value: "AED", symbol: "د.إ" },
-  { value: "CAD", symbol: "C$" },
-  { value: "AUD", symbol: "A$" },
-  { value: "SGD", symbol: "S$" },
+export const BUDGET_PRESETS: BudgetPreset[] = [
+  { label: "Under $15", min: 0, max: 15 },
+  { label: "$15–30", min: 15, max: 30 },
+  { label: "$30–50", min: 30, max: 50 },
+  { label: "$50–100", min: 50, max: 100 },
+  { label: "$100–200", min: 100, max: 200 },
+  { label: "$200+", min: 200, max: 1000 },
 ];
 
 export const CONTEXT_TAGS = [
@@ -167,40 +92,17 @@ export const defaultGiftFlowState: GiftFlowState = {
   recipientCountry: "",
   occasion: "",
   occasionDate: "",
-  budgetMin: 500,
-  budgetMax: 3000,
-  currency: "INR",
+  budgetMin: 15,
+  budgetMax: 50,
+  currency: "USD",
   contextTags: [],
   extraNotes: "",
 };
 
 export const BUDGET_INSIGHTS: Record<string, string> = {
   low_partner: "💡 For a partner, consider experiential gifts in this range — they communicate more than material items.",
-  high_colleague: "💡 This is generous for a colleague. ₹1,500–3,000 is typical for professional relationships.",
+  high_colleague: "💡 This is generous for a colleague. $30–50 is typical for professional relationships.",
 };
-
-/* ─── Shipping cost estimates for cross-border nudges ─── */
-export const SHIPPING_COST_ESTIMATES: Record<string, { min: number; max: number; currency: string }> = {
-  "IN→US": { min: 10, max: 25, currency: "USD" },
-  "IN→GB": { min: 8, max: 20, currency: "GBP" },
-  "IN→AE": { min: 6, max: 15, currency: "AED" },
-  "IN→AU": { min: 12, max: 30, currency: "AUD" },
-  "IN→CA": { min: 10, max: 25, currency: "CAD" },
-  "IN→SG": { min: 8, max: 18, currency: "SGD" },
-  "IN→DE": { min: 8, max: 22, currency: "EUR" },
-  "IN→FR": { min: 8, max: 22, currency: "EUR" },
-  "US→IN": { min: 800, max: 2000, currency: "INR" },
-  "US→GB": { min: 8, max: 20, currency: "GBP" },
-  "US→AE": { min: 10, max: 25, currency: "AED" },
-  "GB→IN": { min: 800, max: 2000, currency: "INR" },
-  "GB→US": { min: 8, max: 20, currency: "USD" },
-  "AE→IN": { min: 500, max: 1500, currency: "INR" },
-  "AE→US": { min: 10, max: 25, currency: "USD" },
-};
-
-export function getShippingEstimate(fromCountry: string, toCountry: string) {
-  return SHIPPING_COST_ESTIMATES[`${fromCountry}→${toCountry}`] ?? null;
-}
 
 /* ─── Supported countries for cross-border gifting ─── */
 export interface SupportedCountry {
@@ -247,19 +149,4 @@ export function detectUserCountry(): string {
     if (lang.startsWith("ar")) return "AE";
   } catch {}
   return "US";
-}
-
-export function detectCurrencyFromLocale(): BudgetCurrencyKey {
-  const stored = localStorage.getItem("gm_currency");
-  if (stored && Object.keys(BUDGET_PRESETS_BY_CURRENCY).includes(stored)) return stored as BudgetCurrencyKey;
-  try {
-    const lang = navigator.language || "";
-    if (lang.startsWith("hi") || lang === "en-IN") return "INR";
-    if (["fr", "de", "it", "es", "nl"].some((l) => lang.startsWith(l))) return "EUR";
-    if (lang === "en-GB") return "GBP";
-    if (lang === "en-AU") return "AUD";
-    if (lang === "en-CA") return "CAD";
-    if (lang.startsWith("ar")) return "AED";
-  } catch {}
-  return "USD";
 }

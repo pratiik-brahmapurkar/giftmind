@@ -1,8 +1,12 @@
 
 -- Create user roles enum and table
-CREATE TYPE public.app_role AS ENUM ('superadmin', 'admin', 'user');
+DO $$
+BEGIN
+  CREATE TYPE public.app_role AS ENUM ('superadmin', 'admin', 'user');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role app_role NOT NULL,
@@ -28,12 +32,14 @@ AS $$
 $$;
 
 -- RLS: only superadmins can view all roles, users can see their own
+DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles"
 ON public.user_roles
 FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can view all roles" ON public.user_roles;
 CREATE POLICY "Superadmins can view all roles"
 ON public.user_roles
 FOR SELECT

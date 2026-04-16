@@ -109,40 +109,20 @@ function formatLabel(value: string | null | undefined, fallback: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatCurrencyAmount(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: currency === "INR" ? 0 : 2,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
+function formatCurrencyAmount(amount: number) {
+  return `$${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 function formatCurrencySummary(totals: Record<string, number>) {
-  const entries = Object.entries(totals)
-    .filter(([, amount]) => amount > 0)
-    .sort(([currencyA, amountA], [currencyB, amountB]) => {
-      if (currencyA === "INR") return -1;
-      if (currencyB === "INR") return 1;
-      return amountB - amountA;
-    });
-
-  if (entries.length === 0) return formatCurrencyAmount(0, "INR");
-
-  const preview = entries.slice(0, 2).map(([currency, amount]) => formatCurrencyAmount(amount, currency));
-  if (entries.length <= 2) return preview.join(" + ");
-  return `${preview.join(" + ")} +${entries.length - 2} more`;
+  const total = Object.values(totals).reduce((sum, amount) => sum + amount, 0);
+  return formatCurrencyAmount(total);
 }
 
 function buildCurrencyTotals(rows: CreditBatchRow[]) {
   return rows.reduce<Record<string, number>>((acc, row) => {
-    const currency = row.currency || "INR";
     const amount = Number(row.price_paid || 0);
     if (amount <= 0) return acc;
-    acc[currency] = (acc[currency] || 0) + amount;
+    acc.USD = (acc.USD || 0) + amount;
     return acc;
   }, {});
 }
@@ -323,13 +303,12 @@ const AdminOverview = () => {
     const revenueByPackage = Object.entries(
       paidBatches.reduce<Record<string, { purchases: number; totals: Record<string, number> }>>((acc, batch) => {
         const key = formatLabel(batch.package_name, "Unknown");
-        const currency = batch.currency || "INR";
         const amount = Number(batch.price_paid || 0);
         if (!acc[key]) {
           acc[key] = { purchases: 0, totals: {} };
         }
         acc[key].purchases += 1;
-        acc[key].totals[currency] = (acc[key].totals[currency] || 0) + amount;
+        acc[key].totals.USD = (acc[key].totals.USD || 0) + amount;
         return acc;
       }, {}),
     )

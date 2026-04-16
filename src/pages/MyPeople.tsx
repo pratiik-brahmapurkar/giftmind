@@ -25,6 +25,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { FILTER_GROUPS, type ImportantDate, type RecipientFormData } from "@/components/recipients/constants";
 import { useUserPlan } from "@/hooks/useUserPlan";
+import { getUpgradePlan, getUpgradeText } from "@/lib/geoConfig";
+import { canAddRecipientForPlan, getRecipientLimit, getRecipientLimitMessage } from "@/lib/planLimits";
 import {
   buildRecipientInsertPayload,
   buildRecipientUpdatePayload,
@@ -123,7 +125,10 @@ const MyPeople = () => {
     queryKey: ["recipients", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("recipients").select("*").order("created_at", { ascending: false });
+        .from("recipients")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -136,6 +141,7 @@ const MyPeople = () => {
       const { data, error } = await supabase
         .from("gift_sessions")
         .select("recipient_id,created_at,status,selected_gift_name")
+        .eq("user_id", user!.id)
         .not("recipient_id", "is", null);
       if (error) throw error;
       return (data || []) as GiftSessionRow[];
@@ -228,17 +234,40 @@ const MyPeople = () => {
     return list;
   }, [recipients, recipientGiftStats, search, filterIdx, sort]);
 
-  const atLimit = recipients.length >= limits.recipients;
+  const maxAllowed = getRecipientLimit(plan);
+  const atLimit = maxAllowed !== -1 && recipients.length >= maxAllowed;
   const capacityPct = limits.recipients === Infinity ? 0 : recipients.length / limits.recipients;
   const capacityColor = capacityPct >= 1 ? "text-destructive" : capacityPct >= 0.8 ? "text-warning" : "text-muted-foreground";
+  const sortedForAccess = useMemo(
+    () => [...(recipients as RecipientRow[])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()),
+    [recipients],
+  );
+  const activeRecipientIds = useMemo(
+    () => new Set((maxAllowed === -1 ? sortedForAccess : sortedForAccess.slice(0, maxAllowed)).map((recipient) => recipient.id)),
+    [maxAllowed, sortedForAccess],
+  );
 
   // Determine which plan to recommend on upgrade
-  const recommendedPlan = plan === "free" ? "starter" : plan === "starter" ? "popular" : "pro";
+  const recommendedPlan = getUpgradePlan(plan, "more_recipients");
 
   const createMutation = useMutation({
     mutationFn: async (form: RecipientFormData) => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw createRecipientAuthError("You must be logged in to add a person");
+
+      const [{ data: userData }, { count, error: countError }] = await Promise.all([
+        supabase.from("users").select("active_plan").eq("id", authUser.id).single(),
+        supabase.from("recipients").select("*", { count: "exact", head: true }).eq("user_id", authUser.id),
+      ]);
+
+      if (countError) throw countError;
+
+      const activePlan = userData?.active_plan || "spark";
+      const insertMaxAllowed = getRecipientLimit(activePlan);
+      if (!canAddRecipientForPlan(activePlan, count || 0)) {
+        setUpgradeOpen(true);
+        throw createRecipientAuthError(getRecipientLimitMessage(activePlan, insertMaxAllowed));
+      }
 
       const payload = buildRecipientInsertPayload(authUser.id, form);
       const { data, error } = await supabase
@@ -282,7 +311,9 @@ const MyPeople = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("recipients").delete().eq("id", id);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw createRecipientAuthError("You must be logged in to delete a person");
+      const { error } = await supabase.from("recipients").delete().eq("id", id).eq("user_id", authUser.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -420,13 +451,22 @@ const MyPeople = () => {
               <p className="text-center text-muted-foreground py-12">No people match your search.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filtered.map((r: any) => (
+                {filtered.map((r: any) => {
+                  const isLocked = !activeRecipientIds.has(r.id);
+                  return (
                   <RecipientCard key={r.id} recipient={r} userCountry={userCountry}
                     onEdit={() => openEdit(r.id)}
                     onDelete={() => setDeletingId(r.id)}
-                    onFindGift={() => navigate(`/gift-flow?recipient=${r.id}`)}
+                    onFindGift={() => {
+                      if (isLocked) {
+                        setUpgradeOpen(true);
+                        return;
+                      }
+                      navigate(`/gift-flow?recipient=${r.id}`);
+                    }}
+                    isLocked={isLocked}
                   />
-                ))}
+                );})}
               </div>
             )}
           </>
@@ -446,10 +486,10 @@ const MyPeople = () => {
         initialData={editInitialData}
         loading={createMutation.isPending || updateMutation.isPending}
         reminderNote={
-          plan === "free" || plan === "starter"
-            ? "📅 Date saved! Reminders available on Popular and above."
-            : plan === "popular"
-            ? `📅 ${Math.min(recipients.filter((r: any) => ((r as any).important_dates as any[])?.length > 0).length, 3)}/3 reminders active. Upgrade to Pro for unlimited.`
+          plan === "spark" || plan === "thoughtful"
+            ? "📅 Date saved! Reminders available on Confident and above."
+            : plan === "confident"
+            ? `📅 ${Math.min(recipients.filter((r: any) => ((r as any).important_dates as any[])?.length > 0).length, 3)}/3 reminders active. Upgrade to Gifting Pro for unlimited.`
             : undefined
         }
       />
@@ -458,8 +498,8 @@ const MyPeople = () => {
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        highlightPlan={recommendedPlan as any}
-        reason={`You've reached your ${limits.label} limit of ${limits.recipients} ${limits.recipients === 1 ? "person" : "people"}. Upgrade to save more people and unlock new features.`}
+        highlightPlan={recommendedPlan}
+        reason={getUpgradeText(plan, "more_recipients")}
       />
 
       {/* Delete confirmation */}

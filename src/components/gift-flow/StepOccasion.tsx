@@ -102,7 +102,7 @@ export default function StepOccasion({
       {regionalOccasions.length > 0 && country && (
         <div className="space-y-3">
           <p className="text-sm font-medium text-foreground">
-            {country.flag} Popular in {country.name}
+            {country.flag} Common in {country.name}
           </p>
           <div className="flex flex-wrap gap-2">
             {regionalOccasions.map((occasion) => {

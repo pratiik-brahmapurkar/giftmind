@@ -28,6 +28,7 @@ import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import type { Recipient } from "@/hooks/useGiftSession";
 import { RELATIONSHIP_COLORS } from "@/lib/geoConfig";
+import { canAddRecipientForPlan, getRecipientLimit, getRecipientLimitMessage } from "@/lib/planLimits";
 import {
   buildRecipientInsertPayload,
   createRecipientAuthError,
@@ -62,6 +63,7 @@ interface RecipientRecord {
   country: string | null;
   notes: string | null;
   last_gift_date: string | null;
+  created_at: string | null;
 }
 
 function toRecipient(record: RecipientRecord): Recipient {
@@ -143,9 +145,9 @@ export default function StepRecipient({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipients")
-        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date")
+        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date, created_at")
         .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
       return (data ?? []) as RecipientRecord[];
@@ -158,11 +160,25 @@ export default function StepRecipient({
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw createRecipientAuthError("You must be logged in to add a person");
 
+      const [{ data: userData }, { count, error: countError }] = await Promise.all([
+        supabase.from("users").select("active_plan").eq("id", authUser.id).single(),
+        supabase.from("recipients").select("*", { count: "exact", head: true }).eq("user_id", authUser.id),
+      ]);
+
+      if (countError) throw countError;
+
+      const activePlan = userData?.active_plan || "spark";
+      const maxAllowed = getRecipientLimit(activePlan);
+      if (!canAddRecipientForPlan(activePlan, count || 0)) {
+        setUpgradeOpen(true);
+        throw createRecipientAuthError(getRecipientLimitMessage(activePlan, maxAllowed));
+      }
+
       const payload = buildRecipientInsertPayload(authUser.id, form);
       const { data, error } = await supabase
         .from("recipients")
         .insert(payload)
-        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date")
+        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date, created_at")
         .single();
 
       if (error) throw createRecipientMutationError("insert", error, payload);
@@ -186,6 +202,10 @@ export default function StepRecipient({
   const handleInlineSubmit = () => {
     if (!inlineForm.name.trim() || !inlineForm.relationship_type) {
       toast.error("Name and relationship are required");
+      return;
+    }
+    if (atRecipientLimit) {
+      setUpgradeOpen(true);
       return;
     }
 
@@ -227,6 +247,17 @@ export default function StepRecipient({
       localStorage.setItem("gm_how_it_works_dismissed", "true");
     } catch { /* noop */ }
   };
+
+  const maxAllowed = planLimits.maxRecipients;
+  const sortedRecipients = useMemo(
+    () => [...recipients].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()),
+    [recipients],
+  );
+  const activeRecipients = maxAllowed === -1 ? sortedRecipients : sortedRecipients.slice(0, maxAllowed);
+  const lockedRecipients = maxAllowed === -1 ? [] : sortedRecipients.slice(maxAllowed);
+  const activeRecipientIds = useMemo(() => new Set(activeRecipients.map((recipient) => recipient.id)), [activeRecipients]);
+  const atRecipientLimit = maxAllowed !== -1 && recipients.length >= maxAllowed;
+  const selectedRecipientIsActive = Boolean(selectedRecipient?.id && activeRecipientIds.has(selectedRecipient.id));
 
   return (
     <div className="space-y-6">
@@ -295,7 +326,7 @@ export default function StepRecipient({
                 </ol>
 
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Each session uses 1 credit. You have <span className="font-semibold text-primary">3 free</span>!
+                  Each session uses 1 credit. Spark gives you <span className="font-semibold text-primary">3 free credits</span>!
                 </p>
               </CardContent>
             </Card>
@@ -316,7 +347,7 @@ export default function StepRecipient({
           ))}
 
         {!isLoading &&
-          recipients.map((record) => {
+          activeRecipients.map((record) => {
             const recipient = toRecipient(record);
             const isSelected = selectedRecipient?.id === recipient.id;
             const relationshipLabel =
@@ -388,6 +419,47 @@ export default function StepRecipient({
               </Card>
             );
           })}
+
+        {!isLoading && lockedRecipients.length > 0 && (
+          <div className="md:col-span-2 space-y-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Locked people</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              {lockedRecipients.map((record) => {
+                const recipient = toRecipient(record);
+                const relationshipLabel =
+                  RELATIONSHIP_TYPES.find((item) => item.value === recipient.relationship)?.label ?? recipient.relationship;
+                return (
+                  <Card
+                    key={recipient.id}
+                    className="relative border-2 border-border/60 bg-muted/30 opacity-70"
+                    onClick={() => setUpgradeOpen(true)}
+                  >
+                    <CardContent className="space-y-4 p-5">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold text-white grayscale"
+                          style={{ backgroundColor: RELATIONSHIP_COLORS[recipient.relationship] || "#7c3aed" }}
+                        >
+                          {recipient.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">{recipient.name}</p>
+                          <Badge variant="outline" className="text-[11px]">
+                            {relationshipLabel}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-border bg-background/80 px-3 py-2 text-sm text-muted-foreground">
+                        <Lock className="mr-2 inline h-4 w-4" />
+                        🔒 Upgrade to use this person in gift sessions
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Add Someone New — Inline form (Item 5) */}
         <AnimatePresence mode="wait">
@@ -507,7 +579,7 @@ export default function StepRecipient({
                 key="add-card"
                 className="cursor-pointer border-2 border-dashed border-border/60 transition-all hover:border-primary/40 hover:bg-primary/5"
                 onClick={() => {
-                  if (!planLimits.canAddRecipient(recipients.length)) {
+                  if (atRecipientLimit) {
                     setUpgradeOpen(true);
                     return;
                   }
@@ -515,12 +587,12 @@ export default function StepRecipient({
                 }}
               >
                 <CardContent className="relative flex min-h-[184px] flex-col items-center justify-center gap-3 p-5 text-center">
-                  {!planLimits.canAddRecipient(recipients.length) && (
+                  {atRecipientLimit && (
                     <div className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-background/70 backdrop-blur-[1px]">
                       <div className="space-y-2 px-6 text-center">
                         <Lock className="mx-auto h-5 w-5 text-muted-foreground" />
                         <p className="text-sm font-medium text-foreground">Recipient limit reached</p>
-                        <p className="text-xs text-muted-foreground">Upgrade from {planLimits.plan} to add more people.</p>
+                        <p className="text-xs text-muted-foreground">{planLimits.getUpgradeText("more_recipients")}</p>
                       </div>
                     </div>
                   )}
@@ -571,15 +643,22 @@ export default function StepRecipient({
         />
       )}
 
-      <Button type="button" variant="hero" size="lg" className="min-h-12 w-full" disabled={!selectedRecipient} onClick={onContinue}>
+      <Button
+        type="button"
+        variant="hero"
+        size="lg"
+        className="min-h-12 w-full"
+        disabled={!selectedRecipient || !selectedRecipientIsActive}
+        onClick={onContinue}
+      >
         Continue
       </Button>
 
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        highlightPlan="starter"
-        reason="Upgrade to add more recipients to GiftMind."
+        highlightPlan={planLimits.getUpgradePlan("more_recipients")}
+        reason={planLimits.getUpgradeText("more_recipients")}
       />
     </div>
   );

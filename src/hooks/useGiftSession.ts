@@ -157,6 +157,13 @@ function isNoCreditError(error: unknown) {
   return message.includes("NO_CREDITS") || message.includes("INSUFFICIENT CREDITS");
 }
 
+async function getCurrentUserId() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
 export function useGiftSession() {
   const [state, setState] = useState<GiftSessionState>(initialState);
 
@@ -233,7 +240,7 @@ export function useGiftSession() {
   }, []);
 
   const callAI = useCallback(
-    async (params: GenerateGiftParams & { sessionId: string }) => {
+    async (params: GenerateGiftParams & { sessionId: string; isRegeneration?: boolean }) => {
       const response = await invokeAuthedFunction<any>("generate-gifts", {
         recipient: {
           name: params.recipient.name,
@@ -256,6 +263,7 @@ export function useGiftSession() {
         context_tags: params.contextTags,
         user_plan: params.userPlan,
         session_id: params.sessionId,
+        is_regeneration: Boolean(params.isRegeneration),
       });
 
       if (response.error) {
@@ -349,7 +357,10 @@ export function useGiftSession() {
                 sessionId,
               }));
 
-              await supabase.from("gift_sessions").update({ status: "abandoned" }).eq("id", sessionId);
+              const currentUserId = await getCurrentUserId();
+              if (currentUserId) {
+                await supabase.from("gift_sessions").update({ status: "abandoned" }).eq("id", sessionId).eq("user_id", currentUserId);
+              }
               return;
             }
 
@@ -409,10 +420,12 @@ export function useGiftSession() {
         }));
 
         if (products && sessionId) {
+          const currentUserId = await getCurrentUserId();
           await supabase
             .from("gift_sessions")
             .update({ product_results: products })
-            .eq("id", sessionId);
+            .eq("id", sessionId)
+            .eq("user_id", currentUserId ?? "");
         }
       } catch (error) {
         const message = getErrorMessage(error);
@@ -445,13 +458,13 @@ export function useGiftSession() {
         isSearchingProducts: false,
         error: null,
         errorType: null,
-        regenerationCount: prev.regenerationCount + 1,
       }));
 
       try {
         const aiResult = await callAI({
           ...params,
           sessionId: state.sessionId,
+          isRegeneration: true,
         });
 
         setState((prev) => ({
@@ -463,6 +476,7 @@ export function useGiftSession() {
           isGenerating: false,
           error: null,
           errorType: null,
+          regenerationCount: prev.regenerationCount + 1,
         }));
 
         setState((prev) => ({ ...prev, isSearchingProducts: true }));
@@ -484,18 +498,12 @@ export function useGiftSession() {
         }));
 
         if (products && state.sessionId) {
+          const currentUserId = await getCurrentUserId();
           await supabase
             .from("gift_sessions")
-            .update({
-              product_results: products,
-              regeneration_count: state.regenerationCount + 1,
-            })
-            .eq("id", state.sessionId);
-        } else {
-          await supabase
-            .from("gift_sessions")
-            .update({ regeneration_count: state.regenerationCount + 1 })
-            .eq("id", state.sessionId);
+            .update({ product_results: products })
+            .eq("id", state.sessionId)
+            .eq("user_id", currentUserId ?? "");
         }
       } catch (error) {
         setState((prev) => ({
@@ -515,6 +523,8 @@ export function useGiftSession() {
       if (!state.sessionId) return;
 
       const selectedGift = state.recommendations?.[giftIndex];
+      const currentUserId = await getCurrentUserId();
+      if (!currentUserId) return;
 
       await supabase
         .from("gift_sessions")
@@ -524,19 +534,22 @@ export function useGiftSession() {
           confidence_score: selectedGift?.confidence_score ?? null,
           status: "completed",
         })
-        .eq("id", state.sessionId);
+        .eq("id", state.sessionId)
+        .eq("user_id", currentUserId);
 
       const { data: completedSession } = await supabase
         .from("gift_sessions")
         .select("recipient_id")
         .eq("id", state.sessionId)
+        .eq("user_id", currentUserId)
         .single();
 
       if (completedSession?.recipient_id) {
         await supabase
           .from("recipients")
           .update({ last_gift_date: new Date().toISOString() })
-          .eq("id", completedSession.recipient_id);
+          .eq("id", completedSession.recipient_id)
+          .eq("user_id", currentUserId);
       }
 
       try {

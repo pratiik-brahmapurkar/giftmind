@@ -28,8 +28,14 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// ── Plan gate: only popular and pro get occasion reminders ────────────────────
-const PLANS_WITH_REMINDERS = new Set(["popular", "pro"]);
+// ── Plan gate: only Confident and Gifting Pro get occasion reminders ──────────
+const PLANS_WITH_REMINDERS = new Set(["confident", "gifting-pro"]);
+
+function reminderLimit(plan: string): number {
+  if (plan === "gifting-pro") return -1;
+  if (plan === "confident") return 3;
+  return 0;
+}
 
 // ── Send a single reminder email via Resend ───────────────────────────────────
 async function sendReminderEmail(
@@ -139,13 +145,16 @@ serve(async (req: Request): Promise<Response> => {
 
     // ── 3. Process each recipient ─────────────────────────────────────────────
     let remindersSent = 0;
+    const remindersSentByUser = new Map<string, number>();
 
     for (const recipient of recipients ?? []) {
       const user = (recipient as any).users;
       if (!user?.email) continue;
 
-      // Plan gate: free and starter don't get reminders
+      // Plan gate: Spark and Thoughtful don't get reminders
       if (!PLANS_WITH_REMINDERS.has(user.active_plan)) continue;
+      const maxReminders = reminderLimit(user.active_plan);
+      if (maxReminders !== -1 && (remindersSentByUser.get(recipient.user_id) ?? 0) >= maxReminders) continue;
 
       // Respect user notification preferences
       const notifPrefs = user.notification_prefs;
@@ -166,6 +175,7 @@ serve(async (req: Request): Promise<Response> => {
         try {
           // ── 14-day reminder ───────────────────────────────────────────────
           if (month === fourteenMonth && day === fourteenDay) {
+            if (maxReminders !== -1 && (remindersSentByUser.get(recipient.user_id) ?? 0) >= maxReminders) continue;
             await sendReminderEmail(
               {
                 id: recipient.id,
@@ -176,6 +186,7 @@ serve(async (req: Request): Promise<Response> => {
               14,
             );
             remindersSent++;
+            remindersSentByUser.set(recipient.user_id, (remindersSentByUser.get(recipient.user_id) ?? 0) + 1);
             console.log(
               `Sent 14-day reminder for ${recipient.name}'s ${dateEntry.label ?? "date"} to ${user.email}`,
             );
@@ -183,6 +194,7 @@ serve(async (req: Request): Promise<Response> => {
 
           // ── 3-day reminder ────────────────────────────────────────────────
           if (month === threeMonth && day === threeDay) {
+            if (maxReminders !== -1 && (remindersSentByUser.get(recipient.user_id) ?? 0) >= maxReminders) continue;
             await sendReminderEmail(
               {
                 id: recipient.id,
@@ -193,6 +205,7 @@ serve(async (req: Request): Promise<Response> => {
               3,
             );
             remindersSent++;
+            remindersSentByUser.set(recipient.user_id, (remindersSentByUser.get(recipient.user_id) ?? 0) + 1);
             console.log(
               `Sent 3-day reminder for ${recipient.name}'s ${dateEntry.label ?? "date"} to ${user.email}`,
             );

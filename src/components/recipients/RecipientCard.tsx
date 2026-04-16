@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Gift, MoreVertical, Pencil, Trash2, ArrowRight } from "lucide-react";
+import { Gift, MoreVertical, Pencil, Trash2, ArrowRight, Lock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,7 @@ interface RecipientCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onFindGift: () => void;
+  isLocked?: boolean;
 }
 
 /** Check if MM-DD date is within next N days */
@@ -63,7 +64,7 @@ function formatMMDD(mmdd: string): string {
   return `${months[(mm || 1) - 1]} ${dd}`;
 }
 
-const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }: RecipientCardProps) => {
+const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, isLocked = false }: RecipientCardProps) => {
   const initial = recipient.name.charAt(0).toUpperCase();
   const relationship = recipient.relationship ?? recipient.relationship_type ?? "";
   const rel = RELATIONSHIP_TYPES.find((r) => r.value === relationship);
@@ -92,8 +93,23 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }:
   const giftCount = recipient.gift_count || 0;
 
   return (
-    <Card className="group border-border/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 relative">
+    <Card
+      className={cn(
+        "group border-border/50 transition-all duration-200 relative",
+        isLocked
+          ? "bg-muted/30 opacity-60"
+          : "hover:shadow-lg hover:-translate-y-0.5",
+      )}
+    >
       <CardContent className="p-5">
+        {isLocked && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[inherit] bg-background/55 backdrop-blur-[1px]">
+            <div className="mx-4 rounded-xl border border-border bg-card/95 px-4 py-3 text-center text-sm text-muted-foreground shadow-sm">
+              <Lock className="mx-auto mb-1 h-4 w-4" />
+              🔒 Upgrade to use this person in gift sessions
+            </div>
+          </div>
+        )}
         {/* Top row */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-start gap-3 min-w-0">
@@ -128,7 +144,7 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }:
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onFindGift}>
+              <DropdownMenuItem onClick={onFindGift} disabled={isLocked}>
                 <Gift className="w-3.5 h-3.5 mr-2" /> Find a Gift
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
@@ -181,7 +197,7 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift }:
 
         {/* Hover CTA */}
         <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="hero" size="sm" className="w-full h-8 text-xs" onClick={onFindGift}>
+          <Button variant="hero" size="sm" className="w-full h-8 text-xs" onClick={onFindGift} disabled={isLocked}>
             Find a Gift <ArrowRight className="w-3 h-3 ml-1" />
           </Button>
         </div>

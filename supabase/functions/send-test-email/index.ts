@@ -117,7 +117,7 @@ function renderTemplate(template: TemplateName, settings: Record<string, any>) {
             <h2 style="color:#6C5CE7;">Welcome to ${siteName}</h2>
             <p>Hi Admin,</p>
             <p>This is a test of the welcome email template.</p>
-            <p>New users receive <strong>${settings.free_credits} free credits</strong>.</p>
+            <p>New users receive <strong>${settings.free_credits} free credits on Spark ✨ — no card needed</strong>.</p>
           </div>`,
       };
   }

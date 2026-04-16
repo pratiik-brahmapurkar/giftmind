@@ -187,7 +187,7 @@ function SuccessState({
               className="flex-1 bg-[#25D366] text-white hover:bg-[#1ea952]"
               onClick={() => {
                 const text = encodeURIComponent(
-                  `I found a gift faster with GiftMind. Try it here: ${shareUrl}`,
+                  `I found an amazing AI gifting tool! 🎁 Get 5 free credits: ${shareUrl}`,
                 );
                 window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
               }}
@@ -381,7 +381,7 @@ export default function StepResults({
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         highlightPlan={planLimits.getUpgradePlan("more_regenerations")}
-        reason="You have reached this plan's regeneration limit."
+        reason={planLimits.getUpgradeText("more_regenerations")}
       />
     </>
   );

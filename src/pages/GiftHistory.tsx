@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { getCurrencySymbol, RELATIONSHIP_COLORS } from "@/lib/geoConfig";
+import { RELATIONSHIP_COLORS } from "@/lib/geoConfig";
 import { getOutboundProductUrl, type ProductLink, type ProductResult } from "@/lib/productLinks";
 import { getSignalFeedbackComparison, parseSignalChecks, type ParsedSignalCheck } from "@/lib/signalCheck";
 import type { Tables } from "@/integrations/supabase/types";
@@ -595,8 +595,8 @@ export default function GiftHistory() {
                             <div className="space-y-2 text-sm text-muted-foreground">
                               <p>{meta.description}</p>
                               <p>
-                                Budget: {getCurrencySymbol(session.currency || "USD")}
-                                {(session.budget_min || 0).toLocaleString()} – {(session.budget_max || 0).toLocaleString()}
+                                Budget: $
+                                {(session.budget_min || 0).toLocaleString()} – ${(session.budget_max || 0).toLocaleString()}
                               </p>
                             </div>
                           )}
@@ -611,8 +611,8 @@ export default function GiftHistory() {
                             <div className="space-y-2 text-sm text-muted-foreground">
                               <p>{meta.description}</p>
                               <p>
-                                Budget: {getCurrencySymbol(session.currency || "USD")}
-                                {(session.budget_min || 0).toLocaleString()} – {(session.budget_max || 0).toLocaleString()}
+                                Budget: $
+                                {(session.budget_min || 0).toLocaleString()} – ${(session.budget_max || 0).toLocaleString()}
                               </p>
                             </div>
                           )}
@@ -713,7 +713,7 @@ export default function GiftHistory() {
                                         </span>
                                       </div>
                                       <span className="text-sm text-muted-foreground">
-                                        {getCurrencySymbol(session.currency || "USD")}
+                                        $
                                         {recommendation.price_anchor.toLocaleString()}
                                       </span>
                                     </div>

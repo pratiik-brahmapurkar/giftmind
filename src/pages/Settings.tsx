@@ -49,7 +49,7 @@ const Settings = () => {
   const notifyReminders = (profile as any)?.notify_gift_reminders ?? true;
   const notifyCreditExpiry = (profile as any)?.notify_credit_expiry ?? true;
   const notifyTips = (profile as any)?.notify_tips ?? false;
-  const hasExportAccess = normalizePlan((profile as any)?.active_plan) === "pro";
+  const hasExportAccess = normalizePlan((profile as any)?.active_plan) === "gifting-pro";
 
   const updateNotif = useMutation({
     mutationFn: async (updates: Record<string, boolean>) => {
@@ -95,8 +95,8 @@ const Settings = () => {
     },
     onError: (error: any) => {
       const message = error?.message || "";
-      if (message.includes("Pro plan")) {
-        toast.error("Data export is available on Pro plan");
+      if (message.includes("Pro plan") || message.includes("Gifting Pro")) {
+        toast.error("Data export is available on Gifting Pro plan");
         return;
       }
       toast.error("Failed to download data. Please try again.");
@@ -229,7 +229,7 @@ const Settings = () => {
                 {!hasExportAccess && (
                   <p className="text-xs text-muted-foreground mt-1">
                     <Lock className="w-3 h-3 inline mr-1" />
-                    Data export is available on Pro plan
+                    Data export is available on Gifting Pro plan
                   </p>
                 )}
               </div>

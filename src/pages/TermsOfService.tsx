@@ -20,7 +20,7 @@ GiftMind reserves the right to suspend or terminate accounts that violate these 
 ## Credit Purchases
 
 - Credits are the virtual currency used to generate AI-powered gift recommendations on GiftMind.
-- Credit packages are priced in Indian Rupees (INR) and US Dollars (USD).
+- Credit packages are priced in USD only.
 - Purchased credits are valid for the number of days specified in the package (typically 365 days).
 - Credits are non-transferable between accounts.
 - Prices are subject to change, but changes do not affect previously purchased credits.

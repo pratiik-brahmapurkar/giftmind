@@ -218,7 +218,7 @@ const Onboarding = () => {
             {step === 2 && (
               <>
                 <h2 className="text-2xl font-heading font-bold text-foreground mb-4">
-                  You have 3 free credits 🎉
+                  3 free credits on Spark ✨ — no card needed
                 </h2>
                 <CoinDrop />
                 <div className="flex flex-col gap-2 items-center mb-8">
