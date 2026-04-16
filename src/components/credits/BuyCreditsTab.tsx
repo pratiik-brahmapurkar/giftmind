@@ -1,15 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PayPalCheckoutButton } from "@/components/credits/PayPalCheckoutButton";
 import PricingCards from "@/components/pricing/PricingCards";
+import PaymentMethodModal from "@/components/pricing/PaymentMethodModal";
 import type { PlanSlug } from "@/lib/geoConfig";
 import { trackEvent } from "@/lib/posthog";
-
-type CreditPackage = Database["public"]["Tables"]["credit_packages"]["Row"];
 
 const CREDIT_USAGE = [
   { action: "Gift session", cost: "1 credit" },
@@ -24,63 +18,21 @@ interface BuyCreditsTabProps {
 }
 
 const BuyCreditsTab = ({ currentPlan = "spark", onPurchaseComplete }: BuyCreditsTabProps) => {
-  const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlanSlug, setSelectedPlanSlug] = useState<string | null>(null);
 
   useEffect(() => {
     trackEvent("credit_purchase_started", { trigger: "credits_page" });
   }, []);
 
-  const { data: packages = [], isLoading } = useQuery({
-    queryKey: ["credit-packages"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("credit_packages")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const packagesBySlug = useMemo(
-    () => new Map(packages.map((pkg) => [pkg.slug, pkg])),
-    [packages],
-  );
-
   const handleBuy = (slug: string) => {
-    const pkg = packagesBySlug.get(slug);
-    if (!pkg) return;
-    setSelectedPackage(pkg);
+    setSelectedPlanSlug(slug);
+    setPaymentModalOpen(true);
   };
 
   return (
     <div className="space-y-8">
-      {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-3">
-          {[1, 2, 3].map((item) => (
-            <Skeleton key={item} className="h-[360px] rounded-2xl" />
-          ))}
-        </div>
-      ) : (
-        <PricingCards compact currentPlan={currentPlan} onBuyClick={handleBuy} />
-      )}
-
-      {selectedPackage && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Checkout: {selectedPackage.name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PayPalCheckoutButton
-              creditPackage={selectedPackage}
-              disabled={Number(selectedPackage.price_usd ?? 0) <= 0}
-              onPurchaseComplete={onPurchaseComplete}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <PricingCards compact currentPlan={currentPlan} onBuyClick={handleBuy} />
 
       <Card>
         <CardHeader>
@@ -107,6 +59,13 @@ const BuyCreditsTab = ({ currentPlan = "spark", onPurchaseComplete }: BuyCredits
           </div>
         </CardContent>
       </Card>
+
+      <PaymentMethodModal
+        open={paymentModalOpen}
+        onOpenChange={setPaymentModalOpen}
+        planSlug={selectedPlanSlug}
+        onPurchaseComplete={onPurchaseComplete}
+      />
     </div>
   );
 };

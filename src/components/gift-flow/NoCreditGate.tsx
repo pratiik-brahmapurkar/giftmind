@@ -1,10 +1,17 @@
+import { useState } from "react";
 import { Gift, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import PricingCards from "@/components/pricing/PricingCards";
+import PaymentMethodModal from "@/components/pricing/PaymentMethodModal";
 
 export default function NoCreditGate() {
-  const navigate = useNavigate();
-  const handleBuy = (slug: string) => navigate(`/credits?plan=${slug}`);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlanSlug, setSelectedPlanSlug] = useState<string | null>(null);
+
+  const handleBuy = (slug: string) => {
+    setSelectedPlanSlug(slug);
+    setPaymentModalOpen(true);
+  };
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center py-10">
@@ -35,6 +42,12 @@ export default function NoCreditGate() {
           </Link>
         </div>
       </div>
+
+      <PaymentMethodModal
+        open={paymentModalOpen}
+        onOpenChange={setPaymentModalOpen}
+        planSlug={selectedPlanSlug}
+      />
     </div>
   );
 }
