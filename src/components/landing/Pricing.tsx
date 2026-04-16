@@ -1,10 +1,27 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import PricingCards from "@/components/pricing/PricingCards";
+import PaymentMethodModal from "@/components/pricing/PaymentMethodModal";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Pricing = () => {
   const navigate = useNavigate();
-  const handleBuyClick = (slug: string) => navigate(`/signup?plan=${slug}`);
+  const { user } = useAuth();
+  
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlanSlug, setSelectedPlanSlug] = useState<string | null>(null);
+
+  const handleBuyClick = (slug: string) => {
+    if (user) {
+      // User is already logged in, immediately ask for payment
+      setSelectedPlanSlug(slug);
+      setPaymentModalOpen(true);
+    } else {
+      // Not logged in, send them through the acquisition funnel
+      navigate(`/signup?plan=${slug}`);
+    }
+  };
 
   return (
     <section className="py-24 gradient-mesh">
@@ -25,6 +42,12 @@ const Pricing = () => {
 
         <PricingCards onBuyClick={handleBuyClick} />
       </div>
+
+      <PaymentMethodModal
+        open={paymentModalOpen}
+        onOpenChange={setPaymentModalOpen}
+        planSlug={selectedPlanSlug}
+      />
     </section>
   );
 };
