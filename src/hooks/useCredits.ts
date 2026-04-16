@@ -117,8 +117,10 @@ export function useCredits(): UseCreditsReturn {
   useEffect(() => {
     if (!userId) return;
 
+    // Use a unique channel name per mount to prevent hot-reloading & StrictMode collisions
+    // where `.on()` is added to an already-subscribed global channel
     const channel = supabase
-      .channel(`credits-user-${userId}`)
+      .channel(`credits-user-${userId}-${Math.random().toString(36).substring(7)}`)
       .on(
         "postgres_changes",
         {
