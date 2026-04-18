@@ -1,9 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
-import type { Database } from "../../src/integrations/supabase/types";
+import type { Database } from "../../src/integrations/supabase/types.js";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function getEnv() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -13,6 +14,18 @@ function getEnv() {
   return {
     supabaseUrl: SUPABASE_URL,
     supabaseAnonKey: SUPABASE_ANON_KEY,
+  };
+}
+
+function getServiceEnv() {
+  const baseEnv = getEnv();
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY environment variable.");
+  }
+
+  return {
+    ...baseEnv,
+    supabaseServiceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
   };
 }
 
@@ -30,6 +43,21 @@ export function createUserSupabaseClient(accessToken: string) {
       },
     },
   });
+}
+
+export function createServiceRoleSupabaseClient() {
+  const { supabaseUrl, supabaseServiceRoleKey } = getServiceEnv();
+
+  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+export function getServiceRoleToken() {
+  return getServiceEnv().supabaseServiceRoleKey;
 }
 
 export async function getAuthenticatedUser(accessToken: string) {

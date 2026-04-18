@@ -1,4 +1,4 @@
-import type { GiftRecommendation } from "../../hooks/giftSessionTypes";
+import type { GiftRecommendation } from "../../hooks/giftSessionTypes.js";
 
 export interface PastGiftSemanticMatch {
   gift_name: string;

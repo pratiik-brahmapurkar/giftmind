@@ -1,7 +1,7 @@
-import { buildGiftEmbeddingText } from "../../src/lib/recommendation-v2/embeddings";
-import { jsonResponse, getBearerToken, readJson } from "../_lib/http";
-import { generateEmbedding } from "../_lib/openai";
-import { createUserSupabaseClient, getAuthenticatedUser, invokeSupabaseFunction } from "../_lib/supabase";
+import { buildGiftEmbeddingText } from "../../src/lib/recommendation-v2/embeddings.js";
+import { jsonResponse, getBearerToken, readJson } from "../_lib/http.js";
+import { generateEmbedding } from "../_lib/openai.js";
+import { createUserSupabaseClient, getAuthenticatedUser, invokeSupabaseFunction } from "../_lib/supabase.js";
 
 interface SelectRequestBody {
   session_id: string;

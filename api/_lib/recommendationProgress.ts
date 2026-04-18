@@ -1,4 +1,4 @@
-import { RECOMMENDATION_GRAPH_NODE_ORDER } from "../../src/lib/recommendation-v2/graphContract";
+import { RECOMMENDATION_GRAPH_NODE_ORDER } from "../../src/lib/recommendation-v2/graphContract.js";
 
 function getObject(value: unknown) {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;

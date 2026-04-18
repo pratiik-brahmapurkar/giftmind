@@ -2,6 +2,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 ALTER TABLE public.gift_sessions
   ADD COLUMN IF NOT EXISTS personalization_scores jsonb DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS graph_state jsonb DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS node_timings jsonb DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS cultural_rules_applied integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS past_gifts_checked integer NOT NULL DEFAULT 0,

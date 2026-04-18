@@ -583,6 +583,7 @@ export type Database = {
           engine_version: string
           feedback_cultural_fit: number | null
           feedback_cultural_note: string | null
+          graph_state: Json | null
           id: string
           node_timings: Json | null
           occasion: string
@@ -621,6 +622,7 @@ export type Database = {
           engine_version?: string
           feedback_cultural_fit?: number | null
           feedback_cultural_note?: string | null
+          graph_state?: Json | null
           id?: string
           node_timings?: Json | null
           occasion: string
@@ -659,6 +661,7 @@ export type Database = {
           engine_version?: string
           feedback_cultural_fit?: number | null
           feedback_cultural_note?: string | null
+          graph_state?: Json | null
           id?: string
           node_timings?: Json | null
           occasion?: string

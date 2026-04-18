@@ -1,17 +1,17 @@
-import { enforceBudget } from "../../src/lib/recommendation-v2/budget";
-import { buildGiftEmbeddingText, buildRecipientEmbeddingText } from "../../src/lib/recommendation-v2/embeddings";
-import { type RecommendationGraphNodeId } from "../../src/lib/recommendation-v2/graphContract";
+import { enforceBudget } from "../../src/lib/recommendation-v2/budget.js";
+import { buildGiftEmbeddingText, buildRecipientEmbeddingText } from "../../src/lib/recommendation-v2/embeddings.js";
+import { type RecommendationGraphNodeId } from "../../src/lib/recommendation-v2/graphContract.js";
 import {
   applySemanticMemoryGuard,
   type PastGiftSemanticMatch,
   type SemanticMemoryAssessment,
-} from "../../src/lib/recommendation-v2/memory";
-import { validateAndRankRecommendations } from "../../src/lib/recommendation-v2/personalization";
-import { executeGraph, type GraphNode } from "../../src/lib/recommendation-v2/runtime";
-import type { Json } from "../../src/integrations/supabase/types";
-import type { GenerateGiftsResponse, GiftRecommendation } from "../../src/hooks/giftSessionTypes";
-import { generateEmbedding } from "./openai";
-import { createUserSupabaseClient, invokeSupabaseFunction } from "./supabase";
+} from "../../src/lib/recommendation-v2/memory.js";
+import { validateAndRankRecommendations } from "../../src/lib/recommendation-v2/personalization.js";
+import { executeGraph, type GraphNode } from "../../src/lib/recommendation-v2/runtime.js";
+import type { Json } from "../../src/integrations/supabase/types.js";
+import type { GenerateGiftsResponse, GiftRecommendation } from "../../src/hooks/giftSessionTypes.js";
+import { generateEmbedding } from "./openai.js";
+import { createServiceRoleSupabaseClient, createUserSupabaseClient, invokeSupabaseFunction } from "./supabase.js";
 
 interface SearchProductsResponse {
   results: unknown;
@@ -63,7 +63,7 @@ export interface PastGiftRow {
   created_at: string;
 }
 
-type SupabaseClient = ReturnType<typeof createUserSupabaseClient>;
+type SupabaseClient = ReturnType<typeof createUserSupabaseClient> | ReturnType<typeof createServiceRoleSupabaseClient>;
 
 export interface RecommendationGraphState {
   accessToken: string;
@@ -82,6 +82,35 @@ export interface RecommendationGraphState {
   personalization:
     | ReturnType<typeof validateAndRankRecommendations>
     | null;
+  productResults: Json | null;
+  topConfidence: number | null;
+  semanticAssessments: SemanticMemoryAssessment[];
+  semanticFilteredCount: number;
+  semanticPastGiftChecks: number;
+  semanticRepeatMatchesByGiftName: Record<string, PastGiftSemanticMatch[]>;
+}
+
+export interface PersistedRecommendationGraphState {
+  version: 1;
+  body: StartRequestBody;
+  execution: {
+    attemptCount: number;
+    lastRunId: string | null;
+    leaseOwnerId: string | null;
+    leaseExpiresAt: string | null;
+    lastHeartbeatAt: string | null;
+    lastEnqueuedAt: string | null;
+  };
+  nodeTimings: Record<string, number>;
+  recipientEmbeddingSource: string | null;
+  queryEmbeddingVector: string | null;
+  culturalRules: CulturalRuleMatch[];
+  pastGifts: PastGiftRow[];
+  augmentedSpecialContext: string;
+  generateResult: GenerateGiftsResponse | null;
+  normalizedResponse: GenerateGiftsResponse | null;
+  personalizationScores: Json | null;
+  personalizationAverageScore: number | null;
   productResults: Json | null;
   topConfidence: number | null;
   semanticAssessments: SemanticMemoryAssessment[];
@@ -116,10 +145,160 @@ function buildAugmentedSpecialContext(input: {
   return compactParts([input.baseSpecialContext, ruleSummary, giftSummary]).join("\n\n");
 }
 
+function shouldRunNode(nodeId: RecommendationGraphNodeId) {
+  return (state: RecommendationGraphState) => !(nodeId in state.nodeTimings);
+}
+
+function rehydratePersonalization(
+  normalizedResponse: GenerateGiftsResponse | null,
+  personalizationScores: Json | null,
+  personalizationAverageScore: number | null,
+): RecommendationGraphState["personalization"] {
+  if (!normalizedResponse || !Array.isArray(normalizedResponse.recommendations)) {
+    return null;
+  }
+
+  if (!Array.isArray(personalizationScores)) {
+    return null;
+  }
+
+  return {
+    recommendations: normalizedResponse.recommendations,
+    scores: personalizationScores as unknown as ReturnType<typeof validateAndRankRecommendations>["scores"],
+    averageScore: personalizationAverageScore ?? 0,
+  };
+}
+
+export function serializeRecommendationGraphState(state: RecommendationGraphState): PersistedRecommendationGraphState {
+  return {
+    version: 1,
+    body: state.body,
+    execution: {
+      attemptCount: 0,
+      lastRunId: null,
+      leaseOwnerId: null,
+      leaseExpiresAt: null,
+      lastHeartbeatAt: null,
+      lastEnqueuedAt: null,
+    },
+    nodeTimings: state.nodeTimings,
+    recipientEmbeddingSource: state.recipientEmbeddingSource,
+    queryEmbeddingVector: state.queryEmbeddingVector,
+    culturalRules: state.culturalRules,
+    pastGifts: state.pastGifts,
+    augmentedSpecialContext: state.augmentedSpecialContext,
+    generateResult: state.generateResult,
+    normalizedResponse: state.normalizedResponse,
+    personalizationScores: state.personalization?.scores as unknown as Json ?? null,
+    personalizationAverageScore: state.personalization?.averageScore ?? null,
+    productResults: state.productResults,
+    topConfidence: state.topConfidence,
+    semanticAssessments: state.semanticAssessments,
+    semanticFilteredCount: state.semanticFilteredCount,
+    semanticPastGiftChecks: state.semanticPastGiftChecks,
+    semanticRepeatMatchesByGiftName: state.semanticRepeatMatchesByGiftName,
+  };
+}
+
+export function hydrateRecommendationGraphState(
+  baseState: RecommendationGraphState,
+  persistedState: Json | null | undefined,
+): RecommendationGraphState {
+  if (!persistedState || typeof persistedState !== "object" || Array.isArray(persistedState)) {
+    return baseState;
+  }
+
+  const data = persistedState as Partial<PersistedRecommendationGraphState>;
+  if (data.version !== 1) {
+    return baseState;
+  }
+
+  const normalizedResponse = data.normalizedResponse ?? null;
+
+  return {
+    ...baseState,
+    body: data.body ?? baseState.body,
+    nodeTimings: data.nodeTimings ?? {},
+    recipientEmbeddingSource: data.recipientEmbeddingSource ?? null,
+    queryEmbeddingVector: data.queryEmbeddingVector ?? null,
+    culturalRules: data.culturalRules ?? [],
+    pastGifts: data.pastGifts ?? [],
+    augmentedSpecialContext: data.augmentedSpecialContext ?? "",
+    generateResult: data.generateResult ?? null,
+    normalizedResponse,
+    personalization: rehydratePersonalization(
+      normalizedResponse,
+      data.personalizationScores ?? null,
+      data.personalizationAverageScore ?? null,
+    ),
+    productResults: data.productResults ?? null,
+    topConfidence: data.topConfidence ?? null,
+    semanticAssessments: data.semanticAssessments ?? [],
+    semanticFilteredCount: data.semanticFilteredCount ?? 0,
+    semanticPastGiftChecks: data.semanticPastGiftChecks ?? 0,
+    semanticRepeatMatchesByGiftName: data.semanticRepeatMatchesByGiftName ?? {},
+  };
+}
+
+export function readPersistedRecommendationRequestBody(
+  persistedState: Json | null | undefined,
+): StartRequestBody | null {
+  if (!persistedState || typeof persistedState !== "object" || Array.isArray(persistedState)) {
+    return null;
+  }
+
+  const data = persistedState as Partial<PersistedRecommendationGraphState>;
+  return data.version === 1 && data.body ? data.body : null;
+}
+
+export function readPersistedRecommendationExecution(
+  persistedState: Json | null | undefined,
+) {
+  if (!persistedState || typeof persistedState !== "object" || Array.isArray(persistedState)) {
+    return null;
+  }
+
+  const data = persistedState as Partial<PersistedRecommendationGraphState>;
+  return data.version === 1 ? (data.execution ?? null) : null;
+}
+
+export function withExecutionMetadata(
+  persistedState: PersistedRecommendationGraphState,
+  executionPatch: Partial<PersistedRecommendationGraphState["execution"]>,
+): PersistedRecommendationGraphState {
+  return {
+    ...persistedState,
+    execution: {
+      ...persistedState.execution,
+      ...executionPatch,
+    },
+  };
+}
+
+export function isExecutionLeaseActive(
+  execution: PersistedRecommendationGraphState["execution"] | null | undefined,
+  now = Date.now(),
+) {
+  if (!execution?.leaseExpiresAt) return false;
+  const leaseExpiresAt = new Date(execution.leaseExpiresAt).getTime();
+  return Number.isFinite(leaseExpiresAt) && leaseExpiresAt > now;
+}
+
+export function isExecutionStale(
+  execution: PersistedRecommendationGraphState["execution"] | null | undefined,
+  now = Date.now(),
+  staleAfterMs = 30_000,
+) {
+  if (!execution?.lastHeartbeatAt) return true;
+  const heartbeatAt = new Date(execution.lastHeartbeatAt).getTime();
+  return !Number.isFinite(heartbeatAt) || now - heartbeatAt > staleAfterMs;
+}
+
 function createGraphNodes(): Array<GraphNode<RecommendationGraphState, RecommendationGraphNodeId>> {
   return [
     {
       id: "recipient_analyzer",
+      shouldRun: shouldRunNode("recipient_analyzer"),
       run: async (state) => {
         const recipientEmbeddingSource = buildRecipientEmbeddingText({
           id: state.recipient.id,
@@ -170,6 +349,7 @@ function createGraphNodes(): Array<GraphNode<RecommendationGraphState, Recommend
     },
     {
       id: "cultural_context_retriever",
+      shouldRun: shouldRunNode("cultural_context_retriever"),
       run: async (state) => {
         if (!state.queryEmbeddingVector) {
           return state;
@@ -195,6 +375,7 @@ function createGraphNodes(): Array<GraphNode<RecommendationGraphState, Recommend
     },
     {
       id: "past_gift_retriever",
+      shouldRun: shouldRunNode("past_gift_retriever"),
       run: async (state) => {
         try {
           const pastGiftResponse = await state.supabase.rpc("get_recent_past_gifts", {
@@ -214,6 +395,7 @@ function createGraphNodes(): Array<GraphNode<RecommendationGraphState, Recommend
     },
     {
       id: "gift_generator",
+      shouldRun: shouldRunNode("gift_generator"),
       run: async (state) => {
         const augmentedSpecialContext = buildAugmentedSpecialContext({
           baseSpecialContext: state.body.special_context,
@@ -267,6 +449,7 @@ function createGraphNodes(): Array<GraphNode<RecommendationGraphState, Recommend
     },
     {
       id: "budget_enforcer",
+      shouldRun: shouldRunNode("budget_enforcer"),
       run: async (state) => {
         if (!state.generateResult) {
           throw new Error("Graph budget node ran without generation output.");
@@ -351,6 +534,7 @@ function createGraphNodes(): Array<GraphNode<RecommendationGraphState, Recommend
     },
     {
       id: "personalization_validator",
+      shouldRun: shouldRunNode("personalization_validator"),
       run: (state) => {
         if (!state.normalizedResponse) {
           throw new Error("Graph personalization node ran without normalized recommendations.");
@@ -392,6 +576,7 @@ function createGraphNodes(): Array<GraphNode<RecommendationGraphState, Recommend
     },
     {
       id: "response_formatter",
+      shouldRun: shouldRunNode("response_formatter"),
       run: async (state) => {
         if (!state.normalizedResponse) {
           throw new Error("Graph response formatter ran without recommendations.");

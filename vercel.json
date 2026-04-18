@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/recommend/watchdog",
+      "schedule": "0 0 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/rss.xml", "destination": "/api/rss" },

@@ -1,6 +1,11 @@
-import { jsonResponse, getBearerToken } from "../_lib/http";
-import { inferProgressSnapshot } from "../_lib/recommendationProgress";
-import { createUserSupabaseClient, getAuthenticatedUser } from "../_lib/supabase";
+import { jsonResponse, getBearerToken } from "../_lib/http.js";
+import { inferProgressSnapshot } from "../_lib/recommendationProgress.js";
+import {
+  isExecutionLeaseActive,
+  isExecutionStale,
+  readPersistedRecommendationExecution,
+} from "../_lib/recommendationGraph.js";
+import { createUserSupabaseClient, getAuthenticatedUser } from "../_lib/supabase.js";
 
 export default async function handler(request: Request) {
   if (request.method !== "GET") {
@@ -27,7 +32,7 @@ export default async function handler(request: Request) {
   const supabase = createUserSupabaseClient(accessToken);
   const { data: session, error } = await supabase
     .from("gift_sessions")
-    .select("id, status, ai_response, product_results, ai_latency_ms, ai_provider_used, ai_attempt_number, engine_version, node_timings, cultural_rules_applied, past_gifts_checked, personalization_scores")
+    .select("id, status, ai_response, product_results, ai_latency_ms, ai_provider_used, ai_attempt_number, engine_version, node_timings, cultural_rules_applied, past_gifts_checked, personalization_scores, graph_state")
     .eq("id", sessionId)
     .eq("user_id", user.id)
     .single();
@@ -37,6 +42,9 @@ export default async function handler(request: Request) {
   }
 
   const { aiResponse, completed, failed, nodesCompleted, currentNode } = inferProgressSnapshot(session);
+  const execution = readPersistedRecommendationExecution(session.graph_state);
+  const stale = isExecutionStale(execution);
+  const leaseActive = isExecutionLeaseActive(execution);
   const avgPersonalizationScore =
     typeof aiResponse?._meta === "object" && aiResponse?._meta && "avg_personalization_score" in aiResponse._meta
       ? aiResponse._meta.avg_personalization_score
@@ -69,6 +77,13 @@ export default async function handler(request: Request) {
       past_gifts_checked: session.past_gifts_checked ?? 0,
       personalization_scores: session.personalization_scores ?? null,
       avg_personalization_score: avgPersonalizationScore,
+      execution: {
+        attempt_count: execution?.attemptCount ?? 0,
+        lease_active: leaseActive,
+        last_heartbeat_at: execution?.lastHeartbeatAt ?? null,
+        stale,
+        recoverable: !completed && !failed && Boolean(session.graph_state) && !leaseActive,
+      },
     },
     error: failed
       ? {

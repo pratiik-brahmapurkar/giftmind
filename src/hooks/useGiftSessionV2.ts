@@ -32,6 +32,13 @@ interface RecommendationStatusResponse {
     past_gifts_checked?: number | null;
     personalization_scores?: Array<Record<string, unknown>> | null;
     avg_personalization_score?: number | null;
+    execution?: {
+      attempt_count?: number | null;
+      lease_active?: boolean | null;
+      last_heartbeat_at?: string | null;
+      stale?: boolean | null;
+      recoverable?: boolean | null;
+    } | null;
   } | null;
   warning?: {
     code: string;
@@ -148,6 +155,7 @@ function applyStatusSnapshot(
 export function useGiftSessionV2() {
   const [state, setState] = useState<GiftSessionState>(initialState);
   const stateRef = useRef(state);
+  const recoveryAttemptsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     stateRef.current = state;
@@ -242,6 +250,21 @@ export function useGiftSessionV2() {
         { method: "GET" },
         accessToken,
       );
+
+      if (status.meta?.execution?.recoverable && status.meta?.execution?.stale) {
+        const recoveryAttempts = recoveryAttemptsRef.current[sessionId] ?? 0;
+        if (recoveryAttempts < 2) {
+          recoveryAttemptsRef.current[sessionId] = recoveryAttempts + 1;
+          await fetchApiJson<{ status: string }>(
+            "/api/recommend/recover",
+            {
+              method: "POST",
+              body: JSON.stringify({ session_id: sessionId }),
+            },
+            accessToken,
+          ).catch(() => null);
+        }
+      }
 
       onProgress?.(status);
 
@@ -411,6 +434,7 @@ export function useGiftSessionV2() {
 
       try {
         let sessionId = currentState.sessionId;
+        recoveryAttemptsRef.current = {};
 
         if (options.isRegeneration && !sessionId) {
           throw { type: "GENERIC", message: "Session missing. Please start again." };

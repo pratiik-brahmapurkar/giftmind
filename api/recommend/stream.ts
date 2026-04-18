@@ -1,6 +1,6 @@
-import { getBearerToken } from "../_lib/http";
-import { inferProgressSnapshot } from "../_lib/recommendationProgress";
-import { createUserSupabaseClient, getAuthenticatedUser } from "../_lib/supabase";
+import { getBearerToken } from "../_lib/http.js";
+import { inferProgressSnapshot } from "../_lib/recommendationProgress.js";
+import { createUserSupabaseClient, getAuthenticatedUser } from "../_lib/supabase.js";
 
 function formatSseEvent(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;

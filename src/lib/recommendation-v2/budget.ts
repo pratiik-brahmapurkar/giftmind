@@ -4,7 +4,7 @@ import {
   type BudgetEnforcementResult,
   type BudgetFilterRejectReason,
   type RecommendationWithPriceAnchor,
-} from "./contracts";
+} from "./contracts.js";
 
 interface ParsedPriceAnchor {
   price: number | null;

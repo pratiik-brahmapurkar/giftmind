@@ -1,4 +1,4 @@
-import type { GiftRecommendation, Recipient } from "../../hooks/giftSessionTypes";
+import type { GiftRecommendation, Recipient } from "../../hooks/giftSessionTypes.js";
 
 function compactParts(parts: Array<string | null | undefined>) {
   return parts

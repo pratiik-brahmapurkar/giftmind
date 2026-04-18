@@ -1,5 +1,5 @@
-import type { GiftRecommendation, Recipient } from "../../hooks/giftSessionTypes";
-import type { PastGiftSemanticMatch } from "./memory";
+import type { GiftRecommendation, Recipient } from "../../hooks/giftSessionTypes.js";
+import type { PastGiftSemanticMatch } from "./memory.js";
 
 export interface PersonalizationContext {
   recipient: Recipient;
