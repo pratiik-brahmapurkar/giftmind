@@ -26,12 +26,13 @@ const REACTIONS = [
 
 interface Props {
   session: GiftSession | null;
+  existingFeedback?: Pick<Tables<"gift_feedback">, "recipient_reaction" | "notes"> | null;
   onClose: () => void;
   onSubmit: (rating: string, notes: string) => void;
   isSubmitting: boolean;
 }
 
-const FeedbackModal = ({ session, onClose, onSubmit, isSubmitting }: Props) => {
+const FeedbackModal = ({ session, existingFeedback, onClose, onSubmit, isSubmitting }: Props) => {
   const [rating, setRating] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -39,12 +40,12 @@ const FeedbackModal = ({ session, onClose, onSubmit, isSubmitting }: Props) => {
 
   useEffect(() => {
     if (session) {
-      setRating("");
-      setNotes("");
+      setRating(existingFeedback?.recipient_reaction ?? "");
+      setNotes(existingFeedback?.notes ?? "");
       setSubmitted(false);
       setShowConfetti(false);
     }
-  }, [session]);
+  }, [existingFeedback, session]);
 
   const handleSubmit = () => {
     trackEvent('feedback_submitted', { reaction: rating });

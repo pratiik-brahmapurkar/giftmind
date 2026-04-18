@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { CalendarPlus, Copy, Loader2, PartyPopper, RefreshCw, Share2 } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CheckCircle2, Copy, Loader2, PartyPopper, RefreshCw, Share2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +23,47 @@ const loadingMessages = [
   "Finding the perfect match...",
   "Almost there...",
 ];
+
+const NODE_ORDER = [
+  "recipient_analyzer",
+  "cultural_context_retriever",
+  "past_gift_retriever",
+  "gift_generator",
+  "budget_enforcer",
+  "personalization_validator",
+  "response_formatter",
+] as const;
+
+const NODE_LABELS: Record<string, { label: string; description: string }> = {
+  recipient_analyzer: {
+    label: "Reading the recipient",
+    description: "Extracting relationship, interests, and useful context.",
+  },
+  cultural_context_retriever: {
+    label: "Checking cultural fit",
+    description: "Applying cultural rules and regional considerations.",
+  },
+  past_gift_retriever: {
+    label: "Looking at gift history",
+    description: "Avoiding repeats and near-duplicate ideas.",
+  },
+  gift_generator: {
+    label: "Generating ideas",
+    description: "Drafting tailored gift recommendations.",
+  },
+  budget_enforcer: {
+    label: "Filtering by budget",
+    description: "Removing options outside the exact range.",
+  },
+  personalization_validator: {
+    label: "Re-ranking for fit",
+    description: "Scoring and refining the most personal options.",
+  },
+  response_formatter: {
+    label: "Finalizing results",
+    description: "Preparing your ranked recommendations and insights.",
+  },
+};
 
 interface StepResultsProps {
   giftSession: ReturnType<typeof useGiftSession>;
@@ -47,13 +89,68 @@ interface StepResultsProps {
 }
 
 /* ─── Staggered skeleton loading state (Item 14, Animation guidance) ─── */
-function LoadingState({ messageIndex }: { messageIndex: number }) {
+function LoadingState({
+  messageIndex,
+  currentNode,
+  nodesCompleted,
+}: {
+  messageIndex: number;
+  currentNode: string | null;
+  nodesCompleted: string[];
+}) {
+  const activeNode = currentNode ? NODE_LABELS[currentNode] : null;
+  const progressValue = Math.max(
+    8,
+    Math.min(96, Math.round((nodesCompleted.length / NODE_ORDER.length) * 100)),
+  );
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        {loadingMessages[messageIndex]}
+        {activeNode?.label ?? loadingMessages[messageIndex]}
       </div>
+      <Card className="border-border/60">
+        <CardContent className="space-y-4 p-5">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {activeNode?.label ?? "Preparing recommendations"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {activeNode?.description ?? "Setting up the recommendation pipeline."}
+                </p>
+              </div>
+              <span className="text-xs font-medium text-muted-foreground">{progressValue}%</span>
+            </div>
+            <Progress value={progressValue} className="h-2" />
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {NODE_ORDER.map((node) => {
+              const isDone = nodesCompleted.includes(node);
+              const isActive = currentNode === node;
+
+              return (
+                <div
+                  key={node}
+                  className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 py-2"
+                >
+                  {isDone ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <div className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                  )}
+                  <span className={`text-xs ${isActive ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                    {NODE_LABELS[node].label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
       <div className="space-y-4">
         {[0, 1, 2].map((item) => (
           <motion.div
@@ -267,18 +364,20 @@ export default function StepResults({
   }, [giftSession.isGenerating, giftSession.error, isRegenerating]);
 
   if (giftSession.isGenerating || (!giftSession.recommendations && !giftSession.error)) {
-    return <LoadingState messageIndex={messageIndex} />;
+    return (
+      <LoadingState
+        messageIndex={messageIndex}
+        currentNode={giftSession.currentNode}
+        nodesCompleted={giftSession.nodesCompleted}
+      />
+    );
   }
 
   if (giftSession.errorType === "NO_CREDITS") {
     return <NoCreditGate />;
   }
 
-  if (
-    giftSession.error &&
-    giftSession.errorType !== "NO_CREDITS" &&
-    !giftSession.recommendations
-  ) {
+  if (giftSession.error && !giftSession.recommendations) {
     if (giftSession.errorType === "AI_PARSE_ERROR" || giftSession.errorType === "AI_ERROR") {
       return (
         <ErrorState
@@ -357,6 +456,18 @@ export default function StepResults({
           </p>
         </div>
 
+        {giftSession.warningMessage ? (
+          <Card className="border-amber-300 bg-amber-50/80">
+            <CardContent className="flex items-start gap-3 p-4">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-700" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-900">Limited results in this exact budget</p>
+                <p className="text-sm text-amber-800">{giftSession.warningMessage}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="space-y-5">
           {recommendations.map((gift, index) => (
             <GiftCard
@@ -387,12 +498,26 @@ export default function StepResults({
         <Card className="border-border/60">
           <CardContent className="space-y-4 p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">AI insights</h2>
+            {giftSession.avgPersonalizationScore != null ? (
+              <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-foreground">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Personalization score: {Math.round(giftSession.avgPersonalizationScore)}/100
+              </div>
+            ) : null}
             {giftSession.occasionInsight && <p className="text-sm text-foreground">{giftSession.occasionInsight}</p>}
             {giftSession.budgetAssessment && <p className="text-sm text-foreground">{giftSession.budgetAssessment}</p>}
             {giftSession.culturalNote && <p className="text-sm text-foreground">{giftSession.culturalNote}</p>}
             {import.meta.env.DEV && giftSession.aiProviderUsed ? (
-              <div className="text-center text-xs text-gray-400">
-                AI: {giftSession.aiProviderUsed} ({giftSession.aiLatencyMs ?? "?"}ms, attempt {giftSession.aiAttempt ?? "?"})
+              <div className="space-y-1 text-center text-xs text-gray-400">
+                <div>
+                  AI: {giftSession.aiProviderUsed} ({giftSession.aiLatencyMs ?? "?"}ms, attempt {giftSession.aiAttempt ?? "?"})
+                </div>
+                {giftSession.engineVersion ? <div>Engine: {giftSession.engineVersion}</div> : null}
+                {giftSession.nodeTimings ? (
+                  <div>
+                    Nodes: {Object.entries(giftSession.nodeTimings).map(([node, ms]) => `${node} ${ms}ms`).join(" | ")}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </CardContent>

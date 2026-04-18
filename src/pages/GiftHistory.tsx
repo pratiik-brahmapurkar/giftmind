@@ -370,15 +370,48 @@ export default function GiftHistory() {
   }, [filteredSessions, visibleCount]);
 
   const feedbackMutation = useMutation({
-    mutationFn: async ({ sessionId, rating, notes }: { sessionId: string; rating: string; notes: string }) => {
-      const { error } = await supabase.from("gift_feedback").insert({
-        session_id: sessionId,
-        user_id: user!.id,
-        recipient_reaction: rating,
-        notes,
-      });
+    mutationFn: async ({
+      sessionId,
+      rating,
+      notes,
+      existingFeedbackId,
+    }: {
+      sessionId: string;
+      rating: string;
+      notes: string;
+      existingFeedbackId?: string | null;
+    }) => {
+      if (existingFeedbackId) {
+        const { error } = await supabase
+          .from("gift_feedback")
+          .update({
+            recipient_reaction: rating,
+            notes,
+          })
+          .eq("id", existingFeedbackId)
+          .eq("user_id", user!.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("gift_feedback").insert({
+          session_id: sessionId,
+          user_id: user!.id,
+          recipient_reaction: rating,
+          notes,
+        });
+
+        if (error) throw error;
+      }
+
+      const { error: embeddingError } = await supabase
+        .from("gift_embeddings")
+        .update({
+          reaction: rating,
+        })
+        .eq("session_id", sessionId)
+        .eq("user_id", user!.id);
+
+      if (embeddingError) throw embeddingError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gift-history-feedback", user?.id] });
@@ -841,10 +874,16 @@ export default function GiftHistory() {
 
       <FeedbackModal
         session={feedbackSession}
+        existingFeedback={feedbackSession ? feedbackBySession.get(feedbackSession.id) ?? null : null}
         onClose={() => setFeedbackSession(null)}
         onSubmit={(rating, notes) => {
           if (!feedbackSession) return;
-          feedbackMutation.mutate({ sessionId: feedbackSession.id, rating, notes });
+          feedbackMutation.mutate({
+            sessionId: feedbackSession.id,
+            rating,
+            notes,
+            existingFeedbackId: feedbackBySession.get(feedbackSession.id)?.id ?? null,
+          });
         }}
         isSubmitting={feedbackMutation.isPending}
       />

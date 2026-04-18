@@ -438,6 +438,130 @@ export type Database = {
           },
         ]
       }
+      cultural_rules: {
+        Row: {
+          avoid_examples: string[]
+          confidence: number
+          context_tags: string[]
+          created_at: string
+          embedding: string | null
+          embedding_model: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          rule_text: string
+          rule_type: string
+          source: string
+          suggest_instead: string[]
+          updated_at: string
+        }
+        Insert: {
+          avoid_examples?: string[]
+          confidence?: number
+          context_tags?: string[]
+          created_at?: string
+          embedding?: string | null
+          embedding_model?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rule_text: string
+          rule_type?: string
+          source?: string
+          suggest_instead?: string[]
+          updated_at?: string
+        }
+        Update: {
+          avoid_examples?: string[]
+          confidence?: number
+          context_tags?: string[]
+          created_at?: string
+          embedding?: string | null
+          embedding_model?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rule_text?: string
+          rule_type?: string
+          source?: string
+          suggest_instead?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gift_embeddings: {
+        Row: {
+          created_at: string
+          embedding: string
+          embedding_model: string
+          gift_description: string | null
+          gift_name: string
+          id: string
+          occasion: string | null
+          price_anchor: number | null
+          product_category: string | null
+          reaction: string | null
+          recipient_id: string
+          session_id: string
+          source_text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          embedding_model?: string
+          gift_description?: string | null
+          gift_name: string
+          id?: string
+          occasion?: string | null
+          price_anchor?: number | null
+          product_category?: string | null
+          reaction?: string | null
+          recipient_id: string
+          session_id: string
+          source_text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          embedding_model?: string
+          gift_description?: string | null
+          gift_name?: string
+          id?: string
+          occasion?: string | null
+          price_anchor?: number | null
+          product_category?: string | null
+          reaction?: string | null
+          recipient_id?: string
+          session_id?: string
+          source_text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_embeddings_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_embeddings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "gift_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_embeddings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gift_sessions: {
         Row: {
           ai_attempt_number: number | null
@@ -452,12 +576,19 @@ export type Database = {
           budget_min: number | null
           confidence_score: number | null
           context_tags: string[] | null
+          cultural_rules_applied: number
           created_at: string | null
           credits_used: number | null
           currency: string | null
+          engine_version: string
+          feedback_cultural_fit: number | null
+          feedback_cultural_note: string | null
           id: string
+          node_timings: Json | null
           occasion: string
           occasion_date: string | null
+          past_gifts_checked: number
+          personalization_scores: Json | null
           product_results: Json | null
           recipient_country: string | null
           recipient_id: string | null
@@ -483,12 +614,19 @@ export type Database = {
           budget_min?: number | null
           confidence_score?: number | null
           context_tags?: string[] | null
+          cultural_rules_applied?: number
           created_at?: string | null
           credits_used?: number | null
           currency?: string | null
+          engine_version?: string
+          feedback_cultural_fit?: number | null
+          feedback_cultural_note?: string | null
           id?: string
+          node_timings?: Json | null
           occasion: string
           occasion_date?: string | null
+          past_gifts_checked?: number
+          personalization_scores?: Json | null
           product_results?: Json | null
           recipient_country?: string | null
           recipient_id?: string | null
@@ -514,12 +652,19 @@ export type Database = {
           budget_min?: number | null
           confidence_score?: number | null
           context_tags?: string[] | null
+          cultural_rules_applied?: number
           created_at?: string | null
           credits_used?: number | null
           currency?: string | null
+          engine_version?: string
+          feedback_cultural_fit?: number | null
+          feedback_cultural_note?: string | null
           id?: string
+          node_timings?: Json | null
           occasion?: string
           occasion_date?: string | null
+          past_gifts_checked?: number
+          personalization_scores?: Json | null
           product_results?: Json | null
           recipient_country?: string | null
           recipient_id?: string | null
@@ -641,6 +786,57 @@ export type Database = {
           },
           {
             foreignKeyName: "product_clicks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipient_embeddings: {
+        Row: {
+          created_at: string
+          embedding: string
+          embedding_model: string
+          embedding_version: number
+          id: string
+          recipient_id: string
+          source_text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          embedding_model?: string
+          embedding_version?: number
+          id?: string
+          recipient_id: string
+          source_text: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          embedding_model?: string
+          embedding_version?: number
+          id?: string
+          recipient_id?: string
+          source_text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipient_embeddings_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipient_embeddings_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -886,7 +1082,51 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_recent_past_gifts: {
+        Args: {
+          p_limit?: number
+          p_recipient_id: string
+        }
+        Returns: {
+          created_at: string
+          gift_name: string
+          occasion: string
+        }[]
+      }
+      match_cultural_rules: {
+        Args: {
+          filter_tags?: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          avoid_examples: string[]
+          confidence: number
+          context_tags: string[]
+          id: string
+          rule_text: string
+          rule_type: string
+          similarity: number
+          suggest_instead: string[]
+        }[]
+      }
+      match_past_gifts: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          p_recipient_id: string
+          query_embedding: string
+        }
+        Returns: {
+          gift_description: string
+          gift_name: string
+          gifted_at: string
+          occasion: string
+          reaction: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
