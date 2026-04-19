@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
 
   useEffect(() => {
     // Track visit count
@@ -40,7 +41,18 @@ export function InstallPrompt() {
     localStorage.setItem('gm_install_dismissed', 'true');
   };
 
-  if (!showPrompt) return null;
+  useEffect(() => {
+    const scrollHandler = () => {
+      if (window.scrollY > 200) {
+        setHasScrolled(true);
+        window.removeEventListener('scroll', scrollHandler);
+      }
+    };
+    window.addEventListener('scroll', scrollHandler);
+    return () => window.removeEventListener('scroll', scrollHandler);
+  }, []);
+
+  if (!showPrompt || !hasScrolled) return null;
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 bg-white rounded-xl 

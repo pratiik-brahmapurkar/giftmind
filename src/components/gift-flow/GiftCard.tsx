@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Sparkles, Trophy } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ConfidenceBadge } from "@/components/ui/confidence-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { GiftRecommendation, Recipient } from "@/hooks/useGiftSession";
@@ -28,30 +28,7 @@ interface GiftCardProps {
   onTrackClick: (product: ProductResult["products"][number]) => void;
 }
 
-function getConfidenceBadge(score: number) {
-  if (score >= 90) {
-    return {
-      label: `${score}% High confidence`,
-      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    };
-  }
-  if (score >= 75) {
-    return {
-      label: `${score}% Strong match`,
-      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    };
-  }
-  if (score >= 60) {
-    return {
-      label: `${score}% Good option`,
-      className: "border-amber-200 bg-amber-50 text-amber-700",
-    };
-  }
-  return {
-    label: `${score}% Worth considering`,
-    className: "border-orange-200 bg-orange-50 text-orange-700",
-  };
-}
+// Removed getConfidenceBadge as ConfidenceBadge component handles calculation
 
 export default function GiftCard({
   gift,
@@ -70,7 +47,6 @@ export default function GiftCard({
   onSelect,
   onTrackClick,
 }: GiftCardProps) {
-  const badge = getConfidenceBadge(gift.confidence_score);
   const planConfig = getPlanConfig(userPlan);
   const [cautionOpen, setCautionOpen] = useState(false);
 
@@ -93,9 +69,7 @@ export default function GiftCard({
             </div>
             <h3 className="text-xl font-semibold text-foreground">{gift.name}</h3>
           </div>
-          <Badge variant="outline" className={cn("w-fit", badge.className)}>
-            {badge.label}
-          </Badge>
+          <ConfidenceBadge score={gift.confidence_score} size="sm" animate={true} />
         </div>
 
         <p className="text-sm leading-6 text-muted-foreground">{gift.why_it_works}</p>

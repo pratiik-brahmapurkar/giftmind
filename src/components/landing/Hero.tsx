@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Gift, Sparkles, Heart, CheckCircle2 } from "lucide-react";
+import { Gift, Sparkles, Heart, CheckCircle2, ArrowRight } from "lucide-react";
 
 const GiftBoxAnimation = () => (
   <div className="relative w-64 h-64 md:w-80 md:h-80">
@@ -24,9 +24,9 @@ const GiftBoxAnimation = () => (
         </div>
         {/* Lid */}
         <motion.div
-          className="absolute -top-5 left-1/2 -translate-x-1/2 w-36 md:w-44 h-8 rounded-lg gradient-primary shadow-lg"
-          animate={{ rotate: [-3, 3, -3] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute left-1/2 -translate-x-1/2 w-36 md:w-44 h-8 rounded-lg gradient-primary shadow-lg origin-bottom-right"
+          animate={{ rotate: [-8, -15, -8], y: [-15, -25, -15], x: ["-45%", "-40%", "-45%"] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
           <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-6 rounded-full bg-accent" />
         </motion.div>
@@ -81,7 +81,7 @@ const Hero = () => {
             transition={{ duration: 0.7 }}
           >
             <motion.div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/50 border border-amber-200 text-amber-700 text-sm font-medium mb-6"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
@@ -92,10 +92,10 @@ const Hero = () => {
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight mb-6">
               Stop Guessing.{" "}
-              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              <span className="text-amber-700">
                 Start Gifting
               </span>{" "}
-              with Confidence.
+              <span className="tracking-normal">with Confidence.</span>
             </h1>
 
             <p className="text-lg md:text-xl text-muted-foreground max-w-xl mb-8 leading-relaxed">
@@ -107,12 +107,13 @@ const Hero = () => {
                 <Gift className="w-5 h-5 mr-2" />
                 Find the Perfect Gift — Free
               </Button>
-              <Button variant="heroGhost" size="lg" className="text-base px-8 py-6 rounded-lg">
+              <Button variant="ghost" size="lg" className="text-base px-8 py-6 rounded-lg group text-neutral-700 hover:text-neutral-900 border border-transparent hover:border-neutral-200">
                 See How It Works
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" strokeWidth={1.5} />
               </Button>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 justify-center md:justify-start text-sm text-muted-foreground">
+            <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 justify-center md:justify-start text-sm text-neutral-700 font-medium">
               <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> No credit card required</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> 3 free sessions</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> 60-second results</span>

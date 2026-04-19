@@ -58,7 +58,7 @@ const HowItWorks = () => {
                   {step.step}
                 </div>
                 <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <step.icon className="w-8 h-8 text-primary-foreground" />
+                  <step.icon className="w-8 h-8 text-primary-foreground" strokeWidth={1.5} />
                 </div>
                 <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
                 <p className="text-muted-foreground leading-relaxed">{step.description}</p>

@@ -26,8 +26,7 @@ const TestimonialPanel = () => {
   const t = testimonials[index];
 
   return (
-    <div className="hidden md:flex w-1/2 relative items-center justify-center p-12"
-      style={{ background: "linear-gradient(135deg, #6C5CE7, #4834D4)" }}>
+    <div className="hidden md:flex w-1/2 relative items-center justify-center p-12 bg-[#2A2724]">
       {/* Decorative elements */}
       <div className="absolute top-8 left-8">
         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
@@ -37,7 +36,7 @@ const TestimonialPanel = () => {
       <div className="absolute bottom-8 right-8 text-white/20 text-xs">GiftMind</div>
 
       <div className={`max-w-sm text-center transition-opacity duration-300 ${fade ? "opacity-100" : "opacity-0"}`}>
-        <Quote className="w-8 h-8 text-white/30 mx-auto mb-4 rotate-180" />
+        <Quote className="w-8 h-8 text-white/30 mx-auto mb-4 rotate-180" strokeWidth={1.5} />
         <p className="text-xl text-white font-medium leading-relaxed mb-4">"{t.text}"</p>
         <p className="text-white/60 text-sm">— {t.author}</p>
       </div>
