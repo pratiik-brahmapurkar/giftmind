@@ -103,10 +103,10 @@ export default async function handler(req: Request): Promise<Response> {
       headers: responseHeaders,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[supabase-proxy] Error:', error);
     return jsonError(
-      `Proxy error: ${error?.message || 'unknown'}`, 
+      `Proxy error: ${error instanceof Error ? error.message : 'unknown'}`, 
       502
     );
   }

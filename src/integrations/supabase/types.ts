@@ -854,7 +854,9 @@ export type Database = {
           created_at: string | null
           cultural_context: string | null
           gender: string | null
+          gift_count_cached: number
           id: string
+          is_archived: boolean
           important_dates: Json | null
           interests: string[] | null
           last_gift_date: string | null
@@ -862,6 +864,7 @@ export type Database = {
           notes: string | null
           relationship: string | null
           relationship_depth: string | null
+          session_count: number
           updated_at: string | null
           user_id: string
         }
@@ -871,7 +874,9 @@ export type Database = {
           created_at?: string | null
           cultural_context?: string | null
           gender?: string | null
+          gift_count_cached?: number
           id?: string
+          is_archived?: boolean
           important_dates?: Json | null
           interests?: string[] | null
           last_gift_date?: string | null
@@ -879,6 +884,7 @@ export type Database = {
           notes?: string | null
           relationship?: string | null
           relationship_depth?: string | null
+          session_count?: number
           updated_at?: string | null
           user_id: string
         }
@@ -888,7 +894,9 @@ export type Database = {
           created_at?: string | null
           cultural_context?: string | null
           gender?: string | null
+          gift_count_cached?: number
           id?: string
+          is_archived?: boolean
           important_dates?: Json | null
           interests?: string[] | null
           last_gift_date?: string | null
@@ -896,6 +904,7 @@ export type Database = {
           notes?: string | null
           relationship?: string | null
           relationship_depth?: string | null
+          session_count?: number
           updated_at?: string | null
           user_id?: string
         }

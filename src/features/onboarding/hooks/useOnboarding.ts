@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { OnboardingState, defaultOnboardingState } from '../types/onboarding.types';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -43,7 +44,7 @@ export function useOnboarding() {
     setOnboardingState(newState);
     
     await supabase.from('users').update({
-      onboarding_state: newState as any
+      onboarding_state: newState as Json
     }).eq('id', user.id);
   }, [onboardingState, user]);
 
@@ -59,7 +60,7 @@ export function useOnboarding() {
 
     await supabase.from('users').update({
       has_completed_onboarding: true,
-      onboarding_state: newState as any
+      onboarding_state: newState as Json
     }).eq('id', user.id);
   }, [onboardingState, user]);
 
@@ -74,7 +75,7 @@ export function useOnboarding() {
     setOnboardingState(newState);
     
     await supabase.from('users').update({
-      onboarding_state: newState as any
+      onboarding_state: newState as Json
     }).eq('id', user.id);
   }, [onboardingState, user]);
 

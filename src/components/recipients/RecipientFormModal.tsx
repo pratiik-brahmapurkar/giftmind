@@ -1,4 +1,5 @@
 import { useState, useEffect, type ElementType, type FormEvent, type ReactNode } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,20 +23,23 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, X, CalendarDays, Check, ChevronsUpDown, User, Heart, Globe, StickyNote } from "lucide-react";
+import { Check, ChevronsUpDown, Globe, Heart, Plus, StickyNote, Trash2, User, X, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/posthog";
-import { sanitizeArray, sanitizeString, validateCountryCode, validateRelationship } from "@/lib/validation";
+import { sanitizeString, validateCountryCode, validateRelationship } from "@/lib/validation";
+import { isCustomDateLabel, isValidImportantDate, recipientFormSchema } from "@/lib/recipientValidation";
 import {
-  RELATIONSHIP_TYPES,
-  RELATIONSHIP_DEPTHS,
   AGE_RANGES,
-  GENDER_OPTIONS,
-  CULTURAL_CONTEXTS,
-  INTEREST_SUGGESTIONS,
   COUNTRY_OPTIONS,
-  type RecipientFormData,
+  CULTURAL_CONTEXTS,
+  DATE_LABEL_OPTIONS,
+  DIETARY_OPTIONS,
+  GENDER_OPTIONS,
+  INTEREST_SUGGESTIONS,
+  RELATIONSHIP_DEPTHS,
+  RELATIONSHIP_TYPES,
   type ImportantDate,
+  type RecipientFormData,
   defaultFormData,
 } from "./constants";
 
@@ -43,12 +47,19 @@ interface RecipientFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: RecipientFormData) => void;
+  onDelete?: () => void;
+  mode?: "create" | "edit";
   initialData?: RecipientFormData;
   loading?: boolean;
   reminderNote?: string;
+  stats?: {
+    giftCount: number;
+    sessionCount: number;
+    lastGiftDate: string | null;
+    addedAt: string | null;
+  };
 }
 
-/* ── Reusable section wrapper ── */
 const FormSection = ({
   icon: Icon,
   title,
@@ -58,27 +69,35 @@ const FormSection = ({
   title: string;
   children: ReactNode;
 }) => (
-  <div className="rounded-xl bg-muted/40 border border-border/50 p-4 space-y-3">
-    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-      <Icon className="w-3.5 h-3.5 text-primary/70" /> {title}
+  <div className="space-y-3 rounded-xl border border-border/50 bg-muted/40 p-4">
+    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <Icon className="h-3.5 w-3.5 text-primary/70" strokeWidth={1.5} /> {title}
     </p>
     {children}
   </div>
 );
 
+function normalizeDateLabelInput(value: string) {
+  return DATE_LABEL_OPTIONS.some((option) => option.value === value) || !value ? value : "Other";
+}
+
 const RecipientFormModal = ({
   open,
   onOpenChange,
   onSubmit,
+  onDelete,
+  mode = "create",
   initialData,
   loading,
   reminderNote,
+  stats,
 }: RecipientFormModalProps) => {
   const [form, setForm] = useState<RecipientFormData>(defaultFormData);
   const [customInterest, setCustomInterest] = useState("");
   const [countryOpen, setCountryOpen] = useState(false);
   const [error, setError] = useState("");
-  const isEdit = !!initialData;
+  const isEdit = mode === "edit";
+  const noteCount = form.notes.length;
 
   useEffect(() => {
     if (open) {
@@ -92,102 +111,159 @@ const RecipientFormModal = ({
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const toggleInterest = (tag: string) => {
-    const interests = form.interests.includes(tag)
-      ? form.interests.filter((i) => i !== tag)
+    const alreadySelected = form.interests.includes(tag);
+    if (!alreadySelected && form.interests.length >= 10) return;
+
+    const interests = alreadySelected
+      ? form.interests.filter((entry) => entry !== tag)
       : [...form.interests, tag];
     update("interests", interests);
   };
 
   const addCustomInterest = () => {
-    const trimmed = customInterest.trim();
-    if (trimmed && !form.interests.includes(trimmed)) {
-      update("interests", [...form.interests, trimmed]);
+    const trimmed = sanitizeString(customInterest, 50);
+    if (!trimmed || form.interests.includes(trimmed) || form.interests.length >= 10) {
+      setCustomInterest("");
+      return;
     }
+
+    update("interests", [...form.interests, trimmed]);
     setCustomInterest("");
   };
 
+  const toggleDietary = (value: string) => {
+    const existing = form.cultural_context_obj.dietary;
+    const dietary = existing.includes(value)
+      ? existing.filter((entry) => entry !== value)
+      : [...existing, value];
+
+    update("cultural_context_obj", {
+      ...form.cultural_context_obj,
+      dietary,
+    });
+  };
+
   const addDate = () => {
+    if (form.important_dates.length >= 5) return;
+
     update("important_dates", [
       ...form.important_dates,
-      { label: "", date: "", recurring: true },
+      { label: "Birthday", date: "", recurring: true },
     ]);
   };
 
-  const updateDate = (index: number, field: keyof ImportantDate, value: ImportantDate[keyof ImportantDate]) => {
+  const updateDate = (index: number, next: ImportantDate) => {
     const dates = [...form.important_dates];
-    dates[index] = { ...dates[index], [field]: value };
+    dates[index] = next;
     update("important_dates", dates);
   };
 
   const removeDate = (index: number) => {
-    update("important_dates", form.important_dates.filter((_, i) => i !== index));
+    update("important_dates", form.important_dates.filter((_, currentIndex) => currentIndex !== index));
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const cleanData: RecipientFormData = {
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+
+    const sanitized: RecipientFormData = {
       ...form,
       name: sanitizeString(form.name, 100),
       relationship_type: validateRelationship(form.relationship_type) ? form.relationship_type : "",
-      interests: sanitizeArray(form.interests, 15),
-      notes: sanitizeString(form.notes, 500),
-      cultural_context: sanitizeString(form.cultural_context, 50),
+      interests: form.interests.map((entry) => sanitizeString(entry, 50)).filter(Boolean).slice(0, 10),
+      cultural_context: "",
+      cultural_context_obj: {
+        category: sanitizeString(form.cultural_context_obj.category, 50),
+        dietary: form.cultural_context_obj.dietary.map((entry) => sanitizeString(entry, 30)).filter(Boolean).slice(0, 6),
+      },
       country: validateCountryCode(form.country) ? form.country.toUpperCase() : "",
+      notes: sanitizeString(form.notes, 500),
       important_dates: form.important_dates
-        .map((date) => ({
-          label: sanitizeString(date.label, 50),
-          date: sanitizeString(date.date, 5),
-          recurring: !!date.recurring,
+        .map((entry) => ({
+          label: sanitizeString(entry.label, 50),
+          date: sanitizeString(entry.date, 5),
+          recurring: Boolean(entry.recurring),
         }))
-        .filter((date) => date.label && date.date),
+        .filter((entry) => entry.label && entry.date),
     };
 
-    if (!cleanData.name || cleanData.name.length < 1) {
+    if (!sanitized.name) {
       setError("Name is required");
       return;
     }
 
-    if (!cleanData.relationship_type) {
+    if (!sanitized.relationship_type) {
       setError("Please select a valid relationship");
+      return;
+    }
+
+    if (sanitized.important_dates.some((entry) => !isValidImportantDate(entry.date))) {
+      setError("Important dates must use MM-DD format.");
+      return;
+    }
+
+    const parsed = recipientFormSchema.safeParse(sanitized);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message || "Please review the form fields.");
       return;
     }
 
     setError("");
 
     if (!isEdit) {
-      trackEvent('recipient_added', { relationship: cleanData.relationship_type });
+      trackEvent("recipient_added", { relationship: parsed.data.relationship_type });
     }
 
-    onSubmit(cleanData);
+    onSubmit(parsed.data);
   };
-
-  const selectedCount = form.interests.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[92vh] p-0 gap-0 overflow-hidden">
-        {/* ── Sticky header ── */}
-        <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/50 bg-background sticky top-0 z-10">
+      <DialogContent className="max-h-[92vh] max-w-xl gap-0 overflow-hidden p-0">
+        <DialogHeader className="sticky top-0 z-10 border-b border-border/50 bg-background px-6 pb-3 pt-5">
           <DialogTitle className="font-heading text-lg">
-            {isEdit ? "Edit Person" : "Add a Person"} ✨
+            {isEdit ? `Edit ${initialData?.name || "Person"} ✨` : "Add a Person ✨"}
           </DialogTitle>
-          <p className="text-xs text-muted-foreground -mt-0.5">
+          <p className="text-xs text-muted-foreground">
             The more you share, the better the gift recommendations.
           </p>
         </DialogHeader>
 
-        <ScrollArea className="px-6 pb-6 max-h-[calc(90vh-80px)]">
+        <ScrollArea className="max-h-[calc(90vh-80px)] px-6 pb-6">
           <form onSubmit={handleSubmit} className="space-y-6 pr-2">
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="pt-4 text-sm text-destructive">{error}</p>}
 
-            {/* ── Section 1: Basic Info ── */}
+            {stats && isEdit && (
+              <div className="grid gap-3 pt-4 md:grid-cols-4">
+                <div className="rounded-xl border border-border/50 bg-muted/40 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Sessions</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{stats.sessionCount}</p>
+                </div>
+                <div className="rounded-xl border border-border/50 bg-muted/40 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Gifts</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{stats.giftCount}</p>
+                </div>
+                <div className="rounded-xl border border-border/50 bg-muted/40 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Last Gift</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    {stats.lastGiftDate ? format(new Date(stats.lastGiftDate), "MMM yyyy") : "None yet"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border/50 bg-muted/40 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Added</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    {stats.addedAt ? format(new Date(stats.addedAt), "MMM d, yyyy") : "Recently"}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <FormSection icon={User} title="Basic Info">
               <div className="space-y-1.5">
                 <Label htmlFor="name" className="text-xs">Name *</Label>
                 <Input
                   id="name"
                   value={form.name}
-                  onChange={(e) => update("name", e.target.value)}
+                  onChange={(event) => update("name", event.target.value)}
                   placeholder="e.g. Mom, Priya, Alex"
                   maxLength={100}
                   required
@@ -197,14 +273,14 @@ const RecipientFormModal = ({
 
               <div className="space-y-1.5">
                 <Label className="text-xs">Relationship *</Label>
-                <Select value={form.relationship_type} onValueChange={(v) => update("relationship_type", v)}>
+                <Select value={form.relationship_type} onValueChange={(value) => update("relationship_type", value)}>
                   <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select relationship" />
                   </SelectTrigger>
                   <SelectContent>
-                    {RELATIONSHIP_TYPES.map((r) => (
-                      <SelectItem key={r.value} value={r.value}>
-                        <span className="mr-2">{r.emoji}</span> {r.label}
+                    {RELATIONSHIP_TYPES.map((relationship) => (
+                      <SelectItem key={relationship.value} value={relationship.value}>
+                        <span className="mr-2">{relationship.emoji}</span> {relationship.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -215,21 +291,22 @@ const RecipientFormModal = ({
                 <Label className="text-xs">How close are you?</Label>
                 <RadioGroup
                   value={form.relationship_depth}
-                  onValueChange={(v) => update("relationship_depth", v)}
-                  className="flex gap-2"
+                  onValueChange={(value) => update("relationship_depth", value)}
+                  className="flex flex-wrap gap-2"
                 >
-                  {RELATIONSHIP_DEPTHS.map((d) => (
+                  {RELATIONSHIP_DEPTHS.map((depth) => (
                     <label
-                      key={d.value}
-                      htmlFor={`depth-${d.value}`}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition-all ${
-                        form.relationship_depth === d.value
-                          ? "border-primary bg-primary/10 text-primary font-medium"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40"
-                      }`}
+                      key={depth.value}
+                      htmlFor={`depth-${depth.value}`}
+                      className={cn(
+                        "cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-all",
+                        form.relationship_depth === depth.value
+                          ? "border-primary bg-primary/10 font-medium text-primary"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40",
+                      )}
                     >
-                      <RadioGroupItem value={d.value} id={`depth-${d.value}`} className="sr-only" />
-                      {d.label}
+                      <RadioGroupItem value={depth.value} id={`depth-${depth.value}`} className="sr-only" />
+                      {depth.label}
                     </label>
                   ))}
                 </RadioGroup>
@@ -238,22 +315,22 @@ const RecipientFormModal = ({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Age Range</Label>
-                  <Select value={form.age_range} onValueChange={(v) => update("age_range", v)}>
+                  <Select value={form.age_range} onValueChange={(value) => update("age_range", value)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Age" /></SelectTrigger>
                     <SelectContent>
-                      {AGE_RANGES.map((a) => (
-                        <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                      {AGE_RANGES.map((range) => (
+                        <SelectItem key={range.value} value={range.value}>{range.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Gender</Label>
-                  <Select value={form.gender} onValueChange={(v) => update("gender", v)}>
+                  <Select value={form.gender} onValueChange={(value) => update("gender", value)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Gender" /></SelectTrigger>
                     <SelectContent>
-                      {GENDER_OPTIONS.map((g) => (
-                        <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                      {GENDER_OPTIONS.map((gender) => (
+                        <SelectItem key={gender.value} value={gender.value}>{gender.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -261,8 +338,7 @@ const RecipientFormModal = ({
               </div>
             </FormSection>
 
-            {/* ── Section 2: Interests ── */}
-            <FormSection icon={Heart} title={`Interests${selectedCount > 0 ? ` (${selectedCount})` : ""}`}>
+            <FormSection icon={Heart} title={`Interests${form.interests.length > 0 ? ` (${form.interests.length})` : ""}`}>
               <div className="flex flex-wrap gap-1.5">
                 {INTEREST_SUGGESTIONS.map((tag) => {
                   const selected = form.interests.includes(tag);
@@ -270,11 +346,12 @@ const RecipientFormModal = ({
                     <Badge
                       key={tag}
                       variant="outline"
-                      className={`cursor-pointer text-xs px-2.5 py-1 transition-all duration-150 ${
+                      className={cn(
+                        "cursor-pointer px-2.5 py-1 text-xs transition-all duration-150",
                         selected
-                          ? "bg-primary text-primary-foreground border-primary shadow-sm scale-[1.02]"
-                          : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-                      }`}
+                          ? "scale-[1.02] border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
+                      )}
                       onClick={() => toggleInterest(tag)}
                     >
                       {tag}
@@ -282,170 +359,236 @@ const RecipientFormModal = ({
                   );
                 })}
                 {form.interests
-                  .filter((i) => !INTEREST_SUGGESTIONS.includes(i))
+                  .filter((entry) => !INTEREST_SUGGESTIONS.includes(entry))
                   .map((tag) => (
                     <Badge
                       key={tag}
-                      className="cursor-pointer text-xs px-2.5 py-1 bg-primary text-primary-foreground border-primary"
+                      className="cursor-pointer border-primary bg-primary px-2.5 py-1 text-xs text-primary-foreground"
                       onClick={() => toggleInterest(tag)}
                     >
-                      {tag} <X className="w-3 h-3 ml-1" />
+                      {tag} <X className="ml-1 h-3 w-3" />
                     </Badge>
                   ))}
               </div>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Add custom interest"
+                  placeholder={form.interests.length >= 10 ? "Interest limit reached" : "Add custom interest"}
                   value={customInterest}
-                  onChange={(e) => setCustomInterest(e.target.value)}
+                  onChange={(event) => setCustomInterest(event.target.value)}
                   maxLength={50}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); addCustomInterest(); }
+                  disabled={form.interests.length >= 10}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addCustomInterest();
+                    }
                   }}
                   className="h-9 text-sm"
                 />
-                <Button type="button" size="sm" variant="outline" onClick={addCustomInterest} className="h-9 px-3 shrink-0">
-                  <Plus className="w-3.5 h-3.5" />
+                <Button type="button" size="sm" variant="outline" onClick={addCustomInterest} className="h-9 shrink-0 px-3">
+                  <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">Up to 10 interests per person.</p>
             </FormSection>
 
-            {/* ── Section 3: Cultural Context & Country ── */}
             <FormSection icon={Globe} title="Cultural Context">
               <div className="space-y-3">
-                <Select value={form.cultural_context} onValueChange={(v) => update("cultural_context", v)}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select context" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CULTURAL_CONTEXTS.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Cultural context</Label>
+                  <Select
+                    value={form.cultural_context_obj.category}
+                    onValueChange={(value) =>
+                      update("cultural_context_obj", { ...form.cultural_context_obj, category: value })
+                    }
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select context" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CULTURAL_CONTEXTS.map((context) => (
+                        <SelectItem key={context.value} value={context.value}>{context.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-3">
-                <Label>Where do they live?</Label>
-                <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={countryOpen}
-                      className="w-full justify-between font-normal"
-                    >
-                      {form.country
-                        ? COUNTRY_OPTIONS.find((c) => c.value === form.country)?.flag + " " + COUNTRY_OPTIONS.find((c) => c.value === form.country)?.label
-                        : "Same as my country"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search country..." />
-                      <CommandList>
-                        <CommandEmpty>No country found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="empty"
-                            onSelect={() => {
-                              update("country", "");
-                              setCountryOpen(false);
-                            }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", form.country === "" ? "opacity-100" : "opacity-0")} />
-                            Same as my country
-                          </CommandItem>
-                          {COUNTRY_OPTIONS.map((country) => (
+                <div className="space-y-2">
+                  <Label className="text-xs">Dietary preferences</Label>
+                  <p className="text-xs text-muted-foreground">Helps the AI avoid unsuitable gifts.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DIETARY_OPTIONS.map((option) => {
+                      const checked = form.cultural_context_obj.dietary.includes(option.value);
+                      return (
+                        <label
+                          key={option.value}
+                          className={cn(
+                            "flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all",
+                            checked
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:border-primary/40",
+                          )}
+                        >
+                          <Checkbox checked={checked} onCheckedChange={() => toggleDietary(option.value)} />
+                          {option.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-xs">Where do they live?</Label>
+                  <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={countryOpen}
+                        className="w-full justify-between font-normal"
+                      >
+                        {form.country
+                          ? `${COUNTRY_OPTIONS.find((country) => country.value === form.country)?.flag || ""} ${COUNTRY_OPTIONS.find((country) => country.value === form.country)?.label || form.country}`
+                          : "Same as my country"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search country..." />
+                        <CommandList>
+                          <CommandEmpty>No country found.</CommandEmpty>
+                          <CommandGroup>
                             <CommandItem
-                              key={country.value}
-                              value={country.label}
+                              value="same-country"
                               onSelect={() => {
-                                update("country", country.value);
+                                update("country", "");
                                 setCountryOpen(false);
                               }}
                             >
-                              <Check className={cn("mr-2 h-4 w-4", form.country === country.value ? "opacity-100" : "opacity-0")} />
-                              {country.flag} {country.label}
+                              <Check className={cn("mr-2 h-4 w-4", form.country === "" ? "opacity-100" : "opacity-0")} />
+                              Same as my country
                             </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {form.country && form.country !== "" && (
-                  <p className="text-xs text-muted-foreground">
-                    Gift recommendations and store links will be tailored for {COUNTRY_OPTIONS.find((c) => c.value === form.country)?.label} {COUNTRY_OPTIONS.find((c) => c.value === form.country)?.flag}
-                  </p>
-                )}
+                            {COUNTRY_OPTIONS.map((country) => (
+                              <CommandItem
+                                key={country.value}
+                                value={country.label}
+                                onSelect={() => {
+                                  update("country", country.value);
+                                  setCountryOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", form.country === country.value ? "opacity-100" : "opacity-0")} />
+                                {country.flag} {country.label}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </FormSection>
 
-            {/* ── Section 4: Important Dates ── */}
             <FormSection icon={CalendarDays} title="Important Dates">
-              {form.important_dates.map((d, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-background p-2.5">
-                  <Input
-                    placeholder="e.g. Birthday"
-                    value={d.label}
-                    onChange={(e) => updateDate(i, "label", e.target.value)}
-                    maxLength={50}
-                    className="h-8 text-sm flex-1"
-                  />
-                  <Input
-                    placeholder="MM-DD"
-                    value={d.date}
-                    onChange={(e) => updateDate(i, "date", e.target.value)}
-                    maxLength={5}
-                    className="h-8 text-sm w-20"
-                  />
-                  <div className="flex items-center gap-1">
-                    <Checkbox
-                      checked={d.recurring}
-                      onCheckedChange={(v) => updateDate(i, "recurring", !!v)}
-                      id={`recurring-${i}`}
-                    />
-                    <Label htmlFor={`recurring-${i}`} className="text-[10px] text-muted-foreground cursor-pointer">
-                      Yearly
-                    </Label>
+              {form.important_dates.map((date, index) => {
+                const labelValue = normalizeDateLabelInput(date.label);
+                return (
+                  <div key={`${date.label}-${index}`} className="space-y-2 rounded-lg border border-border bg-background p-3">
+                    <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_auto]">
+                      <Select
+                        value={labelValue || "Birthday"}
+                        onValueChange={(value) =>
+                          updateDate(index, {
+                            ...date,
+                            label: value === "Other" ? "" : value,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Choose label" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DATE_LABEL_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.emoji} {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder="MM-DD"
+                        value={date.date}
+                        onChange={(event) => updateDate(index, { ...date, date: event.target.value })}
+                        maxLength={5}
+                        className={cn("h-9 text-sm", date.date && !isValidImportantDate(date.date) && "border-destructive")}
+                      />
+                      <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeDate(index)} aria-label="Remove date">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {(labelValue === "Other" || isCustomDateLabel(date.label)) && (
+                      <Input
+                        placeholder="Custom label"
+                        value={date.label}
+                        onChange={(event) => updateDate(index, { ...date, label: event.target.value })}
+                        maxLength={50}
+                        className="h-9 text-sm"
+                      />
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={date.recurring}
+                        onCheckedChange={(value) => updateDate(index, { ...date, recurring: !!value })}
+                        id={`recurring-${index}`}
+                      />
+                      <Label htmlFor={`recurring-${index}`} className="cursor-pointer text-xs text-muted-foreground">
+                        Repeats yearly
+                      </Label>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeDate(i)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" onClick={addDate} className="h-8 text-xs">
-                <Plus className="w-3 h-3 mr-1" /> Add Date
+                );
+              })}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addDate}
+                className="h-8 text-xs"
+                disabled={form.important_dates.length >= 5}
+              >
+                <Plus className="mr-1 h-3 w-3" /> Add Date
               </Button>
-              {reminderNote && (
-                <p className="text-xs text-muted-foreground mt-1">{reminderNote}</p>
-              )}
+              <p className="text-xs text-muted-foreground">Use `MM-DD` format. Maximum 5 dates per person.</p>
+              {reminderNote && <p className="text-xs text-muted-foreground">{reminderNote}</p>}
             </FormSection>
 
-            {/* ── Section 5: Notes ── */}
             <FormSection icon={StickyNote} title="Notes">
               <Textarea
                 id="notes"
                 value={form.notes}
-                onChange={(e) => update("notes", e.target.value)}
+                onChange={(event) => update("notes", event.target.value)}
                 placeholder="Anything else that might help… e.g. 'loves anything with cats' or 'minimalist style'"
-                maxLength={1000}
-                rows={3}
+                maxLength={500}
+                rows={4}
                 className="text-sm"
               />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Useful for style, hobbies, restrictions, or reminders.</span>
+                <span>{noteCount}/500</span>
+              </div>
             </FormSection>
 
-            {/* ── Submit ── */}
-            <div className="pt-1 pb-2">
-              <Button type="submit" variant="hero" className="w-full h-12 text-base font-semibold" disabled={loading}>
+            <div className="space-y-3 pb-2 pt-1">
+              <Button type="submit" variant="hero" className="h-12 w-full text-base font-semibold" disabled={loading}>
                 {loading ? "Saving…" : isEdit ? "Save Changes" : "Add Person"}
               </Button>
+              {isEdit && onDelete && (
+                <Button type="button" variant="ghost" className="w-full text-destructive" onClick={onDelete}>
+                  Delete {initialData?.name || "Person"}
+                </Button>
+              )}
             </div>
           </form>
         </ScrollArea>

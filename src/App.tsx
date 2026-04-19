@@ -73,6 +73,7 @@ const App = () => {
               <Route path="/onboarding" element={<AuthGuard><Onboarding /></AuthGuard>} />
               <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
               <Route path="/my-people" element={routeWithLoader(<AuthGuard><MyPeople /></AuthGuard>)} />
+              <Route path="/my-people/:recipientId" element={routeWithLoader(<AuthGuard><MyPeople /></AuthGuard>)} />
               <Route path="/gift-flow" element={routeWithLoader(<AuthGuard><GiftFlow /></AuthGuard>)} />
               <Route path="/gift-history" element={routeWithLoader(<AuthGuard><GiftHistory /></AuthGuard>)} />
               <Route path="/credits" element={routeWithLoader(<AuthGuard><Credits /></AuthGuard>)} />

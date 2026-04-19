@@ -59,7 +59,7 @@ export function validateOccasion(occasion: string): boolean {
 
 export function validateRelationship(rel: string): boolean {
   const valid = [
-    "partner", "parent", "sibling", "close_friend", "friend", "colleague",
+    "partner", "parent", "grandparent", "sibling", "close_friend", "friend", "colleague",
     "boss", "acquaintance", "in_law", "child", "mentor", "new_relationship",
   ];
   return valid.includes(rel?.toLowerCase());

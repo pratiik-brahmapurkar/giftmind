@@ -1,120 +1,68 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import RecipientCard from "@/components/recipients/RecipientCard";
+import RecipientDetailPanel from "@/components/recipients/RecipientDetailPanel";
 import RecipientFormModal from "@/components/recipients/RecipientFormModal";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { Plus, Users, Search, Heart, Lock } from "lucide-react";
+import { Lock, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { FILTER_GROUPS, type ImportantDate, type RecipientFormData } from "@/components/recipients/constants";
-import { useUserPlan } from "@/hooks/useUserPlan";
-import { getUpgradePlan, getUpgradeText } from "@/lib/geoConfig";
-import { canAddRecipientForPlan, getRecipientLimit, getRecipientLimitMessage } from "@/lib/planLimits";
-import type { Tables } from "@/integrations/supabase/types";
+import { trackEvent } from "@/lib/posthog";
 import {
-  buildRecipientInsertPayload,
-  buildRecipientUpdatePayload,
-  createRecipientAuthError,
-  createRecipientMutationError,
-  getRecipientRelationship,
+  FILTER_GROUPS,
+  type RecipientFormData,
+  defaultFormData,
+} from "@/components/recipients/constants";
+import { getUpgradePlan, getUpgradeText } from "@/lib/geoConfig";
+import {
+  buildRecipientFormData,
+  parseRecipientImportantDates,
   type RecipientMutationError,
 } from "@/lib/recipients";
 import { sanitizeString } from "@/lib/validation";
+import { useRecipients } from "@/hooks/useRecipients";
 
 type SortOption = "recent" | "upcoming" | "most_gifted";
-type RecipientRow = Database["public"]["Tables"]["recipients"]["Row"];
-type GiftSessionRow = Pick<
-  Database["public"]["Tables"]["gift_sessions"]["Row"],
-  "recipient_id" | "created_at" | "status" | "selected_gift_name"
->;
-type UserProfileRow = Pick<Tables<"users">, "country" | "active_plan">;
-
-type RecipientWithIntelligence = RecipientRow & {
-  gift_count: number;
-  next_important_date: ImportantDate | null;
-  next_important_date_days: number | null;
-};
-
-function parseImportantDates(value: RecipientRow["important_dates"]): ImportantDate[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null;
-      const candidate = entry as Partial<ImportantDate>;
-      if (typeof candidate.label !== "string" || typeof candidate.date !== "string") return null;
-      return {
-        label: candidate.label,
-        date: candidate.date,
-        recurring: Boolean(candidate.recurring),
-      };
-    })
-    .filter((entry): entry is ImportantDate => Boolean(entry));
-}
-
-function getDaysUntilDate(mmdd: string) {
-  const [month, day] = mmdd.split("-").map(Number);
-  if (!month || !day) return null;
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let target = new Date(today.getFullYear(), month - 1, day);
-  if (Number.isNaN(target.getTime())) return null;
-  if (target < today) {
-    target = new Date(today.getFullYear() + 1, month - 1, day);
-  }
-
-  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function isBirthdayOrAnniversary(label: string) {
-  const normalized = label.trim().toLowerCase();
-  return normalized.includes("birthday") || normalized.includes("anniversary");
-}
-
-function getNextImportantDate(value: RecipientRow["important_dates"]) {
-  const dated = parseImportantDates(value)
-    .map((entry) => ({
-      entry,
-      days: getDaysUntilDate(entry.date),
-      priority: isBirthdayOrAnniversary(entry.label) ? 0 : 1,
-    }))
-    .filter((entry): entry is { entry: ImportantDate; days: number; priority: number } => entry.days !== null)
-    .sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      return a.days - b.days;
-    });
-
-  if (dated.length === 0) return null;
-  return {
-    entry: dated[0].entry,
-    days: dated[0].days,
-  };
-}
 
 const MyPeople = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { plan, limits } = useUserPlan();
+  const { recipientId } = useParams();
+  const {
+    query,
+    recipients,
+    recipientsWithIntelligence,
+    userCountry,
+    plan,
+    limits,
+    atLimit,
+    activeRecipientIds,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+  } = useRecipients();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -123,93 +71,58 @@ const MyPeople = () => {
   const [search, setSearch] = useState("");
   const [filterIdx, setFilterIdx] = useState(0);
   const [sort, setSort] = useState<SortOption>("recent");
+  const [prefilledName, setPrefilledName] = useState("");
 
-  const { data: recipients = [], isLoading: recipientsLoading } = useQuery({
-    queryKey: ["recipients", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("recipients")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
+  const deferredSearch = useDeferredValue(search);
+  const recommendedPlan = getUpgradePlan(plan, "more_recipients");
 
-  const { data: giftSessions = [], isLoading: giftSessionsLoading } = useQuery({
-    queryKey: ["recipient-intelligence", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("gift_sessions")
-        .select("recipient_id,created_at,status,selected_gift_name")
-        .eq("user_id", user!.id)
-        .not("recipient_id", "is", null);
-      if (error) throw error;
-      return (data || []) as GiftSessionRow[];
-    },
-    enabled: !!user,
-  });
+  useEffect(() => {
+    const trimmed = deferredSearch.trim();
+    if (!trimmed) return;
 
-  const { data: profile } = useQuery({
-    queryKey: ["profile", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("users").select("country").eq("id", user!.id).single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-  const userCountry = profile?.country || "US";
+    const timeout = window.setTimeout(() => {
+      trackEvent("recipient_search_performed", {
+        query_length: trimmed.length,
+        result_count: recipientsWithIntelligence.filter((recipient) => {
+          const queryValue = trimmed.toLowerCase();
+          return recipient.name.toLowerCase().includes(queryValue)
+            || recipient.interests.some((interest) => interest.toLowerCase().includes(queryValue))
+            || (recipient.notes || "").toLowerCase().includes(queryValue);
+        }).length,
+      });
+    }, 300);
 
-  const recipientGiftStats = useMemo(() => {
-    return giftSessions.reduce<Record<string, { gift_count: number; last_gift_date: string | null }>>((acc, session) => {
-      if (!session.recipient_id) return acc;
-      const wasGifted = session.status === "completed" || Boolean(session.selected_gift_name);
-      if (!wasGifted) return acc;
+    return () => window.clearTimeout(timeout);
+  }, [deferredSearch, recipientsWithIntelligence]);
 
-      const key = session.recipient_id;
-      const createdAt = session.created_at || null;
+  useEffect(() => {
+    if (!recipientId) return;
+    if (query.isLoading) return;
 
-      if (!acc[key]) {
-        acc[key] = { gift_count: 0, last_gift_date: null };
-      }
-
-      acc[key].gift_count += 1;
-      if (!acc[key].last_gift_date || (createdAt && new Date(createdAt) > new Date(acc[key].last_gift_date!))) {
-        acc[key].last_gift_date = createdAt;
-      }
-
-      return acc;
-    }, {});
-  }, [giftSessions]);
+    const exists = recipients.some((recipient) => recipient.id === recipientId);
+    if (!exists) {
+      navigate("/my-people", { replace: true });
+    }
+  }, [navigate, query.isLoading, recipientId, recipients]);
 
   const filtered = useMemo(() => {
-    let list: RecipientWithIntelligence[] = (recipients as RecipientRow[]).map((recipient) => {
-      const giftStats = recipientGiftStats[recipient.id];
-      const nextDate = getNextImportantDate(recipient.important_dates);
+    let list = [...recipientsWithIntelligence];
+    const cleanSearch = sanitizeString(deferredSearch, 100).toLowerCase();
 
-      return {
-        ...recipient,
-        relationship: getRecipientRelationship(recipient) || null,
-        interests: recipient.interests ?? [],
-        gift_count: giftStats?.gift_count || 0,
-        last_gift_date: giftStats?.last_gift_date || recipient.last_gift_date,
-        next_important_date: nextDate?.entry || null,
-        next_important_date_days: nextDate?.days ?? null,
-      };
-    });
-    const cleanSearch = sanitizeString(search, 100).toLowerCase();
     if (cleanSearch) {
-      const q = cleanSearch;
-      list = list.filter((r) => r.name.toLowerCase().includes(q));
+      list = list.filter((recipient) => {
+        return recipient.name.toLowerCase().includes(cleanSearch)
+          || recipient.interests.some((interest) => interest.toLowerCase().includes(cleanSearch))
+          || (recipient.notes || "").toLowerCase().includes(cleanSearch);
+      });
     }
+
     const group = FILTER_GROUPS[filterIdx];
     if (group.types.length > 0) {
-      list = list.filter((r) => group.types.includes(getRecipientRelationship(r)));
+      list = list.filter((recipient) => group.types.includes(recipient.relationship));
     }
-    list = [...list].sort((a, b) => {
+
+    list.sort((a, b) => {
       if (sort === "upcoming") {
         if (a.next_important_date_days === null && b.next_important_date_days === null) {
           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
@@ -235,158 +148,100 @@ const MyPeople = () => {
     });
 
     return list;
-  }, [recipients, recipientGiftStats, search, filterIdx, sort]);
+  }, [deferredSearch, filterIdx, recipientsWithIntelligence, sort]);
 
-  const maxAllowed = getRecipientLimit(plan);
-  const atLimit = maxAllowed !== -1 && recipients.length >= maxAllowed;
+  const editingRecipient = editingId ? recipientsWithIntelligence.find((recipient) => recipient.id === editingId) || null : null;
+  const editInitialData: RecipientFormData | undefined = editingRecipient
+    ? buildRecipientFormData(editingRecipient)
+    : prefilledName
+      ? { ...defaultFormData, name: prefilledName }
+      : undefined;
+
+  const reminderCount = recipients.filter((recipient) => parseRecipientImportantDates(recipient.important_dates).length > 0).length;
   const capacityPct = limits.recipients === Infinity ? 0 : recipients.length / limits.recipients;
   const capacityColor = capacityPct >= 1 ? "text-destructive" : capacityPct >= 0.8 ? "text-warning" : "text-muted-foreground";
-  const sortedForAccess = useMemo(
-    () => [...(recipients as RecipientRow[])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()),
-    [recipients],
-  );
-  const activeRecipientIds = useMemo(
-    () => new Set((maxAllowed === -1 ? sortedForAccess : sortedForAccess.slice(0, maxAllowed)).map((recipient) => recipient.id)),
-    [maxAllowed, sortedForAccess],
-  );
 
-  // Determine which plan to recommend on upgrade
-  const recommendedPlan = getUpgradePlan(plan, "more_recipients");
-
-  const createMutation = useMutation({
-    mutationFn: async (form: RecipientFormData) => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw createRecipientAuthError("You must be logged in to add a person");
-
-      const [{ data: userData }, { count, error: countError }] = await Promise.all([
-        supabase.from("users").select("active_plan").eq("id", authUser.id).single(),
-        supabase.from("recipients").select("*", { count: "exact", head: true }).eq("user_id", authUser.id),
-      ]);
-
-      if (countError) throw countError;
-
-      const activePlan = (userData as UserProfileRow | null)?.active_plan || "spark";
-      const insertMaxAllowed = getRecipientLimit(activePlan);
-      if (!canAddRecipientForPlan(activePlan, count || 0)) {
-        setUpgradeOpen(true);
-        throw createRecipientAuthError(getRecipientLimitMessage(activePlan, insertMaxAllowed));
-      }
-
-      const payload = buildRecipientInsertPayload(authUser.id, form);
-      const { data, error } = await supabase
-        .from("recipients")
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) throw createRecipientMutationError("insert", error, payload);
-      return data;
-    },
-    onSuccess: (_, form) => {
-      queryClient.invalidateQueries({ queryKey: ["recipients", user?.id] });
-      setModalOpen(false);
-      toast.success(`${form.name} added!`);
-    },
-    onError: (error: RecipientMutationError) => toast.error(error.userMessage || "Failed to add person. Please try again."),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, form }: { id: string; form: RecipientFormData }) => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw createRecipientAuthError("You must be logged in to update a person");
-
-      const payload = buildRecipientUpdatePayload(form);
-      const { error } = await supabase
-        .from("recipients")
-        .update(payload)
-        .eq("id", id)
-        .eq("user_id", authUser.id);
-
-      if (error) throw createRecipientMutationError("update", error, payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipients", user?.id] });
-      setEditingId(null); setModalOpen(false);
-      toast.success("Person updated!");
-    },
-    onError: (error: RecipientMutationError) => toast.error(error.userMessage || "Failed to update person. Please try again."),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw createRecipientAuthError("You must be logged in to delete a person");
-      const { error } = await supabase.from("recipients").delete().eq("id", id).eq("user_id", authUser.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipients"] });
-      setDeletingId(null); toast.success("Person removed");
-    },
-    onError: () => toast.error("Failed to delete"),
-  });
-
-  const openEdit = (id: string) => { setEditingId(id); setModalOpen(true); };
-  const openCreate = () => {
-    if (atLimit) { setUpgradeOpen(true); return; }
-    setEditingId(null); setModalOpen(true);
+  const closeModal = (open: boolean) => {
+    setModalOpen(open);
+    if (!open) {
+      setEditingId(null);
+      setPrefilledName("");
+    }
   };
 
-  const editingRecipient = editingId ? (recipients as RecipientRow[]).find((r) => r.id === editingId) : null;
-  const editInitialData: RecipientFormData | undefined = editingRecipient
-    ? {
-        name: editingRecipient.name,
-        relationship_type: getRecipientRelationship(editingRecipient),
-        relationship_depth: editingRecipient.relationship_depth,
-        age_range: editingRecipient.age_range || "",
-        gender: editingRecipient.gender || "",
-        interests: editingRecipient.interests || [],
-        cultural_context: editingRecipient.cultural_context || "",
-        country: editingRecipient.country || "",
-        notes: editingRecipient.notes || "",
-        important_dates: parseImportantDates(editingRecipient.important_dates),
-      }
-    : undefined;
+  const openEdit = (id: string) => {
+    setPrefilledName("");
+    setEditingId(id);
+    setModalOpen(true);
+  };
+
+  const openCreate = (name = "") => {
+    if (atLimit) {
+      setUpgradeOpen(true);
+      return;
+    }
+
+    setEditingId(null);
+    setPrefilledName(name);
+    setModalOpen(true);
+  };
+
+  const openDetailPanel = (id: string, isLocked: boolean) => {
+    trackEvent("recipient_card_clicked", { recipient_id: id, is_locked: isLocked });
+    navigate(`/my-people/${id}`);
+  };
+
+  const closeDetailPanel = () => {
+    navigate("/my-people");
+  };
+
+  const handleFindGift = (id: string, from: "card" | "panel" | "menu", isLocked: boolean) => {
+    if (isLocked) {
+      setUpgradeOpen(true);
+      return;
+    }
+
+    trackEvent("recipient_find_gift_clicked", { recipient_id: id, from });
+    navigate(`/gift-flow?recipient=${id}`);
+  };
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto pb-20 md:pb-0">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">My People</h1>
+      <div className="mx-auto max-w-5xl pb-20 md:pb-0">
+        <div className="mb-2 flex items-center justify-between">
+          <h1 className="font-heading text-2xl font-bold text-foreground md:text-3xl">My People</h1>
           {recipients.length > 0 && (
             atLimit ? (
               <Button variant="outline" size="sm" onClick={() => setUpgradeOpen(true)} className="text-muted-foreground">
-                <Lock className="w-3.5 h-3.5 mr-1" /> Upgrade to add more
+                <Lock className="mr-1 h-3.5 w-3.5" /> Upgrade to add more
               </Button>
             ) : (
-              <Button variant="hero" size="sm" onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-1" /> Add Person
+              <Button variant="hero" size="sm" onClick={() => openCreate()}>
+                <Plus className="mr-1 h-4 w-4" /> Add Person
               </Button>
             )
           )}
         </div>
 
-        {/* Capacity counter */}
         {recipients.length > 0 && (
-          <p className={cn("text-xs mb-4", capacityColor)}>
+          <p className={cn("mb-4 text-xs", capacityColor)}>
             {recipients.length}/{limits.recipients === Infinity ? "∞" : limits.recipients} people ({limits.label})
           </p>
         )}
 
-        {/* Content */}
-        {recipientsLoading || giftSessionsLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="border-border/50">
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex gap-3 items-center">
-                    <Skeleton className="w-10 h-10 rounded-full" />
+        {query.isLoading ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {[1, 2, 3, 4].map((item) => (
+              <Card key={item} className="border-border/50">
+                <CardContent className="space-y-3 p-5">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
                     <div className="flex-1 space-y-2">
                       <Skeleton className="h-4 w-2/3 rounded-md" />
                       <Skeleton className="h-3 w-1/3 rounded-md" />
                     </div>
                   </div>
+                  <Skeleton className="h-8 w-full rounded-md" />
                 </CardContent>
               </Card>
             ))}
@@ -394,24 +249,27 @@ const MyPeople = () => {
         ) : recipients.length === 0 ? (
           <div className="py-8">
             <EmptyState
-              title="Add someone you care about to get started"
-              description="You can always add more later — start with one person."
-              actionLabel="Add Your First Person"
-              onAction={openCreate}
+              title="No recipients yet"
+              description="Add the people you gift. GiftMind learns their preferences over time."
+              actionLabel="Add your first person"
+              onAction={() => openCreate()}
             />
           </div>
         ) : (
           <>
-            {/* Search & Filter */}
-            <div className="space-y-3 mb-6">
+            <div className="mb-6 space-y-3">
               <div className="flex gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Search by name..." value={search}
-                    onChange={(e) => setSearch(sanitizeString(e.target.value, 100))} className="pl-9 h-9" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, interest, or notes..."
+                    value={search}
+                    onChange={(event) => setSearch(sanitizeString(event.target.value, 100))}
+                    className="h-9 pl-9"
+                  />
                 </div>
-                <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
-                  <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+                <Select value={sort} onValueChange={(value) => setSort(value as SortOption)}>
+                  <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="recent">Recently added</SelectItem>
                     <SelectItem value="upcoming">Upcoming dates</SelectItem>
@@ -419,67 +277,144 @@ const MyPeople = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {FILTER_GROUPS.map((g, i) => (
-                  <button key={g.label} onClick={() => setFilterIdx(i)}
+
+              <div className="flex flex-wrap gap-2">
+                {FILTER_GROUPS.map((group, index) => (
+                  <button
+                    key={group.label}
+                    onClick={() => setFilterIdx(index)}
                     className={cn(
-                      "px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                      i === filterIdx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}>
-                    {g.label}
+                      "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                      index === filterIdx
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80",
+                    )}
+                  >
+                    {group.label}
                   </button>
                 ))}
               </div>
             </div>
 
             {filtered.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12">No people match your search.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filtered.map((r) => {
-                  const isLocked = !activeRecipientIds.has(r.id);
-                  return (
-                  <RecipientCard key={r.id} recipient={r} userCountry={userCountry}
-                    onEdit={() => openEdit(r.id)}
-                    onDelete={() => setDeletingId(r.id)}
-                    onFindGift={() => {
-                      if (isLocked) {
-                        setUpgradeOpen(true);
-                        return;
-                      }
-                      navigate(`/gift-flow?recipient=${r.id}`);
-                    }}
-                    isLocked={isLocked}
+              deferredSearch.trim() ? (
+                <div className="py-6">
+                  <EmptyState
+                    title={`No one named "${deferredSearch.trim()}"`}
+                    description="Try a different search, or add this person now so you can use them in gift sessions."
+                    actionLabel={`Add ${deferredSearch.trim()} as a new person`}
+                    onAction={() => openCreate(deferredSearch.trim())}
                   />
-                );})}
+                  <div className="mt-3 text-center">
+                    <Button variant="ghost" onClick={() => setSearch("")}>Clear search</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-6">
+                  <EmptyState
+                    title="No matches for these filters"
+                    description="Try another relationship group or reset the sort and filters to see everyone again."
+                    actionLabel="Show all people"
+                    onAction={() => {
+                      setFilterIdx(0);
+                      setSort("recent");
+                    }}
+                  />
+                </div>
+              )
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {filtered.map((recipient) => {
+                  const isLocked = !activeRecipientIds.has(recipient.id);
+                  return (
+                    <RecipientCard
+                      key={recipient.id}
+                      recipient={recipient}
+                      userCountry={userCountry}
+                      onEdit={() => openEdit(recipient.id)}
+                      onDelete={() => setDeletingId(recipient.id)}
+                      onFindGift={() => handleFindGift(recipient.id, "card", isLocked)}
+                      onCardClick={() => openDetailPanel(recipient.id, isLocked)}
+                      isLocked={isLocked}
+                    />
+                  );
+                })}
               </div>
             )}
           </>
         )}
       </div>
 
-      {/* Reminder note on date fields */}
-      {/* This is handled inside RecipientFormModal via planLabel prop */}
-
       <RecipientFormModal
         open={modalOpen}
-        onOpenChange={(open) => { setModalOpen(open); if (!open) setEditingId(null); }}
+        onOpenChange={closeModal}
+        mode={editingId ? "edit" : "create"}
         onSubmit={(data) => {
-          if (editingId) updateMutation.mutate({ id: editingId, form: data });
-          else createMutation.mutate(data);
+          if (editingId) {
+            updateMutation.mutate(
+              { id: editingId, form: data },
+              {
+                onSuccess: () => {
+                  setEditingId(null);
+                  setModalOpen(false);
+                  toast.success("Person updated!");
+                },
+                onError: (error) => {
+                  const mutationError = error as RecipientMutationError;
+                  toast.error(mutationError.userMessage || "Failed to update person. Please try again.");
+                },
+              },
+            );
+            return;
+          }
+
+          createMutation.mutate(data, {
+            onSuccess: (_, form) => {
+              setPrefilledName("");
+              setModalOpen(false);
+              toast.success(`${form.name} added!`);
+            },
+            onError: (error) => {
+              const mutationError = error as RecipientMutationError;
+              if ((mutationError.userMessage || "").toLowerCase().includes("limit")) {
+                setUpgradeOpen(true);
+              }
+              toast.error(mutationError.userMessage || "Failed to add person. Please try again.");
+            },
+          });
         }}
+        onDelete={editingRecipient ? () => setDeletingId(editingRecipient.id) : undefined}
         initialData={editInitialData}
         loading={createMutation.isPending || updateMutation.isPending}
         reminderNote={
           plan === "spark" || plan === "thoughtful"
-            ? "📅 Date saved! Reminders available on Confident and above."
+            ? "Date saved. Reminders are available on Confident and above."
             : plan === "confident"
-            ? `📅 ${Math.min((recipients as RecipientRow[]).filter((r) => parseImportantDates(r.important_dates).length > 0).length, 3)}/3 reminders active. Upgrade to Gifting Pro for unlimited.`
-            : undefined
+              ? `${Math.min(reminderCount, 3)}/3 reminders active. Upgrade to Gifting Pro for unlimited reminders.`
+              : undefined
         }
+        stats={editingRecipient ? {
+          giftCount: editingRecipient.gift_count,
+          sessionCount: editingRecipient.session_count,
+          lastGiftDate: editingRecipient.last_gift_date,
+          addedAt: editingRecipient.created_at,
+        } : undefined}
       />
 
-      {/* Upgrade modal */}
+      <RecipientDetailPanel
+        open={Boolean(recipientId)}
+        onOpenChange={(open) => {
+          if (!open) closeDetailPanel();
+        }}
+        recipientId={recipientId || null}
+        recipients={recipientsWithIntelligence}
+        onEdit={(id) => {
+          closeDetailPanel();
+          openEdit(id);
+        }}
+        onFindGift={(id) => handleFindGift(id, "panel", !activeRecipientIds.has(id))}
+      />
+
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
@@ -487,19 +422,32 @@ const MyPeople = () => {
         reason={getUpgradeText(plan, "more_recipients")}
       />
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this person?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete their profile and all associated data. This action cannot be undone.
+              This will permanently delete their profile and all associated data. Gift history sessions will remain, but the recipient link will be cleared.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deletingId && deleteMutation.mutate(deletingId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={() => {
+                if (!deletingId) return;
+                deleteMutation.mutate(deletingId, {
+                  onSuccess: () => {
+                    if (recipientId === deletingId) {
+                      closeDetailPanel();
+                    }
+                    setDeletingId(null);
+                    toast.success("Person removed");
+                  },
+                  onError: () => toast.error("Failed to delete"),
+                });
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

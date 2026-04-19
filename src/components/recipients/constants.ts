@@ -3,6 +3,7 @@
 export const RELATIONSHIP_TYPES = [
   { value: "partner", label: "Partner", emoji: "💑" },
   { value: "parent", label: "Parent", emoji: "👨‍👩‍👧" },
+  { value: "grandparent", label: "Grandparent", emoji: "🧓" },
   { value: "sibling", label: "Sibling", emoji: "👫" },
   { value: "close_friend", label: "Close Friend", emoji: "🤝" },
   { value: "friend", label: "Friend", emoji: "👋" },
@@ -46,6 +47,24 @@ export const CULTURAL_CONTEXTS = [
   { value: "other", label: "Other" },
 ] as const;
 
+export const DIETARY_OPTIONS = [
+  { value: "vegetarian", label: "Vegetarian" },
+  { value: "vegan", label: "Vegan" },
+  { value: "halal", label: "Halal" },
+  { value: "kosher", label: "Kosher" },
+  { value: "no_pork", label: "No Pork" },
+  { value: "no_alcohol", label: "No Alcohol" },
+] as const;
+
+export const DATE_LABEL_OPTIONS = [
+  { value: "Birthday", label: "Birthday", emoji: "🎂" },
+  { value: "Anniversary", label: "Anniversary", emoji: "💍" },
+  { value: "Work Anniversary", label: "Work Anniversary", emoji: "💼" },
+  { value: "Graduation", label: "Graduation", emoji: "🎓" },
+  { value: "Housewarming", label: "Housewarming", emoji: "🏠" },
+  { value: "Other", label: "Other", emoji: "📅" },
+] as const;
+
 export const INTEREST_SUGGESTIONS = [
   "Reading", "Cooking", "Fitness", "Tech", "Fashion", "Travel",
   "Music", "Art", "Gaming", "Photography", "Gardening",
@@ -55,6 +74,7 @@ export const INTEREST_SUGGESTIONS = [
 export const RELATIONSHIP_AVATAR_COLORS: Record<string, string> = {
   partner: "#C25450",
   parent: "#D4A04A",
+  grandparent: "#B8893E",
   sibling: "#9D7ED3",
   close_friend: "#3E8E7E",
   friend: "#3E8E7E",
@@ -70,6 +90,7 @@ export const RELATIONSHIP_AVATAR_COLORS: Record<string, string> = {
 export const RELATIONSHIP_BADGE_COLORS: Record<string, string> = {
   partner: "bg-[#C25450]/10 text-[#C25450] border-[#C25450]/20",
   parent: "bg-[#D4A04A]/10 text-[#946E32] border-[#D4A04A]/20",
+  grandparent: "bg-[#B8893E]/10 text-[#6F5326] border-[#B8893E]/20",
   sibling: "bg-[#9D7ED3]/10 text-[#4C2A85] border-[#9D7ED3]/20",
   close_friend: "bg-[#3E8E7E]/10 text-[#3E8E7E] border-[#3E8E7E]/20",
   friend: "bg-[#3E8E7E]/10 text-[#3E8E7E] border-[#3E8E7E]/20",
@@ -88,7 +109,7 @@ export const RELATIONSHIP_COLORS = RELATIONSHIP_AVATAR_COLORS;
 export const FILTER_GROUPS: { label: string; types: string[] }[] = [
   { label: "All", types: [] },
   { label: "Partners", types: ["partner", "new_relationship"] },
-  { label: "Family", types: ["parent", "sibling", "child", "in_law"] },
+  { label: "Family", types: ["parent", "grandparent", "sibling", "child", "in_law"] },
   { label: "Friends", types: ["close_friend", "friend"] },
   { label: "Colleagues", types: ["colleague", "boss", "mentor", "acquaintance"] },
 ];
@@ -99,6 +120,11 @@ export interface ImportantDate {
   recurring: boolean;
 }
 
+export interface CulturalContextFormValue {
+  category: string;
+  dietary: string[];
+}
+
 export interface RecipientFormData {
   name: string;
   relationship_type: string;
@@ -107,6 +133,7 @@ export interface RecipientFormData {
   gender: string;
   interests: string[];
   cultural_context: string;
+  cultural_context_obj: CulturalContextFormValue;
   country: string;
   notes: string;
   important_dates: ImportantDate[];
@@ -120,6 +147,7 @@ export const defaultFormData: RecipientFormData = {
   gender: "",
   interests: [],
   cultural_context: "",
+  cultural_context_obj: { category: "", dietary: [] },
   country: "",
   notes: "",
   important_dates: [],

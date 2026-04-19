@@ -32,6 +32,7 @@ interface RecipientCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onFindGift: () => void;
+  onCardClick: () => void;
   isLocked?: boolean;
 }
 
@@ -64,7 +65,7 @@ function formatMMDD(mmdd: string): string {
   return `${months[(mm || 1) - 1]} ${dd}`;
 }
 
-const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, isLocked = false }: RecipientCardProps) => {
+const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, onCardClick, isLocked = false }: RecipientCardProps) => {
   const initial = recipient.name.charAt(0).toUpperCase();
   const relationship = recipient.relationship ?? recipient.relationship_type ?? "";
   const rel = RELATIONSHIP_TYPES.find((r) => r.value === relationship);
@@ -94,8 +95,9 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, i
 
   return (
     <Card
+      onClick={onCardClick}
       className={cn(
-        "group border-border/50 transition-all duration-200 relative",
+        "group relative cursor-pointer border-border/50 transition-all duration-200",
         isLocked
           ? "bg-muted/30 opacity-60"
           : "hover:shadow-lg hover:-translate-y-0.5",
@@ -136,18 +138,24 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, i
           {/* Three-dot menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <button
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <MoreVertical className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={onEdit}>
+              <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onEdit(); }}>
                 <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onFindGift} disabled={isLocked}>
+              <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onFindGift(); }} disabled={isLocked}>
                 <Gift className="w-3.5 h-3.5 mr-2" /> Find a Gift
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onClick={(event) => { event.stopPropagation(); onDelete(); }}
+                className="text-destructive focus:text-destructive"
+              >
                 <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -195,9 +203,17 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, i
             : ""}
         </p>
 
-        {/* Hover CTA */}
-        <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="hero" size="sm" className="w-full h-8 text-xs" onClick={onFindGift} disabled={isLocked}>
+        <div className="mt-3">
+          <Button
+            variant="hero"
+            size="sm"
+            className="h-8 w-full text-xs"
+            onClick={(event) => {
+              event.stopPropagation();
+              onFindGift();
+            }}
+            disabled={isLocked}
+          >
             Find a Gift <ArrowRight className="w-3 h-3 ml-1" />
           </Button>
         </div>
