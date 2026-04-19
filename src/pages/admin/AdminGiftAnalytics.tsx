@@ -21,6 +21,7 @@ import {
   Target, Clock, MessageSquare, BarChart3,
 } from "lucide-react";
 import { format, subWeeks, startOfWeek, endOfWeek, differenceInMinutes } from "date-fns";
+import type { Json, Tables } from "@/integrations/supabase/types";
 
 const COLORS = [
   "hsl(249, 76%, 64%)", "hsl(0, 100%, 70%)", "hsl(142, 71%, 45%)",
@@ -47,6 +48,53 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
   child: "Child", mentor: "Mentor", new_relationship: "New Relationship",
 };
 
+type GiftSessionRow = Tables<"gift_sessions">;
+type RecipientRow = Pick<Tables<"recipients">, "id" | "name" | "relationship">;
+type ProfileRow = { user_id: string; full_name: string | null };
+type AnalyticsGift = {
+  category?: string | null;
+  type?: string | null;
+  store?: string | null;
+  marketplace?: string | null;
+  title?: string | null;
+  name?: string | null;
+};
+type AnalyticsResults = {
+  confidence_score?: number | string | null;
+  confidence?: number | string | null;
+  gifts?: AnalyticsGift[] | null;
+  recommendations?: AnalyticsGift[] | null;
+};
+
+function getAnalyticsResults(value: Json | null): AnalyticsResults | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as AnalyticsResults;
+}
+
+function parseConfidenceScore(value: number | string | null | undefined): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getGiftList(results: AnalyticsResults | null): AnalyticsGift[] {
+  if (Array.isArray(results?.gifts)) return results.gifts;
+  if (Array.isArray(results?.recommendations)) return results.recommendations;
+  return [];
+}
+
+function getRecommendationList(results: AnalyticsResults | null): AnalyticsGift[] {
+  if (Array.isArray(results?.recommendations)) return results.recommendations;
+  return [];
+}
+
+function getContextTags(value: Json | null): string[] {
+  return Array.isArray(value) ? value.filter((tag): tag is string => typeof tag === "string") : [];
+}
+
 const AdminGiftAnalytics = () => {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<"created_at" | "budget_min">("created_at");
@@ -63,7 +111,7 @@ const AdminGiftAnalytics = () => {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as GiftSessionRow[];
     },
   });
 
@@ -75,7 +123,7 @@ const AdminGiftAnalytics = () => {
         .from("recipients")
         .select("id, name, relationship");
       if (error) throw error;
-      return data || [];
+      return (data || []) as RecipientRow[];
     },
   });
 
@@ -87,7 +135,7 @@ const AdminGiftAnalytics = () => {
         .from("users")
         .select("user_id, full_name");
       if (error) throw error;
-      return data || [];
+      return (data || []) as ProfileRow[];
     },
   });
 
@@ -115,11 +163,11 @@ const AdminGiftAnalytics = () => {
     // Confidence scores from results
     const confidenceScores: number[] = [];
     sessions.forEach((s) => {
-      if (s.results && typeof s.results === "object") {
-        const r = s.results as any;
-        if (r.confidence_score) confidenceScores.push(Number(r.confidence_score));
-        if (r.confidence) confidenceScores.push(Number(r.confidence));
-      }
+      const results = getAnalyticsResults(s.results);
+      const score = parseConfidenceScore(results?.confidence_score);
+      const fallbackScore = parseConfidenceScore(results?.confidence);
+      if (score !== null) confidenceScores.push(score);
+      else if (fallbackScore !== null) confidenceScores.push(fallbackScore);
     });
     const avgConfidence = confidenceScores.length > 0
       ? confidenceScores.reduce((a, b) => a + b, 0) / confidenceScores.length
@@ -151,10 +199,12 @@ const AdminGiftAnalytics = () => {
       const scores: number[] = [];
       sessions.forEach((s) => {
         const d = new Date(s.created_at);
-        if (d >= start && d <= end && s.results) {
-          const r = s.results as any;
-          const sc = r.confidence_score || r.confidence;
-          if (sc) scores.push(Number(sc));
+        if (d >= start && d <= end) {
+          const results = getAnalyticsResults(s.results);
+          const score =
+            parseConfidenceScore(results?.confidence_score) ??
+            parseConfidenceScore(results?.confidence);
+          if (score !== null) scores.push(score);
         }
       });
       weeks.push({
@@ -224,16 +274,11 @@ const AdminGiftAnalytics = () => {
   const giftCategories = useMemo(() => {
     const counts: Record<string, number> = {};
     sessions.forEach((s) => {
-      if (s.results && typeof s.results === "object") {
-        const r = s.results as any;
-        const gifts = r.gifts || r.recommendations || [];
-        if (Array.isArray(gifts)) {
-          gifts.forEach((g: any) => {
-            const cat = g.category || g.type || "Other";
-            counts[cat] = (counts[cat] || 0) + 1;
-          });
-        }
-      }
+      const gifts = getGiftList(getAnalyticsResults(s.results));
+      gifts.forEach((gift) => {
+        const category = gift.category || gift.type || "Other";
+        counts[category] = (counts[category] || 0) + 1;
+      });
     });
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
@@ -246,15 +291,13 @@ const AdminGiftAnalytics = () => {
     const storeCounts: Record<string, number> = {};
     const products: { title: string; store: string; clicks: number }[] = [];
     sessions.forEach((s) => {
-      if (s.results && typeof s.results === "object") {
-        const recommendations = ((s.results as any).recommendations || []) as any[];
-        const selectedGift =
-          typeof s.selected_gift_index === "number" ? recommendations[s.selected_gift_index] : null;
-        if (selectedGift) {
-          const store = selectedGift.store || selectedGift.marketplace || "Unknown";
-          storeCounts[store] = (storeCounts[store] || 0) + 1;
-          products.push({ title: selectedGift.title || selectedGift.name || "Unnamed", store, clicks: 1 });
-        }
+      const recommendations = getRecommendationList(getAnalyticsResults(s.results));
+      const selectedGift =
+        typeof s.selected_gift_index === "number" ? recommendations[s.selected_gift_index] : null;
+      if (selectedGift) {
+        const store = selectedGift.store || selectedGift.marketplace || "Unknown";
+        storeCounts[store] = (storeCounts[store] || 0) + 1;
+        products.push({ title: selectedGift.title || selectedGift.name || "Unnamed", store, clicks: 1 });
       }
     });
     const storeData = Object.entries(storeCounts)
@@ -697,10 +740,10 @@ const AdminGiftAnalytics = () => {
                           <td colSpan={8} className="bg-muted/30 px-6 py-4">
                             <div className="space-y-2 text-sm">
                               {s.special_context && <p><strong>Notes:</strong> {s.special_context}</p>}
-                              {s.context_tags && (s.context_tags as string[]).length > 0 && (
+                              {getContextTags(s.context_tags).length > 0 && (
                                 <div className="flex flex-wrap gap-1">
                                   <strong className="mr-1">Tags:</strong>
-                                  {(s.context_tags as string[]).map((t, i) => (
+                                  {getContextTags(s.context_tags).map((t, i) => (
                                     <Badge key={i} variant="outline" className="text-xs">{t}</Badge>
                                   ))}
                                 </div>
@@ -718,7 +761,7 @@ const AdminGiftAnalytics = () => {
                                 <details className="mt-1">
                                   <summary className="cursor-pointer text-xs text-primary hover:underline">View chosen gift</summary>
                                   <pre className="mt-2 text-xs bg-muted p-3 rounded-lg overflow-x-auto max-h-40">
-                                    {JSON.stringify(((s.results as any).recommendations || [])[s.selected_gift_index], null, 2)}
+                                    {JSON.stringify(getRecommendationList(getAnalyticsResults(s.results))[s.selected_gift_index], null, 2)}
                                   </pre>
                                 </details>
                               )}

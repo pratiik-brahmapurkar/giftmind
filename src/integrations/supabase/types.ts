@@ -1019,6 +1019,7 @@ export type Database = {
         Row: {
           active_plan: string | null
           avatar_url: string | null
+          birthday: string | null
           country: string | null
           created_at: string | null
           credits_balance: number | null
@@ -1029,6 +1030,9 @@ export type Database = {
           language: string | null
           last_active_at: string | null
           notification_prefs: Json | null
+          onboarding_bonus_granted: boolean | null
+          onboarding_state: Json | null
+          profile_completion_percentage: number
           referral_code: string | null
           referred_by: string | null
           role: string | null
@@ -1037,6 +1041,7 @@ export type Database = {
         Insert: {
           active_plan?: string | null
           avatar_url?: string | null
+          birthday?: string | null
           country?: string | null
           created_at?: string | null
           credits_balance?: number | null
@@ -1047,6 +1052,9 @@ export type Database = {
           language?: string | null
           last_active_at?: string | null
           notification_prefs?: Json | null
+          onboarding_bonus_granted?: boolean | null
+          onboarding_state?: Json | null
+          profile_completion_percentage?: number
           referral_code?: string | null
           referred_by?: string | null
           role?: string | null
@@ -1055,6 +1063,7 @@ export type Database = {
         Update: {
           active_plan?: string | null
           avatar_url?: string | null
+          birthday?: string | null
           country?: string | null
           created_at?: string | null
           credits_balance?: number | null
@@ -1065,6 +1074,9 @@ export type Database = {
           language?: string | null
           last_active_at?: string | null
           notification_prefs?: Json | null
+          onboarding_bonus_granted?: boolean | null
+          onboarding_state?: Json | null
+          profile_completion_percentage?: number
           referral_code?: string | null
           referred_by?: string | null
           role?: string | null
@@ -1085,6 +1097,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_profile_completion: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: number
+      }
       get_recent_past_gifts: {
         Args: {
           p_limit?: number

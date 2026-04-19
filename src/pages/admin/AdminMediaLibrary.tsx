@@ -23,6 +23,9 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import type { Tables } from "@/integrations/supabase/types";
+
+type BlogMediaRow = Tables<"blog_media">;
 
 const AdminMediaLibrary = () => {
   const { user } = useAuth();
@@ -30,7 +33,7 @@ const AdminMediaLibrary = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [selectedMedia, setSelectedMedia] = useState<any>(null);
+  const [selectedMedia, setSelectedMedia] = useState<BlogMediaRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -44,7 +47,7 @@ const AdminMediaLibrary = () => {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as BlogMediaRow[];
     },
   });
 

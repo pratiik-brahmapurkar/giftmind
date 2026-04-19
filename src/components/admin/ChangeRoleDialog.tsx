@@ -44,12 +44,12 @@ const ChangeRoleDialog = ({ userId, currentRole, open, onClose, onSuccess }: Cha
 
       toast.success(`Role changed to ${newRole}`);
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       captureError(
         err instanceof Error ? err : new Error("Failed to change user role"),
         { action: "admin-change-user-role", target_user_id: userId, new_role: newRole },
       );
-      toast.error(err.message || "Failed to change role");
+      toast.error(err instanceof Error ? err.message : "Failed to change role");
     } finally {
       setLoading(false);
     }

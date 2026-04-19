@@ -23,6 +23,9 @@ import {
 import { Bell, Download, Trash2, Shield, AlertTriangle, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { normalizePlan } from "@/lib/plans";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
+
+type UserProfile = Tables<"users">;
 
 const Settings = () => {
   const { user } = useAuth();
@@ -46,16 +49,20 @@ const Settings = () => {
     enabled: !!user,
   });
 
-  const notifyReminders = (profile as any)?.notify_gift_reminders ?? true;
-  const notifyCreditExpiry = (profile as any)?.notify_credit_expiry ?? true;
-  const notifyTips = (profile as any)?.notify_tips ?? false;
-  const hasExportAccess = normalizePlan((profile as any)?.active_plan) === "gifting-pro";
+  const notificationPrefs =
+    profile?.notification_prefs && typeof profile.notification_prefs === "object" && !Array.isArray(profile.notification_prefs)
+      ? profile.notification_prefs
+      : null;
+  const notifyReminders = notificationPrefs && "reminders" in notificationPrefs ? notificationPrefs.reminders !== false : true;
+  const notifyCreditExpiry = notificationPrefs && "credit_expiry" in notificationPrefs ? notificationPrefs.credit_expiry !== false : true;
+  const notifyTips = notificationPrefs && "tips" in notificationPrefs ? Boolean(notificationPrefs.tips) : false;
+  const hasExportAccess = normalizePlan(profile?.active_plan) === "gifting-pro";
 
   const updateNotif = useMutation({
     mutationFn: async (updates: Record<string, boolean>) => {
       const { error } = await supabase
         .from("users")
-        .update(updates as any)
+        .update(updates satisfies TablesUpdate<"users">)
         .eq("id", user!.id);
       if (error) throw error;
     },
@@ -93,8 +100,8 @@ const Settings = () => {
       URL.revokeObjectURL(url);
       toast.success("Your data export is ready.");
     },
-    onError: (error: any) => {
-      const message = error?.message || "";
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "";
       if (message.includes("Pro plan") || message.includes("Gifting Pro")) {
         toast.error("Data export is available on Gifting Pro plan");
         return;

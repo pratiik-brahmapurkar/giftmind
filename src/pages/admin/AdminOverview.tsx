@@ -76,12 +76,12 @@ type RecentActivityItem = {
 };
 
 const OCCASION_COLORS = [
-  "hsl(249 76% 64%)",
-  "hsl(0 100% 70%)",
-  "hsl(168 100% 36%)",
-  "hsl(45 97% 71%)",
-  "hsl(244 98% 81%)",
-  "hsl(195 6% 45%)",
+  "#D4A04A",
+  "#C25450",
+  "#3E8E7E",
+  "#E4C663",
+  "#9D7ED3",
+  "#7F7668",
 ];
 
 const typeBadgeMap: Record<ActivityType, { label: string; className: string }> = {

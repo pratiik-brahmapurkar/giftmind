@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { captureError } from "@/lib/sentry";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface PackageForm {
   id?: string;
@@ -32,6 +33,8 @@ const emptyForm: PackageForm = {
   validity_days: 30, badge: "", features: "", is_active: true, sort_order: 0,
 };
 
+type CreditPackageRow = Tables<"credit_packages">;
+
 const PackagesTab = () => {
   const queryClient = useQueryClient();
   const [editPkg, setEditPkg] = useState<PackageForm | null>(null);
@@ -49,7 +52,7 @@ const PackagesTab = () => {
     },
   });
 
-  const openEdit = (pkg?: any) => {
+  const openEdit = (pkg?: CreditPackageRow) => {
     if (pkg) {
       setEditPkg({
         id: pkg.id,
@@ -100,12 +103,12 @@ const PackagesTab = () => {
       }
       queryClient.invalidateQueries({ queryKey: ["admin-packages"] });
       setEditPkg(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       captureError(
         err instanceof Error ? err : new Error("Failed to save credit package"),
         { action: "admin-save-credit-package", package_id: editPkg?.id ?? null },
       );
-      toast.error(err.message || "Failed to save package");
+      toast.error(err instanceof Error ? err.message : "Failed to save package");
     } finally {
       setSaving(false);
     }

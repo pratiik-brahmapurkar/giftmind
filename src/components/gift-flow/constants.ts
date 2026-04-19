@@ -147,6 +147,7 @@ export function detectUserCountry(): string {
     if (lang.startsWith("es")) return "ES";
     if (lang.startsWith("nl")) return "NL";
     if (lang.startsWith("ar")) return "AE";
-  } catch {}
-  return "US";
+  } catch {
+    return "US";
+  }
 }

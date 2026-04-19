@@ -1,10 +1,3 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import "@fontsource/dm-sans/400.css";
-import "@fontsource/dm-sans/500.css";
-import "@fontsource/dm-sans/700.css";
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import HowItWorks from "@/components/landing/HowItWorks";
@@ -19,10 +12,6 @@ import Footer from "@/components/landing/Footer";
 import { SEOHead } from "@/components/common/SEOHead";
 
 const Index = () => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
-
-
   return (
     <div className="min-h-screen">
       <SEOHead 

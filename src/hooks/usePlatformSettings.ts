@@ -1,9 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface PlatformSettings {
-  [key: string]: any;
+  [key: string]: Json | undefined;
 }
+
+type PlatformSettingsRow = {
+  key: string;
+  value: Json;
+  description: string | null;
+};
+
+type PlatformSettingsClient = {
+  from: (table: "platform_settings") => {
+    select: (columns: string) => Promise<{ data: PlatformSettingsRow[] | null; error: Error | null }>;
+    upsert: (
+      values: PlatformSettingsRow | PlatformSettingsRow[],
+      options?: { onConflict: string },
+    ) => Promise<{ error: Error | null }>;
+  };
+};
+
+const platformSettingsClient = supabase as unknown as PlatformSettingsClient;
 
 export function usePlatformSettings(enabled = true) {
   const [settings, setSettings] = useState<PlatformSettings>({});
@@ -17,13 +36,13 @@ export function usePlatformSettings(enabled = true) {
     }
 
     setIsLoading(true);
-    const { data, error } = await (supabase as any)
+    const { data, error } = await platformSettingsClient
       .from("platform_settings")
       .select("key, value, description");
 
     if (!error && data) {
       const mapped: PlatformSettings = {};
-      data.forEach((row: { key: string; value: any }) => {
+      data.forEach((row) => {
         mapped[row.key] = row.value;
       });
       setSettings(mapped);
@@ -42,13 +61,13 @@ export function usePlatformSettings(enabled = true) {
     void fetchSettings();
   }, [enabled, fetchSettings]);
 
-  const updateSetting = useCallback(async (key: string, value: any) => {
+  const updateSetting = useCallback(async (key: string, value: Json) => {
     setIsSaving(true);
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { error } = await (supabase as any)
+    const { error } = await platformSettingsClient
       .from("platform_settings")
       .upsert(
         {
@@ -68,7 +87,7 @@ export function usePlatformSettings(enabled = true) {
     return { error };
   }, []);
 
-  const updateMultipleSettings = useCallback(async (updates: Record<string, any>) => {
+  const updateMultipleSettings = useCallback(async (updates: Record<string, Json>) => {
     setIsSaving(true);
     const {
       data: { user },
@@ -81,7 +100,7 @@ export function usePlatformSettings(enabled = true) {
       updated_by: user?.id ?? null,
     }));
 
-    const { error } = await (supabase as any)
+    const { error } = await platformSettingsClient
       .from("platform_settings")
       .upsert(rows, { onConflict: "key" });
 

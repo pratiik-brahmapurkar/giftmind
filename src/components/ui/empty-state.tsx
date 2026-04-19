@@ -24,18 +24,18 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, description, actionLabel, onAction, icon }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-      <div className="text-amber-500 mb-6">
+    <div className="flex flex-col items-center justify-center px-4 py-12 text-center md:py-16">
+      <div className="mb-6 text-amber-400">
         {icon || <HastaHandIcon />}
       </div>
-      <div className="space-y-3 mb-8">
+      <div className="mb-8 max-w-sm space-y-3">
         <h3 className="font-heading text-[18px] font-semibold text-neutral-800">{title}</h3>
-        <p className="font-body text-[14px] text-neutral-500 max-w-xs mx-auto leading-relaxed">
+        <p className="mx-auto max-w-xs font-body text-[14px] leading-relaxed text-neutral-500">
           {description}
         </p>
       </div>
       {actionLabel && onAction && (
-        <Button onClick={onAction} variant="primary" className="shadow-sm">
+        <Button onClick={onAction} variant="hero" className="shadow-sm">
           {actionLabel}
         </Button>
       )}

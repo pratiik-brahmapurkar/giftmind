@@ -51,12 +51,12 @@ const GrantCreditsModal = ({ userId, open, onClose, onSuccess }: GrantCreditsMod
       toast.success(`Granted ${amount} credits`);
       setAmount(""); setReason(""); setCustomReason("");
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       captureError(
         err instanceof Error ? err : new Error("Failed to grant credits"),
         { action: "admin-grant-credits", target_user_id: userId },
       );
-      toast.error(err.message || "Failed to grant credits");
+      toast.error(err instanceof Error ? err.message : "Failed to grant credits");
     } finally {
       setLoading(false);
     }

@@ -24,7 +24,7 @@ const Pricing = () => {
   };
 
   return (
-    <section className="py-24 gradient-mesh">
+    <section className="bg-[#F2EDE4] py-24">
       <div className="container mx-auto px-4">
         <motion.div
           className="text-center mb-12"

@@ -56,8 +56,10 @@ serve(async (req: Request): Promise<Response> => {
       // ensure proper ISO format
       let formattedDate = date;
       try {
-        formattedDate = new Date(date).toISOString().split('T')[0];
-      } catch (e) {}
+        formattedDate = new Date(date).toISOString().split("T")[0];
+      } catch {
+        formattedDate = date;
+      }
 
       xml += `
   <url>

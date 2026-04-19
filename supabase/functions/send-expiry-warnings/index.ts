@@ -12,6 +12,18 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+type ExpiringBatchRow = {
+  id: string;
+  user_id: string;
+  credits_remaining: number;
+  expires_at: string;
+  warning_sent: boolean;
+  users: {
+    email: string | null;
+    full_name: string | null;
+  };
+};
+
 // TODO: Before production, change Access-Control-Allow-Origin to:
 // 'https://giftmind.in' (or your production domain)
 // ── CORS + JSON helpers ────────────────────────────────────────────────────────
@@ -69,8 +81,8 @@ serve(async (req: Request): Promise<Response> => {
     // ── 2. Send warning email for each expiring batch ─────────────────────────
     let warningsSent = 0;
 
-    for (const batch of expiringBatches ?? []) {
-      const user = (batch as any).users;
+    for (const batch of (expiringBatches ?? []) as ExpiringBatchRow[]) {
+      const user = batch.users;
       if (!user?.email) continue;
 
       const daysLeft = Math.max(

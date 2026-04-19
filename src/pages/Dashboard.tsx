@@ -15,6 +15,21 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { motion } from "framer-motion";
 import { SEOHead } from "@/components/common/SEOHead";
+import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner";
+import { getProfileCompletionMissingFields, parseOnboardingState } from "@/features/onboarding/utils";
+import type { Tables } from "@/integrations/supabase/types";
+
+type DashboardProfile = Pick<
+  Tables<"users">,
+  "credits_balance" | "profile_completion_percentage" | "full_name" | "country" | "birthday" | "onboarding_state"
+>;
+type DashboardRecipient = Pick<Tables<"recipients">, "id" | "name">;
+type DashboardSession = Pick<
+  Tables<"gift_sessions">,
+  "id" | "occasion" | "status" | "created_at" | "selected_gift_name" | "selected_gift_index" | "recipient_id"
+> & {
+  ai_response: { recommendations?: Array<{ name?: string; confidence_score?: number | null }> } | null;
+};
 
 const confidenceColor = (score: number) => {
   if (score >= 85) return "bg-success/10 text-success border-success/20";
@@ -34,8 +49,12 @@ const Dashboard = () => {
     queryKey: ["dashboard-profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase.from("users").select("credits_balance").eq("id", user.id).single();
-      return data;
+      const { data } = await supabase
+        .from("users")
+        .select("credits_balance, profile_completion_percentage, full_name, country, birthday, onboarding_state")
+        .eq("id", user.id)
+        .single();
+      return data as DashboardProfile | null;
     },
     enabled: !!user,
   });
@@ -45,7 +64,7 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!user) return [];
       const { data } = await supabase.from("recipients").select("id,name").eq("user_id", user.id);
-      return data || [];
+      return (data || []) as DashboardRecipient[];
     },
     enabled: !!user,
   });
@@ -60,7 +79,7 @@ const Dashboard = () => {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(5);
-      return data || [];
+      return (data || []) as DashboardSession[];
     },
     enabled: !!user,
   });
@@ -69,9 +88,19 @@ const Dashboard = () => {
   const recipientCount = recipients.length;
   const sessionCount = sessions.length;
   const isDashboardLoading = profileLoading || recipientsLoading || sessionsLoading;
+  const onboardingState = parseOnboardingState(profile?.onboarding_state ?? null);
+  const profileCompletion = profile?.profile_completion_percentage ?? 0;
+  const missingFields = getProfileCompletionMissingFields({
+    fullName: profile?.full_name,
+    country: profile?.country,
+    recipientCount,
+    birthday: profile?.birthday,
+    audience: onboardingState.audience,
+    giftStyle: onboardingState.gift_style,
+  });
 
   // Build a lookup of recipient names
-  const recipientMap = Object.fromEntries(recipients.map((r: any) => [r.id, r.name]));
+  const recipientMap = Object.fromEntries(recipients.map((r) => [r.id, r.name]));
 
   if (isDashboardLoading) {
     return (
@@ -103,12 +132,20 @@ const Dashboard = () => {
       <DashboardLayout>
         <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
         <div className="max-w-2xl mx-auto min-h-[60vh] flex items-center justify-center pb-20 md:pb-0">
-          <EmptyState
-            title="Welcome to GiftMind"
-            description="Let's start by adding someone you'd like to gift. GiftMind will remember what matters to each of them."
-            actionLabel="Add your first person"
-            onAction={() => navigate("/my-people")}
-          />
+          <div className="w-full space-y-6">
+            <ProfileCompletionBanner
+              completionPercentage={profileCompletion}
+              sessionCount={sessionCount}
+              missingFields={missingFields}
+              onClick={() => navigate("/onboarding?resume=true")}
+            />
+            <EmptyState
+              title="Welcome to GiftMind"
+              description="Let's start by adding someone you'd like to gift. GiftMind will remember what matters to each of them."
+              actionLabel="Add your first person"
+              onAction={() => navigate("/my-people")}
+            />
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -120,13 +157,21 @@ const Dashboard = () => {
       <DashboardLayout>
         <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
         <div className="max-w-2xl mx-auto min-h-[60vh] flex items-center justify-center pb-20 md:pb-0">
-          <EmptyState
-            title={`You've added ${recipientCount} ${recipientCount === 1 ? "person" : "people"}`}
-            description="Ready to find the perfect gift? Start a new recommendation session."
-            actionLabel="Find a Gift"
-            onAction={() => navigate("/gift-flow")}
-            icon={<Gift className="w-12 h-12" strokeWidth={1.5} />}
-          />
+          <div className="w-full space-y-6">
+            <ProfileCompletionBanner
+              completionPercentage={profileCompletion}
+              sessionCount={sessionCount}
+              missingFields={missingFields}
+              onClick={() => navigate("/onboarding?resume=true")}
+            />
+            <EmptyState
+              title={`You've added ${recipientCount} ${recipientCount === 1 ? "person" : "people"}`}
+              description="Ready to find the perfect gift? Start a new recommendation session."
+              actionLabel="Find a Gift"
+              onAction={() => navigate("/gift-flow")}
+              icon={<Gift className="w-12 h-12" strokeWidth={1.5} />}
+            />
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -137,6 +182,13 @@ const Dashboard = () => {
     <DashboardLayout>
       <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
       <div className="max-w-5xl mx-auto space-y-6 pb-20 md:pb-0">
+        <ProfileCompletionBanner
+          completionPercentage={profileCompletion}
+          sessionCount={sessionCount}
+          missingFields={missingFields}
+          onClick={() => navigate("/onboarding?resume=true")}
+        />
+
         {/* Welcome */}
         <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
           Hi {firstName}, who are we finding a gift for today?
@@ -191,12 +243,12 @@ const Dashboard = () => {
           </div>
 
           <div className="grid gap-3">
-            {sessions.slice(0, 5).map((session: any) => {
+            {sessions.slice(0, 5).map((session) => {
               const recipientName = recipientMap[session.recipient_id] || "Unknown";
               const initial = recipientName[0]?.toUpperCase() || "?";
               const isCompleted = session.status === "completed";
               const recommendations = session.ai_response && typeof session.ai_response === "object"
-                ? ((session.ai_response as any).recommendations || [])
+                ? (session.ai_response.recommendations || [])
                 : [];
               const chosenGiftName = session.selected_gift_name ||
                 (typeof session.selected_gift_index === "number" && Array.isArray(recommendations)

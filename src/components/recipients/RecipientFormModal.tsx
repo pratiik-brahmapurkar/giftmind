@@ -113,7 +113,7 @@ const RecipientFormModal = ({
     ]);
   };
 
-  const updateDate = (index: number, field: keyof ImportantDate, value: any) => {
+  const updateDate = (index: number, field: keyof ImportantDate, value: ImportantDate[keyof ImportantDate]) => {
     const dates = [...form.important_dates];
     dates[index] = { ...dates[index], [field]: value };
     update("important_dates", dates);

@@ -32,6 +32,44 @@ interface SendTestEmailRequest {
   to: string;
 }
 
+interface EmailSettings {
+  site_name: string;
+  support_email: string;
+  email_from_name: string;
+  email_from_email: string;
+  email_reply_to: string;
+  email_subject_expiry_warning: string;
+  email_subject_reminder_14: string;
+  email_subject_reminder_3: string;
+  email_subject_welcome: string;
+  free_credits: number;
+}
+
+function applyEmailSetting(settings: EmailSettings, key: string, value: unknown) {
+  if (
+    [
+      "site_name",
+      "support_email",
+      "email_from_name",
+      "email_from_email",
+      "email_reply_to",
+      "email_subject_expiry_warning",
+      "email_subject_reminder_14",
+      "email_subject_reminder_3",
+      "email_subject_welcome",
+    ].includes(key)
+  ) {
+    if (typeof value === "string") {
+      settings[key as keyof Omit<EmailSettings, "free_credits">] = value;
+    }
+    return;
+  }
+
+  if (key === "free_credits" && typeof value === "number") {
+    settings.free_credits = value;
+  }
+}
+
 async function getSettings() {
   const { data } = await supabaseAdmin
     .from("platform_settings")
@@ -49,7 +87,7 @@ async function getSettings() {
       "free_credits",
     ]);
 
-  const settings: Record<string, any> = {
+  const settings: EmailSettings = {
     site_name: "GiftMind",
     support_email: "support@giftmind.in",
     email_from_name: "GiftMind",
@@ -62,14 +100,14 @@ async function getSettings() {
     free_credits: 3,
   };
 
-  (data ?? []).forEach((row: { key: string; value: any }) => {
-    settings[row.key] = row.value;
+  (data ?? []).forEach((row: { key: string; value: unknown }) => {
+    applyEmailSetting(settings, row.key, row.value);
   });
 
   return settings;
 }
 
-function renderTemplate(template: TemplateName, settings: Record<string, any>) {
+function renderTemplate(template: TemplateName, settings: EmailSettings) {
   const siteName = settings.site_name;
   const supportEmail = settings.support_email;
 

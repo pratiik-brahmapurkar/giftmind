@@ -28,6 +28,7 @@ import { FILTER_GROUPS, type ImportantDate, type RecipientFormData } from "@/com
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { getUpgradePlan, getUpgradeText } from "@/lib/geoConfig";
 import { canAddRecipientForPlan, getRecipientLimit, getRecipientLimitMessage } from "@/lib/planLimits";
+import type { Tables } from "@/integrations/supabase/types";
 import {
   buildRecipientInsertPayload,
   buildRecipientUpdatePayload,
@@ -44,6 +45,7 @@ type GiftSessionRow = Pick<
   Database["public"]["Tables"]["gift_sessions"]["Row"],
   "recipient_id" | "created_at" | "status" | "selected_gift_name"
 >;
+type UserProfileRow = Pick<Tables<"users">, "country" | "active_plan">;
 
 type RecipientWithIntelligence = RecipientRow & {
   gift_count: number;
@@ -159,7 +161,7 @@ const MyPeople = () => {
     },
     enabled: !!user,
   });
-  const userCountry = (profile as any)?.country || "US";
+  const userCountry = profile?.country || "US";
 
   const recipientGiftStats = useMemo(() => {
     return giftSessions.reduce<Record<string, { gift_count: number; last_gift_date: string | null }>>((acc, session) => {
@@ -263,7 +265,7 @@ const MyPeople = () => {
 
       if (countError) throw countError;
 
-      const activePlan = userData?.active_plan || "spark";
+      const activePlan = (userData as UserProfileRow | null)?.active_plan || "spark";
       const insertMaxAllowed = getRecipientLimit(activePlan);
       if (!canAddRecipientForPlan(activePlan, count || 0)) {
         setUpgradeOpen(true);
@@ -330,19 +332,19 @@ const MyPeople = () => {
     setEditingId(null); setModalOpen(true);
   };
 
-  const editingRecipient = editingId ? recipients.find((r: any) => r.id === editingId) : null;
+  const editingRecipient = editingId ? (recipients as RecipientRow[]).find((r) => r.id === editingId) : null;
   const editInitialData: RecipientFormData | undefined = editingRecipient
     ? {
-        name: (editingRecipient as any).name,
-        relationship_type: getRecipientRelationship(editingRecipient as any),
-        relationship_depth: (editingRecipient as any).relationship_depth,
-        age_range: (editingRecipient as any).age_range || "",
-        gender: (editingRecipient as any).gender || "",
-        interests: (editingRecipient as any).interests || [],
-        cultural_context: (editingRecipient as any).cultural_context || "",
-        country: (editingRecipient as any).country || "",
-        notes: (editingRecipient as any).notes || "",
-        important_dates: ((editingRecipient as any).important_dates as any) || [],
+        name: editingRecipient.name,
+        relationship_type: getRecipientRelationship(editingRecipient),
+        relationship_depth: editingRecipient.relationship_depth,
+        age_range: editingRecipient.age_range || "",
+        gender: editingRecipient.gender || "",
+        interests: editingRecipient.interests || [],
+        cultural_context: editingRecipient.cultural_context || "",
+        country: editingRecipient.country || "",
+        notes: editingRecipient.notes || "",
+        important_dates: parseImportantDates(editingRecipient.important_dates),
       }
     : undefined;
 
@@ -434,7 +436,7 @@ const MyPeople = () => {
               <p className="text-center text-muted-foreground py-12">No people match your search.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filtered.map((r: any) => {
+                {filtered.map((r) => {
                   const isLocked = !activeRecipientIds.has(r.id);
                   return (
                   <RecipientCard key={r.id} recipient={r} userCountry={userCountry}
@@ -472,7 +474,7 @@ const MyPeople = () => {
           plan === "spark" || plan === "thoughtful"
             ? "📅 Date saved! Reminders available on Confident and above."
             : plan === "confident"
-            ? `📅 ${Math.min(recipients.filter((r: any) => ((r as any).important_dates as any[])?.length > 0).length, 3)}/3 reminders active. Upgrade to Gifting Pro for unlimited.`
+            ? `📅 ${Math.min((recipients as RecipientRow[]).filter((r) => parseImportantDates(r.important_dates).length > 0).length, 3)}/3 reminders active. Upgrade to Gifting Pro for unlimited.`
             : undefined
         }
       />

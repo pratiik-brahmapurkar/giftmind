@@ -35,7 +35,7 @@ export function RecipientCard({
   return (
     <div 
       className={cn(
-        "group flex items-center justify-between bg-card hover:bg-[#F2EDE4] border border-border hover:border-[#CFC7BB] rounded-lg p-[18px] transition-colors duration-200 cursor-pointer shadow-sm",
+        "group flex cursor-pointer items-center justify-between rounded-lg border border-border bg-card p-4 shadow-sm transition-colors duration-200 hover:border-[#CFC7BB] hover:bg-[#F2EDE4]",
         className
       )}
       onClick={onSelect}
@@ -64,10 +64,9 @@ export function RecipientCard({
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Metadata */}
         <div className="flex items-center gap-3">
           {lastGiftDate && (
-            <span className="hidden sm:inline-block font-body text-xs text-muted-foreground">
+            <span className="hidden font-body text-xs text-muted-foreground sm:inline-block">
               Last: {lastGiftDate}
             </span>
           )}
@@ -77,9 +76,8 @@ export function RecipientCard({
           </Badge>
         </div>
 
-        {/* Actions - visible on hover */}
         <button
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-muted-foreground hover:text-foreground hover:bg-[#E8E3DB] rounded-md focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary"
+          className="rounded-md p-2 text-muted-foreground opacity-0 transition-opacity hover:bg-[#E8E3DB] hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onEdit();

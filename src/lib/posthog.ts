@@ -1,4 +1,5 @@
 import posthog from 'posthog-js';
+import type { Json } from "@/integrations/supabase/types";
 
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
@@ -39,12 +40,12 @@ export function initPosthog() {
   });
 }
 
-export function identifyUser(userId: string, properties: Record<string, any>) {
+export function identifyUser(userId: string, properties: Record<string, Json>) {
   if (!initialized) return;
   posthog.identify(userId, properties);
 }
 
-export function trackEvent(event: string, properties?: Record<string, any>) {
+export function trackEvent(event: string, properties?: Record<string, Json>) {
   if (!initialized) return;
   posthog.capture(event, properties);
 }

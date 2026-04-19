@@ -7,10 +7,18 @@ export function useCountUp(target: number, duration = 800, delay = 0) {
   const rafId = React.useRef<number>();
 
   React.useEffect(() => {
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) { setValue(target); return; }
+    if (typeof window === "undefined") {
+      setValue(target);
+      return;
+    }
 
-    const timeout = setTimeout(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) {
+      setValue(target);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
       const animate = (timestamp: number) => {
         if (!startTime.current) startTime.current = timestamp;
         const elapsed = timestamp - startTime.current;
@@ -19,11 +27,12 @@ export function useCountUp(target: number, duration = 800, delay = 0) {
         setValue(Math.round(eased * target));
         if (progress < 1) rafId.current = requestAnimationFrame(animate);
       };
+
       rafId.current = requestAnimationFrame(animate);
     }, delay);
 
     return () => {
-      clearTimeout(timeout);
+      window.clearTimeout(timeout);
       if (rafId.current) cancelAnimationFrame(rafId.current);
     };
   }, [target, duration, delay]);
@@ -33,66 +42,63 @@ export function useCountUp(target: number, duration = 800, delay = 0) {
 
 export interface ConfidenceBadgeProps {
   score: number;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   animate?: boolean;
   showLabel?: boolean;
   className?: string;
 }
 
 const sizeMap = {
-  sm: { badge: 'px-2 py-1', score: 'text-sm' },
-  md: { badge: 'px-3 py-1.5 min-w-[64px]', score: 'text-lg' },
-  lg: { badge: 'px-4 py-2 min-w-[80px]', score: 'text-2xl' },
-};
+  sm: { badge: "min-w-[72px] px-2.5 py-1.5", score: "text-base", label: "text-[10px]" },
+  md: { badge: "min-w-[88px] px-3 py-2", score: "text-[28px]", label: "text-[11px]" },
+  lg: { badge: "min-w-[104px] px-4 py-2.5", score: "text-[34px]", label: "text-xs" },
+} as const;
 
-export function ConfidenceBadge({ 
-  score, 
-  size = 'md', 
-  animate = true, 
+export function ConfidenceBadge({
+  score,
+  size = "md",
+  animate = true,
   showLabel = true,
-  className 
+  className,
 }: ConfidenceBadgeProps) {
-  const displayScore = animate ? useCountUp(score) : score;
+  const animatedScore = useCountUp(score);
+  const displayScore = animate ? animatedScore : score;
 
   let styleConfig = "";
   let label = "";
 
   if (score >= 90) {
-    styleConfig = "bg-amber-50 text-amber-700 border-amber-200 shadow-[0_0_8px_rgba(212,160,74,0.3)]";
+    styleConfig = "border-amber-200 bg-amber-50 text-amber-700 shadow-[0_0_8px_rgba(212,160,74,0.3)]";
     label = "Excellent match";
   } else if (score >= 75) {
-    styleConfig = "bg-indigo-50 text-indigo-700 border-indigo-200";
+    styleConfig = "border-indigo-200 bg-indigo-50 text-indigo-700";
     label = "Strong match";
   } else if (score >= 60) {
-    styleConfig = "bg-neutral-100 text-neutral-600 border-neutral-200";
+    styleConfig = "border-neutral-200 bg-neutral-100 text-neutral-700";
     label = "Good match";
   } else {
-    styleConfig = "bg-neutral-100 text-neutral-400 border-neutral-200";
+    styleConfig = "border-neutral-200 bg-neutral-100 text-neutral-500";
     label = "Moderate match";
   }
 
   return (
-    <div 
+    <div
       className={cn(
-        "inline-flex flex-col items-center justify-center rounded-full border text-center font-heading transition-colors",
+        "inline-flex flex-col items-center justify-center rounded-[1.25rem] border-[1.5px] text-center transition-colors",
         styleConfig,
         sizeMap[size].badge,
-        className
+        className,
       )}
       role="status"
       aria-label={`${score}% confidence score`}
     >
       <div className="flex items-baseline leading-none">
-        <span className={cn("font-bold tracking-tight", sizeMap[size].score)}>
-          {displayScore}
-        </span>
-        <span className="text-[0.65em] font-body font-semibold ml-[1px]">%</span>
+        <span className={cn("font-heading font-bold tracking-tight", sizeMap[size].score)}>{displayScore}</span>
+        <span className="ml-[2px] text-[0.58em] font-body font-semibold">%</span>
       </div>
-      {showLabel && (
-        <span className="font-body text-[10px] mt-0.5 uppercase tracking-wider opacity-80 font-medium">
-          {label.split(" ")[0]}
-        </span>
-      )}
+      {showLabel ? (
+        <span className={cn("mt-1 font-body font-medium leading-tight opacity-85", sizeMap[size].label)}>{label}</span>
+      ) : null}
     </div>
   );
 }

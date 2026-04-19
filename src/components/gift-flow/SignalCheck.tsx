@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Lock, MessageCircleHeart, Sparkles, Wand2 } from "lucide-react";
-import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +9,8 @@ import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { supabase } from "@/integrations/supabase/client";
 import type { GiftRecommendation, Recipient } from "@/hooks/useGiftSession";
 import { buildSignalCheckKey, parseSignalChecks } from "@/lib/signalCheck";
+import { Check, Loader2, Lock, MessageCircleHeart, Sparkles, Wand2, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface SignalCheckProps {
   gift: GiftRecommendation;
@@ -136,26 +136,20 @@ export default function SignalCheck({
   const runFollowUp = () => {
     const trimmed = followUpPrompt.trim();
     if (!trimmed) return;
-
-    if (!canUseSignalCheck) {
-      setUpgradeOpen(true);
-      return;
-    }
-
     void signalMutation.mutateAsync(trimmed);
   };
 
-  const isLoading = signalMutation.isPending;
+  const isLoading = signalMutation.isPending || signalChecksQuery.isLoading;
 
   if (!canUseSignalCheck && !latestCheck) {
     return (
       <>
         <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setUpgradeOpen(true)}>
           <span className="inline-flex items-center gap-2">
-            <Lock className="h-4 w-4" />
+            <Lock className="h-4 w-4" strokeWidth={1.5} />
             Signal Check
           </span>
-          🔒 Unlock with Confident 🎯
+          Unlock with Confident
         </Button>
         <UpgradeModal
           open={upgradeOpen}
@@ -170,68 +164,65 @@ export default function SignalCheck({
   return (
     <>
       <div className="space-y-3">
-        {!latestCheck && (
+        {!latestCheck ? (
           <Button
             type="button"
             variant="outline"
             className="w-full justify-between"
             onClick={runInitialCheck}
-            disabled={isLoading || signalChecksQuery.isLoading}
+            disabled={isLoading}
           >
             <span className="inline-flex items-center gap-2">
-              {isLoading || signalChecksQuery.isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MessageCircleHeart className="h-4 w-4" />
-              )}
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} /> : <MessageCircleHeart className="h-4 w-4" strokeWidth={1.5} />}
               Signal Check
             </span>
-            {isLoading || signalChecksQuery.isLoading ? "Analyzing..." : "See what this gift says"}
+            {isLoading ? "Analyzing..." : "See what this gift says"}
           </Button>
-        )}
+        ) : null}
 
-        {latestCheck && (
-          <Card className="border-[#EDD896] shadow-sm" style={{ background: "linear-gradient(135deg, #FAF5E8, #F5E9C9)" }}>
+        {latestCheck ? (
+          <Card className="border-[#EDD896] bg-[linear-gradient(135deg,#FAF5E8_0%,#F5E9C9_100%)] shadow-sm" padding="none">
             <CardContent className="space-y-4 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="inline-flex items-center gap-2 text-sm font-medium text-[#6F5326]">
-                  <Sparkles className="h-4 w-4 text-[#D4A04A]" />
+                  <Sparkles className="h-4 w-4 text-[#D4A04A]" strokeWidth={1.5} />
                   Signal Check
                 </div>
-                <Badge variant="primary" className="border-[#D4A04A]/30 text-[#6F5326] bg-[#D4A04A]/10">Revision {latestCheck.revision_number}</Badge>
-                {checks.length > 1 ? <Badge variant="primary" className="border-[#D4A04A]/30 text-[#6F5326] bg-[#D4A04A]/10">{checks.length} saved reads</Badge> : null}
+                <Badge variant="primary">Revision {latestCheck.revision_number}</Badge>
+                {checks.length > 1 ? <Badge variant="primary">{checks.length} saved reads</Badge> : null}
               </div>
 
               <div className="space-y-2">
                 {latestCheck.result.positive_signals.map((signal) => (
                   <div key={signal} className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-[#3E8E7E] shrink-0 mt-0.5" strokeWidth={2} />
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#3E8E7E]" strokeWidth={1.5} />
                     <p className="text-sm text-foreground">{signal}</p>
                   </div>
                 ))}
               </div>
 
-              {latestCheck.result.potential_risks.length > 0 && (
-                <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Potential risks</p>
+              {latestCheck.result.potential_risks.length > 0 ? (
+                <div className="space-y-2 rounded-xl border border-[#E8D3C8] bg-[#FFF6F4] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9A4B47]">Potential risks</p>
                   {latestCheck.result.potential_risks.map((risk) => (
-                    <p key={risk} className="text-sm text-amber-900">
-                      {risk}
-                    </p>
+                    <div key={risk} className="flex items-start gap-2">
+                      <X className="mt-0.5 h-4 w-4 shrink-0 text-[#C25450]" strokeWidth={1.5} />
+                      <p className="text-sm text-[#7A3B38]">{risk}</p>
+                    </div>
                   ))}
                 </div>
-              )}
+              ) : null}
 
-              {latestCheck.result.adjustment_suggestions.length > 0 && (
-                <div className="space-y-2 rounded-xl border border-sky-200 bg-sky-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-800">How to tune it</p>
+              {latestCheck.result.adjustment_suggestions.length > 0 ? (
+                <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">How to tune it</p>
                   {latestCheck.result.adjustment_suggestions.map((suggestion) => (
-                    <p key={suggestion} className="text-sm text-sky-900">
+                    <p key={suggestion} className="text-sm text-indigo-900">
                       {suggestion}
                     </p>
                   ))}
                 </div>
-              )}
+              ) : null}
 
               <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">{latestCheck.result.overall_message}</p>
@@ -240,9 +231,10 @@ export default function SignalCheck({
 
               <div className="space-y-3 rounded-xl border border-border/60 bg-background/80 p-3">
                 <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Wand2 className="h-3.5 w-3.5" />
+                  <Wand2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Refine the read
                 </div>
+
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTED_FOLLOW_UPS.map((prompt) => (
                     <button
@@ -255,22 +247,24 @@ export default function SignalCheck({
                     </button>
                   ))}
                 </div>
+
                 <Textarea
                   value={followUpPrompt}
                   onChange={(event) => setFollowUpPrompt(event.target.value)}
                   rows={2}
                   placeholder='Ask a follow-up like "make this less romantic" or "make this more premium".'
                 />
+
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-muted-foreground">Each follow-up saves a new revision and uses 0.5 credit.</p>
-                  <Button type="button" size="sm" variant="outline" onClick={runFollowUp} disabled={isLoading || !followUpPrompt.trim()}>
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  <Button type="button" size="sm" variant="outline" onClick={runFollowUp} disabled={signalMutation.isPending || !followUpPrompt.trim()}>
+                    {signalMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={1.5} /> : null}
                     Refine
                   </Button>
                 </div>
               </div>
 
-              {checks.length > 1 && (
+              {checks.length > 1 ? (
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="history" className="border-border/60">
                     <AccordionTrigger className="text-sm">Revision History</AccordionTrigger>
@@ -297,10 +291,10 @@ export default function SignalCheck({
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
-              )}
+              ) : null}
             </CardContent>
           </Card>
-        )}
+        ) : null}
       </div>
 
       <UpgradeModal

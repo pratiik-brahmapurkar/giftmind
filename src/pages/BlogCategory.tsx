@@ -7,8 +7,10 @@ import BlogPostCard from "@/components/blog/BlogPostCard";
 import BlogSeo from "@/components/blog/BlogSeo";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
+import type { Tables } from "@/integrations/supabase/types";
 
 const PAGE_SIZE = 12;
+type BlogCategoryPost = Tables<"blog_posts"> & { blog_categories: Pick<Tables<"blog_categories">, "name" | "slug"> | null };
 
 export default function BlogCategory() {
   const { slug } = useParams();
@@ -32,7 +34,7 @@ export default function BlogCategory() {
         .eq("status", "published")
         .eq("category_id", category!.id)
         .order("published_at", { ascending: false });
-      return data || [];
+      return (data || []) as BlogCategoryPost[];
     },
     enabled: !!category?.id,
   });
@@ -64,7 +66,7 @@ export default function BlogCategory() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {visible.map((p: any) => (
+          {visible.map((p) => (
             <BlogPostCard
               key={p.id}
               slug={p.slug}
@@ -72,7 +74,7 @@ export default function BlogCategory() {
               excerpt={p.excerpt}
               featuredImageUrl={p.featured_image_url}
               featuredImageAlt={p.featured_image_alt}
-              categoryName={(p.blog_categories as any)?.name}
+              categoryName={p.blog_categories?.name}
               publishedAt={p.published_at}
               content={p.content}
             />

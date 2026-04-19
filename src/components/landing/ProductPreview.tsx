@@ -1,81 +1,67 @@
 import { motion } from "framer-motion";
+import { ConfidenceBadge } from "@/components/ui/confidence-badge";
+import { Badge } from "@/components/ui/badge";
 
 const ProductPreview = () => {
   return (
-    <section className="py-24" style={{ backgroundColor: "#F8F7FF" }}>
+    <section className="bg-[#F2EDE4] py-24">
       <div className="container mx-auto px-4">
         <motion.div
-          className="text-center mb-12"
+          className="mb-12 text-center"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold font-heading mb-4">
-            See what <span className="text-primary">confident gifting</span> looks like
+          <h2 className="font-heading text-3xl font-bold text-foreground md:text-4xl">
+            See what <span className="text-amber-700">confident gifting</span> looks like
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Here's a real GiftMind recommendation for "Anniversary gift for wife, $30–50 budget"
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+            A real GiftMind recommendation, designed to feel like guidance from someone who knows both the person and the occasion.
           </p>
         </motion.div>
 
         <motion.div
-          className="max-w-[520px] mx-auto"
+          className="mx-auto max-w-[560px]"
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          style={{ transform: "rotate3d(-1, 1, 0, 3deg)" }}
         >
-          <div
-            className="rounded-2xl bg-card p-6 md:p-8"
-            style={{
-              borderLeft: "3px solid transparent",
-              borderImage: "linear-gradient(135deg, hsl(249 76% 64%), hsl(0 100% 70%)) 1",
-              boxShadow: "0 12px 40px rgba(108,92,231,0.12), 0 2px 12px rgba(0,0,0,0.06)",
-            }}
-          >
-            {/* Confidence badge */}
-            <span
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-4"
-              style={{ backgroundColor: "hsl(168 100% 36% / 0.12)", color: "hsl(168 100% 36%)" }}
-            >
-              🎯 92% Confidence
-            </span>
+          <div className="rounded-2xl border border-amber-200 bg-background p-6 shadow-lg md:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <Badge variant="primary" className="mb-3 w-fit font-sans">
+                  Best Match
+                </Badge>
+                <h3 className="font-heading text-2xl font-semibold text-foreground">
+                  Personalized Star Map of Your First Date Night
+                </h3>
+              </div>
+              <ConfidenceBadge score={92} size="sm" animate={false} />
+            </div>
 
-            <h3 className="text-xl font-bold text-foreground mb-2">
-              Personalized Star Map of Your First Date Night
-            </h3>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-5">
-              A custom star map showing exactly how the sky looked on the night you first met — framed, with your names and date engraved.
+            <p className="mt-4 text-sm leading-6 text-neutral-600">
+              A custom star map showing exactly how the sky looked on the night you first met, framed with your names and date engraved.
             </p>
 
-            <hr className="border-border mb-5" />
-
-            {/* Why it works */}
-            <div className="pl-4 mb-5" style={{ borderLeft: "3px solid hsl(249 76% 64%)" }}>
-              <p className="text-xs font-semibold text-primary mb-1">Why it works</p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Your wife values sentimental gestures over luxury items. This combines personalization (your specific date) with visual beauty (wall art) — a gift that says "I remember everything."
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Why it works</p>
+              <p className="mt-1 text-sm leading-6 text-neutral-700">
+                Your wife values meaning over flash. This ties memory, beauty, and personalization together in a way that feels intimate rather than generic.
               </p>
             </div>
 
-            <hr className="border-border mb-5" />
-
-            {/* Signal check */}
-            <div className="mb-5">
-              <p className="text-xs font-semibold text-muted-foreground mb-1">💬 What this gift communicates:</p>
-              <p className="text-sm italic leading-relaxed" style={{ color: "hsl(var(--accent))" }}>
-                "I pay attention to our history. I chose something uniquely about us — not generic. I value meaning over price."
+            <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">What it communicates</p>
+              <p className="mt-1 text-sm leading-6 text-neutral-700">
+                “I remember the details of our story. I picked something about us, not something off a generic list.”
               </p>
             </div>
 
-            <hr className="border-border mb-4" />
-
-            {/* Price & availability */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">$30 – $50</span>
-              <span className="text-xs text-muted-foreground">Available on Amazon, Etsy & more</span>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">
+              <span className="font-mono font-medium text-foreground">$30 – $50</span>
+              <span className="text-muted-foreground">Available on Amazon, Etsy, and more</span>
             </div>
           </div>
         </motion.div>

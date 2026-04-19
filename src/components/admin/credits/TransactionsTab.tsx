@@ -13,8 +13,15 @@ import {
 import { Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import type { Tables } from "@/integrations/supabase/types";
 
 const PAGE_SIZE = 50;
+
+type CreditTransactionRow = Tables<"credit_transactions"> & {
+  balance_after?: number | null;
+};
+
+type UserNameRow = Pick<Tables<"users">, "id" | "full_name"> & { user_id: string };
 
 const TransactionsTab = () => {
   const [search, setSearch] = useState("");
@@ -29,7 +36,7 @@ const TransactionsTab = () => {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as CreditTransactionRow[];
     },
   });
 
@@ -41,7 +48,7 @@ const TransactionsTab = () => {
         .from("users")
         .select("user_id, full_name");
       if (error) throw error;
-      return data || [];
+      return (data || []) as UserNameRow[];
     },
   });
 
@@ -78,8 +85,8 @@ const TransactionsTab = () => {
     const rows = filtered.map((t) => [
       format(new Date(t.created_at), "yyyy-MM-dd HH:mm"),
       profileMap[t.user_id] || t.user_id,
-      t.type, t.amount, t.balance_after,
-      (t as any).payment_id || "", (t as any).provider || "", t.details || "",
+      t.type, t.amount, t.balance_after ?? "",
+      t.payment_id || "", t.payment_provider || "", t.details || "",
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -168,7 +175,7 @@ const TransactionsTab = () => {
                 </TableCell>
                 <TableCell className="text-right text-sm hidden sm:table-cell">{t.balance_after}</TableCell>
                 <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">
-                  {(t as any).payment_id || "—"}
+                  {t.payment_id || "—"}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
                   {t.details || "—"}

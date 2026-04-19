@@ -18,6 +18,7 @@ import {
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { captureError } from "@/lib/sentry";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface CategoryForm {
   id?: string;
@@ -26,6 +27,8 @@ interface CategoryForm {
   icon: string;
   description: string;
 }
+
+type BlogCategoryRow = Tables<"blog_categories">;
 
 const emptyForm: CategoryForm = { name: "", slug: "", icon: "📁", description: "" };
 
@@ -43,7 +46,7 @@ const AdminBlogCategories = () => {
         .select("*")
         .order("sort_order");
       if (error) throw error;
-      return data || [];
+      return (data || []) as BlogCategoryRow[];
     },
   });
 
@@ -66,7 +69,7 @@ const AdminBlogCategories = () => {
   const generateSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-  const openEdit = (cat?: any) => {
+  const openEdit = (cat?: BlogCategoryRow) => {
     if (cat) {
       setEditCat({ id: cat.id, name: cat.name, slug: cat.slug, icon: cat.icon || "📁", description: cat.description || "" });
     } else {
@@ -94,12 +97,12 @@ const AdminBlogCategories = () => {
       }
       queryClient.invalidateQueries({ queryKey: ["admin-blog-categories"] });
       setEditCat(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       captureError(
         err instanceof Error ? err : new Error("Failed to save blog category"),
         { action: "admin-save-blog-category", category_id: editCat?.id ?? null },
       );
-      toast.error(err.message || "Failed to save");
+      toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
     }

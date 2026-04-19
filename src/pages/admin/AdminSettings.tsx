@@ -40,6 +40,7 @@ import {
   CreditCard,
   Rocket,
 } from "lucide-react";
+import type { Tables } from "@/integrations/supabase/types";
 
 const TAB_CONFIG = [
   { value: "general", label: "🌐 General", icon: Globe },
@@ -140,6 +141,49 @@ type SecurityEvent = {
   details: string;
 };
 
+type CreditGrantRow = Pick<Tables<"credit_transactions">, "id" | "created_at" | "amount" | "user_id">;
+type ElevatedUserRow = Pick<Tables<"users">, "id" | "email" | "role" | "updated_at">;
+type UserEmailRow = Pick<Tables<"users">, "id" | "email">;
+type AIModelFieldKey = "ai_model_free" | "ai_model_pro" | "ai_model_signal";
+type PackageNumericField = "credits" | "price_usd" | "validity_days" | "max_recipients" | "max_regenerations";
+type PackageBooleanField = "has_signal_check" | "has_batch_mode" | "has_priority_ai" | "has_history_export";
+type SecurityLimitField =
+  | "max_gift_sessions_per_hour"
+  | "signal_checks_per_day"
+  | "product_clicks_per_hour"
+  | "referrals_per_hour"
+  | "blog_ai_generations_per_day";
+type AdminRpcName = "run_credit_expiry" | "recalculate_all_balances";
+
+const AI_MODEL_FIELDS: Array<{ key: AIModelFieldKey; label: string; note: string; cost: string }> = [
+  { key: "ai_model_free", label: "Model for Spark/Thoughtful/Confident plans", note: "Cheaper model for standard users.", cost: "Cost: ~$0.003 per gift session." },
+  { key: "ai_model_pro", label: "Model for Gifting Pro plan", note: "Premium model for Gifting Pro users. Better quality.", cost: "Cost: ~$0.035 per gift session." },
+  { key: "ai_model_signal", label: "Model for Signal Check", note: "Always Sonnet — this is the premium differentiator.", cost: "Cost: ~$0.01 per signal check." },
+];
+
+const PACKAGE_NUMERIC_FIELDS: Array<{ label: string; field: PackageNumericField }> = [
+  { label: "Credits", field: "credits" },
+  { label: "USD", field: "price_usd" },
+  { label: "Validity (days)", field: "validity_days" },
+  { label: "Max People", field: "max_recipients" },
+  { label: "Max Regens", field: "max_regenerations" },
+];
+
+const PACKAGE_BOOLEAN_FIELDS: Array<{ label: string; field: PackageBooleanField }> = [
+  { label: "Signal", field: "has_signal_check" },
+  { label: "Batch", field: "has_batch_mode" },
+  { label: "Priority AI", field: "has_priority_ai" },
+  { label: "Export", field: "has_history_export" },
+];
+
+const SECURITY_LIMIT_FIELDS: Array<{ label: string; field: SecurityLimitField }> = [
+  { label: "Gift sessions per hour (per user)", field: "max_gift_sessions_per_hour" },
+  { label: "Signal checks per day (per user)", field: "signal_checks_per_day" },
+  { label: "Product clicks per hour (per user)", field: "product_clicks_per_hour" },
+  { label: "Referrals per hour (per IP)", field: "referrals_per_hour" },
+  { label: "Blog AI generations per day (admin)", field: "blog_ai_generations_per_day" },
+];
+
 function parseTabFromHash(hash: string): TabValue {
   const clean = hash.replace(/^#/, "") as TabValue;
   return TAB_CONFIG.some((tab) => tab.value === clean) ? clean : "general";
@@ -154,19 +198,19 @@ function formatCurrencyAmount(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
-function asString(value: any, fallback = "") {
+function asString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
 
-function asNumber(value: any, fallback = 0) {
+function asNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function asBoolean(value: any, fallback = false) {
+function asBoolean(value: unknown, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function asStringArray(value: any, fallback: string[] = []) {
+function asStringArray(value: unknown, fallback: string[] = []) {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : fallback;
 }
 
@@ -178,11 +222,11 @@ function buildTemplatePreview(template: string, settings: SettingsRecord) {
       subject: settings.email_subject_expiry_warning,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111827;">
-          <h2 style="color:#6C5CE7; margin-bottom: 12px;">Your GiftMind credits are expiring soon</h2>
+          <h2 style="color:#D4A04A; margin-bottom: 12px;">Your GiftMind credits are expiring soon</h2>
           <p>Hi Priya,</p>
           <p>You have <strong>3 credits</strong> expiring in <strong>2 days</strong>.</p>
           <p>Use them now to find a thoughtful gift with confidence.</p>
-          <a href="https://giftmind.in/gift-flow" style="display:inline-block; padding: 12px 18px; background:#6C5CE7; color:#fff; text-decoration:none; border-radius:8px; font-weight:600;">Find a gift</a>
+          <a href="https://giftmind.in/gift-flow" style="display:inline-block; padding: 12px 18px; background:#D4A04A; color:#2B1F0F; text-decoration:none; border-radius:8px; font-weight:600;">Find a gift</a>
           <p style="margin-top:24px; font-size:13px; color:#6B7280;">Need help? Reply to ${supportEmail}</p>
         </div>`,
     },
@@ -190,11 +234,11 @@ function buildTemplatePreview(template: string, settings: SettingsRecord) {
       subject: settings.email_subject_reminder_14,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111827;">
-          <h2 style="color:#6C5CE7; margin-bottom: 12px;">Upcoming occasion reminder</h2>
+          <h2 style="color:#D4A04A; margin-bottom: 12px;">Upcoming occasion reminder</h2>
           <p>Hi Priya,</p>
           <p>Arjun's birthday is in 2 weeks.</p>
           <p>${brand} can help you pick something thoughtful before the rush starts.</p>
-          <a href="https://giftmind.in/gift-flow" style="display:inline-block; padding: 12px 18px; background:#6C5CE7; color:#fff; text-decoration:none; border-radius:8px; font-weight:600;">Start gift flow</a>
+          <a href="https://giftmind.in/gift-flow" style="display:inline-block; padding: 12px 18px; background:#D4A04A; color:#2B1F0F; text-decoration:none; border-radius:8px; font-weight:600;">Start gift flow</a>
         </div>`,
     },
     reminder_3: {
@@ -212,11 +256,11 @@ function buildTemplatePreview(template: string, settings: SettingsRecord) {
       subject: settings.email_subject_welcome,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111827;">
-          <h2 style="color:#6C5CE7; margin-bottom: 12px;">Welcome to ${brand}</h2>
+          <h2 style="color:#D4A04A; margin-bottom: 12px;">Welcome to ${brand}</h2>
           <p>Hi Priya,</p>
           <p>You now have <strong>${settings.free_credits} free credits on Spark ✨ — no card needed</strong> to try AI gift recommendations.</p>
           <p>Add your first person, choose an occasion, and get 3 gift ideas with confidence scores.</p>
-          <a href="https://giftmind.in/onboarding" style="display:inline-block; padding: 12px 18px; background:#6C5CE7; color:#fff; text-decoration:none; border-radius:8px; font-weight:600;">Get started</a>
+          <a href="https://giftmind.in/onboarding" style="display:inline-block; padding: 12px 18px; background:#D4A04A; color:#2B1F0F; text-decoration:none; border-radius:8px; font-weight:600;">Get started</a>
         </div>`,
     },
   } as const;
@@ -278,6 +322,11 @@ const AdminSettings = () => {
   const [maintenanceStats, setMaintenanceStats] = useState<Record<string, number>>({});
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState<string | null>(null);
+
+  const rpc = supabase.rpc as (
+    fn: AdminRpcName,
+    args?: Record<string, never>,
+  ) => Promise<{ error: { message: string } | null }>;
 
   const settingsWithDefaults: SettingsRecord = useMemo(
     () => ({ ...DEFAULT_SETTINGS, ...settings }),
@@ -454,7 +503,7 @@ const AdminSettings = () => {
     try {
       const { data: grants } = await supabase
         .from("credit_transactions")
-        .select("id, created_at, amount, user_id, metadata")
+        .select("id, created_at, amount, user_id")
         .eq("type", "admin_grant")
         .order("created_at", { ascending: false })
         .limit(10);
@@ -466,21 +515,27 @@ const AdminSettings = () => {
         .order("updated_at", { ascending: false })
         .limit(10);
 
-      const userIds = Array.from(new Set((grants || []).map((grant: any) => grant.user_id).filter(Boolean)));
-      const { data: userRows } = userIds.length
-        ? await supabase.from("users").select("id, email").in("id", userIds)
-        : { data: [] as any[] };
-      const emailMap = Object.fromEntries((userRows || []).map((row: any) => [row.id, row.email]));
+      const typedGrants = (grants || []) as CreditGrantRow[];
+      const typedElevatedUsers = (elevatedUsers || []) as ElevatedUserRow[];
+      const userIds = Array.from(new Set(typedGrants.map((grant) => grant.user_id).filter(Boolean)));
+
+      let userRows: UserEmailRow[] = [];
+      if (userIds.length > 0) {
+        const { data } = await supabase.from("users").select("id, email").in("id", userIds);
+        userRows = (data || []) as UserEmailRow[];
+      }
+
+      const emailMap = Object.fromEntries(userRows.map((row) => [row.id, row.email]));
 
       const events: SecurityEvent[] = [
-        ...(grants || []).map((grant: any) => ({
+        ...typedGrants.map((grant) => ({
           id: `grant-${grant.id}`,
           date: grant.created_at,
           event: "Credits granted",
           user: emailMap[grant.user_id] || "Unknown user",
           details: `+${grant.amount} credits`,
         })),
-        ...(elevatedUsers || []).map((row: any) => ({
+        ...typedElevatedUsers.map((row) => ({
           id: `role-${row.id}-${row.updated_at}`,
           date: row.updated_at,
           event: "Elevated role",
@@ -493,7 +548,7 @@ const AdminSettings = () => {
         .slice(0, 20);
 
       setSecurityEvents(events);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to load security events", error);
     }
   }
@@ -698,7 +753,7 @@ const AdminSettings = () => {
 
   async function handleRunCreditExpiry() {
     await runMaintenanceAction("credit-expiry", async () => {
-      const { error } = await (supabase as any).rpc("run_credit_expiry");
+      const { error } = await rpc("run_credit_expiry");
       if (error) {
         toast.error("Failed to run credit expiry check");
         return;
@@ -711,7 +766,7 @@ const AdminSettings = () => {
 
   async function handleRecalculateBalances() {
     await runMaintenanceAction("recalculate", async () => {
-      const { error } = await (supabase as any).rpc("recalculate_all_balances");
+      const { error } = await rpc("recalculate_all_balances");
       if (error) {
         toast.error("Failed to recalculate balances");
         return;
@@ -734,7 +789,7 @@ const AdminSettings = () => {
         toast.error("Failed to clear expired batches");
         return;
       }
-      await (supabase as any).rpc("recalculate_all_balances");
+      await rpc("recalculate_all_balances");
       await updateSetting("maintenance_last_expired_batch_clear_run", new Date().toISOString());
       toast.success("Expired batches updated");
       await refreshMaintenanceStats();
@@ -873,14 +928,10 @@ const AdminSettings = () => {
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Model Selection</h3>
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
-                  {[
-                    { key: "ai_model_free", label: "Model for Spark/Thoughtful/Confident plans", note: "Cheaper model for standard users.", cost: "Cost: ~$0.003 per gift session." },
-                    { key: "ai_model_pro", label: "Model for Gifting Pro plan", note: "Premium model for Gifting Pro users. Better quality.", cost: "Cost: ~$0.035 per gift session." },
-                    { key: "ai_model_signal", label: "Model for Signal Check", note: "Always Sonnet — this is the premium differentiator.", cost: "Cost: ~$0.01 per signal check." },
-                  ].map((field) => (
+                  {AI_MODEL_FIELDS.map((field) => (
                     <div key={field.key} className="space-y-2 rounded-lg border p-4">
                       <Label>{field.label}</Label>
-                      <Select value={(aiForm as any)[field.key]} onValueChange={(value) => setAiForm((prev) => ({ ...prev, [field.key]: value }))}>
+                      <Select value={aiForm[field.key]} onValueChange={(value) => setAiForm((prev) => ({ ...prev, [field.key]: value }))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {MODEL_OPTIONS.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}
@@ -1014,18 +1065,12 @@ const AdminSettings = () => {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          {[
-                            ["Credits", "credits"],
-                            ["USD", "price_usd"],
-                            ["Validity (days)", "validity_days"],
-                            ["Max People", "max_recipients"],
-                            ["Max Regens", "max_regenerations"],
-                          ].map(([label, field]) => (
+                          {PACKAGE_NUMERIC_FIELDS.map(({ label, field }) => (
                             <div key={field} className="space-y-1">
                               <Label>{label}</Label>
                               <Input
                                 type="number"
-                                value={(pkg as any)[field] ?? 0}
+                                value={pkg[field] ?? 0}
                                 onChange={(e) => setPackageDrafts((prev) => prev.map((row) => row.id === pkg.id ? { ...row, [field]: Number(e.target.value) } : row))}
                               />
                             </div>
@@ -1042,15 +1087,10 @@ const AdminSettings = () => {
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 pt-1">
-                            {[
-                              ["Signal", "has_signal_check"],
-                              ["Batch", "has_batch_mode"],
-                              ["Priority AI", "has_priority_ai"],
-                              ["Export", "has_history_export"],
-                            ].map(([label, field]) => (
+                            {PACKAGE_BOOLEAN_FIELDS.map(({ label, field }) => (
                               <div key={field} className="flex items-center justify-between rounded-md border p-2 text-sm">
                                 <span>{label}</span>
-                                <Switch checked={Boolean((pkg as any)[field])} onCheckedChange={(checked) => setPackageDrafts((prev) => prev.map((row) => row.id === pkg.id ? { ...row, [field]: checked } : row))} />
+                                <Switch checked={Boolean(pkg[field])} onCheckedChange={(checked) => setPackageDrafts((prev) => prev.map((row) => row.id === pkg.id ? { ...row, [field]: checked } : row))} />
                               </div>
                             ))}
                           </div>
@@ -1200,16 +1240,10 @@ const AdminSettings = () => {
               <Separator />
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {[
-                  ["Gift sessions per hour (per user)", "max_gift_sessions_per_hour"],
-                  ["Signal checks per day (per user)", "signal_checks_per_day"],
-                  ["Product clicks per hour (per user)", "product_clicks_per_hour"],
-                  ["Referrals per hour (per IP)", "referrals_per_hour"],
-                  ["Blog AI generations per day (admin)", "blog_ai_generations_per_day"],
-                ].map(([label, field]) => (
-                  <div key={String(field)} className="space-y-2">
+                {SECURITY_LIMIT_FIELDS.map(({ label, field }) => (
+                  <div key={field} className="space-y-2">
                     <Label>{label}</Label>
-                    <Input type="number" min="0" value={(securityForm as any)[field]} onChange={(e) => setSecurityForm((prev) => ({ ...prev, [field]: Number(e.target.value) }))} />
+                    <Input type="number" min="0" value={securityForm[field]} onChange={(e) => setSecurityForm((prev) => ({ ...prev, [field]: Number(e.target.value) }))} />
                   </div>
                 ))}
               </div>

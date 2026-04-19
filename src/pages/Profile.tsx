@@ -30,6 +30,19 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { COUNTRY_OPTIONS } from "@/components/recipients/constants";
+import { AUDIENCE_OPTIONS, GIFT_STYLE_OPTIONS } from "@/features/onboarding/constants";
+import {
+  birthdayToIso,
+  calculateProfileCompletion,
+  getProfileCompletionMissingFields,
+  parseBirthdayString,
+  parseOnboardingState,
+  validateBirthdayDraft,
+} from "@/features/onboarding/utils";
+import { trackEvent } from "@/lib/posthog";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
+
+type UserProfile = Tables<"users">;
 
 const Profile = () => {
   const { user } = useAuth();
@@ -40,6 +53,9 @@ const Profile = () => {
   const [fullName, setFullName] = useState("");
   const [country, setCountry] = useState("US");
   const [language, setLanguage] = useState("en");
+  const [birthday, setBirthday] = useState({ month: "", day: "", year: "" });
+  const [audience, setAudience] = useState<string[]>([]);
+  const [giftStyle, setGiftStyle] = useState<string[]>([]);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
@@ -58,10 +74,27 @@ const Profile = () => {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || "");
-      setCountry((profile as any).country || "US");
-      setLanguage((profile as any).language || "en");
+      setCountry(profile.country || "US");
+      setLanguage(profile.language || "en");
+      setBirthday(parseBirthdayString(profile.birthday));
+      const onboardingState = parseOnboardingState(profile.onboarding_state);
+      setAudience(onboardingState.audience);
+      setGiftStyle(onboardingState.gift_style);
     }
   }, [profile]);
+
+  const { data: recipientCount = 0 } = useQuery({
+    queryKey: ["profile-recipient-count", user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user,
+  });
 
   const { data: referrals = [] } = useQuery({
     queryKey: ["referrals", user?.id],
@@ -79,22 +112,57 @@ const Profile = () => {
 
   const updateProfile = useMutation({
     mutationFn: async () => {
+      const birthdayError = validateBirthdayDraft(birthday);
+      if (birthdayError) throw new Error(birthdayError);
+
+      const completionBefore = profile?.profile_completion_percentage ?? 0;
+      const fieldsChanged: string[] = [];
+      if ((profile?.full_name || "") !== fullName) fieldsChanged.push("full_name");
+      if ((profile?.country || "US") !== country) fieldsChanged.push("country");
+      if ((profile?.language || "en") !== language) fieldsChanged.push("language");
+      if ((profile?.birthday || null) !== birthdayToIso(birthday)) fieldsChanged.push("birthday");
+
+      const currentOnboardingState = parseOnboardingState(profile?.onboarding_state);
+      if (JSON.stringify(currentOnboardingState.audience) !== JSON.stringify(audience)) fieldsChanged.push("audience");
+      if (JSON.stringify(currentOnboardingState.gift_style) !== JSON.stringify(giftStyle)) fieldsChanged.push("gift_style");
+
       const { error } = await supabase
         .from("users")
         .update({
           full_name: fullName,
           country,
+          birthday: birthdayToIso(birthday),
           language,
+          onboarding_state: {
+            ...currentOnboardingState,
+            audience,
+            gift_style: giftStyle,
+          },
           updated_at: new Date().toISOString(),
-        } as any)
+        } satisfies TablesUpdate<"users">)
         .eq("id", user!.id);
       if (error) throw error;
+
+      const completionAfter = calculateProfileCompletion({
+        fullName,
+        country,
+        recipientCount,
+        birthday: birthdayToIso(birthday),
+        audience,
+        giftStyle,
+      });
+      trackEvent("profile_updated", {
+        fields_changed: fieldsChanged,
+        completion_before: completionBefore,
+        completion_after: completionAfter,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-profile"] });
       toast.success("Profile saved!");
     },
-    onError: () => toast.error("Failed to save profile"),
+    onError: (error: unknown) => toast.error(error instanceof Error ? error.message : "Failed to save profile"),
   });
 
   const uploadAvatar = useMutation({
@@ -151,6 +219,34 @@ const Profile = () => {
     .toUpperCase()
     .slice(0, 2);
 
+  const completionPercentage = calculateProfileCompletion({
+    fullName,
+    country,
+    recipientCount,
+    birthday: birthdayToIso(birthday),
+    audience,
+    giftStyle,
+  });
+  const missingFields = getProfileCompletionMissingFields({
+    fullName,
+    country,
+    recipientCount,
+    birthday: birthdayToIso(birthday),
+    audience,
+    giftStyle,
+  });
+
+  const monthOptions = Array.from({ length: 12 }, (_, index) => ({
+    value: String(index + 1).padStart(2, "0"),
+    label: new Date(2000, index, 1).toLocaleString("en-US", { month: "short" }),
+  }));
+  const dayOptions = Array.from({ length: 31 }, (_, index) => ({
+    value: String(index + 1).padStart(2, "0"),
+    label: String(index + 1),
+  }));
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 108 }, (_, index) => String(currentYear - 13 - index));
+
   if (isLoading) return <DashboardLayout><div className="animate-pulse p-8" /></DashboardLayout>;
 
   return (
@@ -197,6 +293,19 @@ const Profile = () => {
 
             {/* Fields */}
             <div className="grid gap-4">
+              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Profile Completion</p>
+                    <p className="text-xs text-muted-foreground">
+                      {missingFields.length > 0 ? `Complete: ${missingFields.slice(0, 2).join(" · ")}` : "All core details are filled in."}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-primary">{completionPercentage}%</span>
+                </div>
+                <Progress value={completionPercentage} className="h-2 bg-muted [&>div]:bg-primary" aria-label="Profile completion" />
+              </div>
+
               <div>
                 <Label htmlFor="fullName">Full Name</Label>
                 <Input
@@ -222,6 +331,83 @@ const Profile = () => {
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-muted-foreground mt-1">This helps match store links for your region.</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Birthday</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <Select value={birthday.month || "__empty"} onValueChange={(value) => setBirthday((prev) => ({ ...prev, month: value === "__empty" ? "" : value }))}>
+                    <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__empty">Month</SelectItem>
+                      {monthOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={birthday.day || "__empty"} onValueChange={(value) => setBirthday((prev) => ({ ...prev, day: value === "__empty" ? "" : value }))}>
+                    <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__empty">Day</SelectItem>
+                      {dayOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={birthday.year || "__empty"} onValueChange={(value) => setBirthday((prev) => ({ ...prev, year: value === "__empty" ? "" : value }))}>
+                    <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__empty">Year</SelectItem>
+                      {yearOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Optional. Used for birthday reminders later.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Who you gift for</Label>
+                <div className="flex flex-wrap gap-2">
+                  {AUDIENCE_OPTIONS.map((option) => {
+                    const active = audience.includes(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                          active
+                            ? "border-amber-300 bg-amber-50 text-amber-900"
+                            : "border-border bg-background text-muted-foreground hover:bg-muted/40",
+                        )}
+                        onClick={() => setAudience((prev) => prev.includes(option.value) ? prev.filter((item) => item !== option.value) : [...prev, option.value])}
+                      >
+                        {option.emoji} {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Gift style</Label>
+                <div className="flex flex-wrap gap-2">
+                  {GIFT_STYLE_OPTIONS.map((option) => {
+                    const active = giftStyle.includes(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                          active
+                            ? "border-indigo-300 bg-indigo-50 text-indigo-900"
+                            : "border-border bg-background text-muted-foreground hover:bg-muted/40",
+                        )}
+                        onClick={() => setGiftStyle((prev) => {
+                          if (prev.includes(option.value)) return prev.filter((item) => item !== option.value);
+                          if (prev.length >= 3) return prev;
+                          return [...prev, option.value];
+                        })}
+                      >
+                        {option.emoji} {option.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div>

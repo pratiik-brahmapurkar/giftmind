@@ -20,7 +20,7 @@ const occasions = [
 
 const OccasionsGrid = () => {
   return (
-    <section className="py-24" style={{ backgroundColor: "#F8F9FA" }}>
+    <section className="bg-[#F2EDE4] py-24">
       <div className="container mx-auto px-4">
         <motion.div
           className="text-center mb-12"
@@ -47,7 +47,7 @@ const OccasionsGrid = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.3, delay: i * 0.03 }}
-              whileHover={{ backgroundColor: "hsl(249 76% 64% / 0.06)" }}
+              whileHover={{ backgroundColor: "rgba(212, 160, 74, 0.08)" }}
             >
               <span className="text-xl md:text-2xl">{o.emoji}</span>
               <span className="text-sm font-medium text-foreground truncate">{o.name}</span>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGiftSessionV2 } from "@/hooks/useGiftSessionV2";
+import type { ProductResult } from "@/lib/productLinks";
 import {
   getCurrentUserId,
   getErrorMessage,
@@ -167,7 +168,7 @@ function useGiftSessionV1() {
       budgetMax: number;
       userPlan: string;
     }) => {
-      const response = await invokeAuthedFunction<any>("search-products", {
+      const response = await invokeAuthedFunction<{ results?: ProductResult[] | null }>("search-products", {
         gift_concepts: params.recommendations.map((recommendation) => ({
           name: recommendation.name,
           search_keywords: recommendation.search_keywords,

@@ -1,4 +1,6 @@
 import type { Config } from "tailwindcss";
+import typography from "@tailwindcss/typography";
+import tailwindcssAnimate from "tailwindcss-animate";
 import { fontFamily } from "tailwindcss/defaultTheme";
 
 const config: Config = {
@@ -17,7 +19,9 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
+        display: ["Fraunces", "Georgia", "serif"],
         heading: ["Fraunces", "Georgia", "serif"],
+        sans:    ["Inter", ...fontFamily.sans],
         body:    ["Inter", ...fontFamily.sans],
         mono:    ["JetBrains Mono", ...fontFamily.mono],
       },
@@ -204,8 +208,8 @@ const config: Config = {
           "50%": { transform: "rotate(3deg)" },
         },
         "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px hsl(249 76% 64% / 0.3)" },
-          "50%": { boxShadow: "0 0 40px hsl(249 76% 64% / 0.6)" },
+          "0%, 100%": { boxShadow: "0 0 20px rgba(212, 160, 74, 0.22)" },
+          "50%": { boxShadow: "0 0 40px rgba(212, 160, 74, 0.38)" },
         },
       },
       animation: {
@@ -224,7 +228,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [tailwindcssAnimate, typography],
 };
 
 export default config;

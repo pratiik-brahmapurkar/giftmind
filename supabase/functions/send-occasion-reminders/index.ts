@@ -12,6 +12,19 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+type ReminderRecipientRow = {
+  id: string;
+  name: string;
+  important_dates: Array<{ label?: string; date?: string; recurring?: boolean }> | null;
+  user_id: string;
+  users: {
+    email: string | null;
+    full_name: string | null;
+    active_plan: string | null;
+    notification_prefs: { reminders?: boolean } | null;
+  };
+};
+
 // TODO: Before production, change Access-Control-Allow-Origin to:
 // 'https://giftmind.in' (or your production domain)
 // ── CORS helpers ───────────────────────────────────────────────────────────────
@@ -147,8 +160,8 @@ serve(async (req: Request): Promise<Response> => {
     let remindersSent = 0;
     const remindersSentByUser = new Map<string, number>();
 
-    for (const recipient of recipients ?? []) {
-      const user = (recipient as any).users;
+    for (const recipient of (recipients ?? []) as ReminderRecipientRow[]) {
+      const user = recipient.users;
       if (!user?.email) continue;
 
       // Plan gate: Spark and Thoughtful don't get reminders

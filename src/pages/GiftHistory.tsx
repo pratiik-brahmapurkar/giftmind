@@ -182,7 +182,7 @@ function resolveStoreLinks(
       store_id: store.store_id,
       store_name: store.store_name,
       domain: store.domain,
-      brand_color: store.brand_color || "#6C5CE7",
+      brand_color: store.brand_color || "#D4A04A",
       search_url: buildSearchUrl(store, recommendation.search_keywords?.[0] || recommendation.name),
       is_search_link: true,
       gift_name: recommendation.name,
@@ -825,7 +825,7 @@ export default function GiftHistory() {
                                               if (url) window.open(url, "_blank", "noopener,noreferrer");
                                             }}
                                             className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-white"
-                                            style={{ backgroundColor: link.brand_color || "#6C5CE7" }}
+                                            style={{ backgroundColor: link.brand_color || "#D4A04A" }}
                                           >
                                             {link.product_title ? `Shop ${link.product_title} on ${link.store_name}` : `Shop on ${link.store_name}`}
                                             <ExternalLink className="h-3.5 w-3.5" />

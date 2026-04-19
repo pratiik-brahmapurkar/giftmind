@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_IN' && session) {
           // Identify user for Posthog
           supabase.from("users")
-            .select("active_plan, country, created_at")
+            .select("active_plan, country, created_at, has_completed_onboarding")
             .eq("id", session.user.id)
             .single()
             .then(({ data }) => {
@@ -54,6 +54,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   signup_date: data.created_at,
                 });
                 setSentryUser(session.user.id, normalizedPlan);
+
+                if (!data.has_completed_onboarding) {
+                  const currentPath = window.location.pathname;
+                  if (
+                    currentPath === "/dashboard" ||
+                    currentPath === "/" ||
+                    currentPath === "/login" ||
+                    currentPath === "/signup"
+                  ) {
+                    window.location.replace("/onboarding");
+                  }
+                }
               }
             });
           console.log('User signed in:', session.user.email);

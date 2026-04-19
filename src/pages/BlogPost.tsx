@@ -89,10 +89,15 @@ export default function BlogPost() {
     if (!post || previewRequested || post.status !== "published") return;
 
     const trackView = async () => {
-      const newRpc = await supabase.rpc("increment_blog_view" as any, { post_id: post.id });
+      const rpc = supabase.rpc as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ error: { message?: string } | null }>;
+
+      const newRpc = await rpc("increment_blog_view", { post_id: post.id });
       if (!newRpc.error) return;
 
-      const legacyRpc = await supabase.rpc("increment_post_views" as any, { post_slug: post.slug });
+      const legacyRpc = await rpc("increment_post_views", { post_slug: post.slug });
       if (!legacyRpc.error) return;
 
       await supabase

@@ -25,7 +25,7 @@ interface RecipientCardProps {
     interests: string[];
     last_gift_date: string | null;
     gift_count?: number;
-    important_dates: any;
+    important_dates: Array<{ label?: string; date?: string; recurring?: boolean }> | null;
     country?: string;
   };
   userCountry?: string;
@@ -69,7 +69,7 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, i
   const relationship = recipient.relationship ?? recipient.relationship_type ?? "";
   const rel = RELATIONSHIP_TYPES.find((r) => r.value === relationship);
   const relLabel = rel?.label ?? relationship;
-  const avatarColor = RELATIONSHIP_AVATAR_COLORS[relationship] || "#6C5CE7";
+  const avatarColor = RELATIONSHIP_AVATAR_COLORS[relationship] || "#D4A04A";
   const badgeClass = RELATIONSHIP_BADGE_COLORS[relationship] || "bg-muted text-muted-foreground";
 
   const dates: { label: string; date: string; recurring?: boolean }[] =

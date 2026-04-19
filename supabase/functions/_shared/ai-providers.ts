@@ -65,6 +65,8 @@ export class AIFallbackError extends Error {
   }
 }
 
+type JsonRecord = Record<string, unknown>;
+
 function snippet(value: string, maxLength = 200): string {
   return value.substring(0, maxLength);
 }
@@ -86,6 +88,26 @@ function createProviderError(
   status?: number,
 ): AIProviderError {
   return new AIProviderError(provider, type, message, status);
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getRecord(value: unknown): JsonRecord | null {
+  return isRecord(value) ? value : null;
+}
+
+function getArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function getNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function mapHttpError(provider: Provider, status: number, body: string): AIProviderError {
@@ -111,7 +133,7 @@ async function fetchJson(
   url: string,
   init: RequestInit,
   timeoutMs: number,
-): Promise<any> {
+): Promise<unknown> {
   let response: Response;
 
   try {
@@ -136,19 +158,26 @@ async function fetchJson(
   }
 }
 
-function pickClaudeText(data: any): string {
-  const text = data?.content?.find?.((part: any) => typeof part?.text === "string")?.text
-    ?? data?.content?.[0]?.text
-    ?? "";
-  return typeof text === "string" ? text.trim() : "";
+function pickClaudeText(data: unknown): string {
+  const record = getRecord(data);
+  const content = getArray(record?.content);
+  const text =
+    content.find((part) => isRecord(part) && typeof part.text === "string" && part.text.trim()) &&
+    isRecord(content.find((part) => isRecord(part) && typeof part.text === "string"))
+      ? getString((content.find((part) => isRecord(part) && typeof part.text === "string") as JsonRecord).text)
+      : getString(getRecord(content[0])?.text);
+
+  return text?.trim() ?? "";
 }
 
-function pickGeminiText(data: any): string {
-  const parts = data?.candidates?.[0]?.content?.parts;
-  if (!Array.isArray(parts)) return "";
+function pickGeminiText(data: unknown): string {
+  const record = getRecord(data);
+  const firstCandidate = getRecord(getArray(record?.candidates)[0]);
+  const content = getRecord(firstCandidate?.content);
+  const parts = getArray(content?.parts);
 
   return parts
-    .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+    .map((part) => getString(getRecord(part)?.text) ?? "")
     .join("")
     .trim();
 }
@@ -189,6 +218,8 @@ async function callClaude(
   );
 
   const text = pickClaudeText(data);
+  const payload = getRecord(data);
+  const usage = getRecord(payload?.usage);
   if (!text) {
     throw createProviderError(provider, "invalid_response", "Empty Claude response");
   }
@@ -196,8 +227,8 @@ async function callClaude(
   return {
     text,
     provider,
-    tokensInput: data?.usage?.input_tokens,
-    tokensOutput: data?.usage?.output_tokens,
+    tokensInput: getNumber(usage?.input_tokens),
+    tokensOutput: getNumber(usage?.output_tokens),
     latencyMs: Date.now() - start,
     attemptNumber: 1,
   };
@@ -237,6 +268,8 @@ async function callGemini(
   );
 
   const text = pickGeminiText(data);
+  const payload = getRecord(data);
+  const usageMetadata = getRecord(payload?.usageMetadata);
   if (!text) {
     throw createProviderError(provider, "invalid_response", `Empty Gemini response: ${snippet(parseTextResponse(data), 300)}`);
   }
@@ -244,8 +277,8 @@ async function callGemini(
   return {
     text,
     provider,
-    tokensInput: data?.usageMetadata?.promptTokenCount,
-    tokensOutput: data?.usageMetadata?.candidatesTokenCount,
+    tokensInput: getNumber(usageMetadata?.promptTokenCount),
+    tokensOutput: getNumber(usageMetadata?.candidatesTokenCount),
     latencyMs: Date.now() - start,
     attemptNumber: 1,
   };
@@ -283,7 +316,11 @@ async function callGroq(params: AICallParams): Promise<AICallResult> {
     30_000,
   );
 
-  const text = data?.choices?.[0]?.message?.content?.trim?.() || "";
+  const payload = getRecord(data);
+  const firstChoice = getRecord(getArray(payload?.choices)[0]);
+  const message = getRecord(firstChoice?.message);
+  const usage = getRecord(payload?.usage);
+  const text = getString(message?.content)?.trim() ?? "";
   if (!text) {
     throw createProviderError("groq-llama", "invalid_response", `Empty Groq response: ${snippet(parseTextResponse(data), 300)}`);
   }
@@ -291,8 +328,8 @@ async function callGroq(params: AICallParams): Promise<AICallResult> {
   return {
     text,
     provider: "groq-llama",
-    tokensInput: data?.usage?.prompt_tokens,
-    tokensOutput: data?.usage?.completion_tokens,
+    tokensInput: getNumber(usage?.prompt_tokens),
+    tokensOutput: getNumber(usage?.completion_tokens),
     latencyMs: Date.now() - start,
     attemptNumber: 1,
   };
@@ -393,7 +430,7 @@ export function getProviderChain(
 
 // ── Safe JSON parser ──
 
-export function parseAIJson(text: string): any {
+export function parseAIJson(text: string): unknown {
   let cleaned = text
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")

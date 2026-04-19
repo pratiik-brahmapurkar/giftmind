@@ -24,7 +24,7 @@ const props = [
 
 const ValueProps = () => {
   return (
-    <section className="py-24 gradient-mesh">
+    <section className="bg-background py-24">
       <div className="container mx-auto px-4">
         <motion.div
           className="text-center mb-16"
@@ -44,7 +44,7 @@ const ValueProps = () => {
           {props.map((prop, i) => (
             <motion.div
               key={prop.title}
-              className="p-8 rounded-xl bg-card card-shadow hover:card-shadow-hover transition-all duration-300 hover:-translate-y-1 text-center"
+            className="card-shadow rounded-xl border border-border/60 bg-card p-8 text-center transition-all duration-300 hover:-translate-y-1"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}

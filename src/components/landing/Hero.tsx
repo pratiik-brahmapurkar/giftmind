@@ -1,64 +1,57 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { ArrowRight, CheckCircle2, Gift, Heart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Gift, Sparkles, Heart, CheckCircle2, ArrowRight } from "lucide-react";
 
 const GiftBoxAnimation = () => (
-  <div className="relative w-64 h-64 md:w-80 md:h-80">
-    {/* Glow */}
-    <div className="absolute inset-0 rounded-full gradient-primary opacity-20 blur-3xl animate-pulse-glow" />
-    
-    {/* Box */}
+  <div className="relative h-64 w-64 md:h-80 md:w-80">
+    <div className="absolute inset-8 rounded-full bg-amber-200/50 blur-3xl" />
     <motion.div
-      className="relative w-full h-full flex items-center justify-center"
-      animate={{ y: [0, -12, 0] }}
+      className="relative flex h-full w-full items-center justify-center"
+      animate={{ y: [0, -10, 0] }}
       transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
     >
       <div className="relative">
-        {/* Main box */}
-        <div className="w-32 h-28 md:w-40 md:h-36 rounded-xl gradient-primary shadow-2xl relative overflow-hidden">
+        <div className="relative h-32 w-32 overflow-hidden rounded-[28px] gradient-primary shadow-xl md:h-40 md:w-40">
           <div className="absolute inset-0 flex items-center justify-center">
-            <Gift className="w-12 h-12 md:w-16 md:h-16 text-primary-foreground opacity-90" />
+            <Gift className="h-12 w-12 text-primary-foreground md:h-16 md:w-16" strokeWidth={1.5} />
           </div>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-full bg-accent/60" />
-          <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-4 bg-accent/60" />
+          <div className="absolute left-1/2 top-0 h-full w-4 -translate-x-1/2 bg-white/25" />
+          <div className="absolute left-0 top-1/2 h-4 w-full -translate-y-1/2 bg-white/25" />
         </div>
-        {/* Lid */}
         <motion.div
-          className="absolute left-1/2 -translate-x-1/2 w-36 md:w-44 h-8 rounded-lg gradient-primary shadow-lg origin-bottom-right"
-          animate={{ rotate: [-8, -15, -8], y: [-15, -25, -15], x: ["-45%", "-40%", "-45%"] }}
+          className="absolute left-1/2 top-0 h-8 w-36 -translate-x-1/2 -translate-y-5 rounded-2xl bg-[linear-gradient(135deg,#E4C663_0%,#D4A04A_100%)] shadow-lg md:h-10 md:w-44"
+          animate={{ rotate: [-8, -14, -8], y: [-18, -28, -18] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-6 rounded-full bg-accent" />
+          <div className="absolute -top-2 left-1/2 h-5 w-8 -translate-x-1/2 rounded-full bg-[#4C2A85]/20" />
         </motion.div>
       </div>
     </motion.div>
 
-    {/* Floating particles */}
-    {[...Array(5)].map((_, i) => (
+    {[0, 1, 2, 3].map((index) => (
       <motion.div
-        key={i}
+        key={index}
         className="absolute"
         style={{
-          top: `${15 + i * 15}%`,
-          left: `${10 + i * 18}%`,
+          top: `${16 + index * 17}%`,
+          left: `${10 + index * 18}%`,
         }}
         animate={{
-          y: [0, -20, 0],
-          opacity: [0.3, 1, 0.3],
-          scale: [0.8, 1.2, 0.8],
+          y: [0, -16, 0],
+          opacity: [0.35, 1, 0.35],
+          scale: [0.85, 1.15, 0.85],
         }}
         transition={{
-          duration: 2 + i * 0.5,
+          duration: 2.2 + index * 0.25,
           repeat: Infinity,
-          delay: i * 0.3,
+          delay: index * 0.2,
         }}
       >
-        {i % 3 === 0 ? (
-          <Sparkles className="w-4 h-4 text-warning" />
-        ) : i % 3 === 1 ? (
-          <Heart className="w-3 h-3 text-accent" />
+        {index % 2 === 0 ? (
+          <Sparkles className="h-4 w-4 text-amber-400" strokeWidth={1.5} />
         ) : (
-          <div className="w-2 h-2 rounded-full bg-primary-light" />
+          <Heart className="h-3.5 w-3.5 text-[#C25450]" strokeWidth={1.5} />
         )}
       </motion.div>
     ))}
@@ -67,65 +60,73 @@ const GiftBoxAnimation = () => (
 
 const Hero = () => {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Animated gradient mesh background */}
-      <div className="absolute inset-0 hero-gradient-mesh" />
+    <section className="relative overflow-hidden bg-background">
+      <div className="absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(circle_at_top_left,rgba(212,160,74,0.18),transparent_44%),radial-gradient(circle_at_top_right,rgba(76,42,133,0.08),transparent_38%)]" />
 
-      <div className="container mx-auto px-4 py-20 md:py-0 relative z-10">
-        <div className="flex flex-col md:flex-row items-center gap-12 md:gap-16">
-          {/* Text */}
+      <div className="container relative z-10 mx-auto px-4 py-20 md:py-24">
+        <div className="flex flex-col items-center gap-12 lg:flex-row lg:gap-16">
           <motion.div
-            className="flex-1 text-center md:text-left"
-            initial={{ opacity: 0, y: 30 }}
+            className="flex-1 text-center lg:text-left"
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
+            transition={{ duration: 0.6 }}
           >
             <motion.div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/50 border border-amber-200 text-amber-700 text-sm font-medium mb-6"
-              initial={{ opacity: 0, scale: 0.9 }}
+              className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700"
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.1 }}
             >
-              <Sparkles className="w-4 h-4" />
-              AI-Powered Gift Intelligence
+              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+              Confidence-first gift intelligence
             </motion.div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight mb-6">
-              Stop Guessing.{" "}
-              <span className="text-amber-700">
-                Start Gifting
-              </span>{" "}
-              <span className="tracking-normal">with Confidence.</span>
+            <h1 className="font-heading text-display-md text-balance text-foreground md:text-display-lg">
+              Stop guessing.{" "}
+              <span className="text-amber-700">Start gifting</span>{" "}
+              <span className="text-balance">with confidence.</span>
             </h1>
 
-            <p className="text-lg md:text-xl text-muted-foreground max-w-xl mb-8 leading-relaxed">
-              AI-powered gift recommendations that tell you <strong className="text-foreground">WHY</strong> it's right, what it communicates, and where to buy — in 60 seconds.
+            <p className="mt-6 max-w-xl text-body-lg text-muted-foreground">
+              GiftMind gives you warm, precise recommendations with confidence scores, cultural context, and direct store links so you can choose once and move forward calmly.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-              <Button variant="hero" size="lg" className="text-base px-8 py-6 rounded-lg animate-cta-pulse">
-                <Gift className="w-5 h-5 mr-2" />
-                Find the Perfect Gift — Free
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
+              <Button asChild variant="hero" size="lg" className="text-base">
+                <Link to="/signup">
+                  <Gift className="mr-2 h-5 w-5" strokeWidth={1.5} />
+                  Find the Perfect Gift
+                </Link>
               </Button>
-              <Button variant="ghost" size="lg" className="text-base px-8 py-6 rounded-lg group text-neutral-700 hover:text-neutral-900 border border-transparent hover:border-neutral-200">
-                See How It Works
-                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" strokeWidth={1.5} />
+              <Button asChild variant="heroGhost" size="lg" className="text-base">
+                <a href="#how">
+                  See How It Works
+                  <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.5} />
+                </a>
               </Button>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 justify-center md:justify-start text-sm text-neutral-700 font-medium">
-              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> No credit card required</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> 3 free sessions</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> 60-second results</span>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-neutral-700 lg:justify-start">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
+                3 free sessions
+              </span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
+                No credit card required
+              </span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
+                60-second results
+              </span>
             </div>
           </motion.div>
 
-          {/* Gift Animation — explicit size to prevent layout shift */}
           <motion.div
-            className="flex-1 flex justify-center w-[256px] h-[200px] md:w-[320px] md:h-[320px]"
-            initial={{ opacity: 0, scale: 0.8 }}
+            className="flex flex-1 justify-center"
+            initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
           >
             <GiftBoxAnimation />
           </motion.div>
