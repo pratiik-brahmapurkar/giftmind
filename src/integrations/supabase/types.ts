@@ -396,6 +396,64 @@ export type Database = {
           },
         ]
       }
+      feedback_reminders: {
+        Row: {
+          created_at: string | null
+          id: string
+          occasion: string
+          occasion_date: string | null
+          recipient_id: string | null
+          remind_at: string
+          session_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          occasion: string
+          occasion_date?: string | null
+          recipient_id?: string | null
+          remind_at: string
+          session_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          occasion?: string
+          occasion_date?: string | null
+          recipient_id?: string | null
+          remind_at?: string
+          session_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_reminders_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_reminders_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "gift_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_reminders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gift_feedback: {
         Row: {
           created_at: string | null
@@ -597,6 +655,7 @@ export type Database = {
           relationship_stage: string | null
           selected_gift_index: number | null
           selected_gift_name: string | null
+          selected_gift_note: string | null
           special_context: string | null
           status: string | null
           urgency: string | null
@@ -636,6 +695,7 @@ export type Database = {
           relationship_stage?: string | null
           selected_gift_index?: number | null
           selected_gift_name?: string | null
+          selected_gift_note?: string | null
           special_context?: string | null
           status?: string | null
           urgency?: string | null
@@ -675,6 +735,7 @@ export type Database = {
           relationship_stage?: string | null
           selected_gift_index?: number | null
           selected_gift_name?: string | null
+          selected_gift_note?: string | null
           special_context?: string | null
           status?: string | null
           urgency?: string | null
@@ -1156,6 +1217,14 @@ export type Database = {
           reaction: string
           similarity: number
         }[]
+      }
+      refund_user_credit: {
+        Args: {
+          p_amount?: number
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

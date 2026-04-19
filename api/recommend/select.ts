@@ -7,6 +7,7 @@ interface SelectRequestBody {
   session_id: string;
   gift_index: number;
   gift_name: string;
+  note?: string | null;
 }
 
 function getSelectedConfidence(aiResponse: unknown, giftIndex: number) {
@@ -52,6 +53,7 @@ export default async function handler(request: Request) {
     .update({
       selected_gift_index: body.gift_index,
       selected_gift_name: body.gift_name,
+      selected_gift_note: body.note ?? null,
       confidence_score: confidenceScore,
       status: "completed",
     })

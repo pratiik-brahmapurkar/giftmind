@@ -5,12 +5,14 @@ import {
   getAccessToken,
   getCurrentUserId,
   getErrorMessage,
+  hydrateGiftSessionState,
   initialState,
   invokeAuthedFunction,
   isNoCreditError,
   normalizeGiftErrorType,
+  upsertFeedbackReminder,
 } from "@/hooks/giftSessionShared";
-import type { GenerateGiftParams, GiftRecommendation, GiftSessionState } from "@/hooks/giftSessionTypes";
+import type { GenerateGiftParams, GiftRecommendation, GiftSessionRow, GiftSessionState, SelectGiftOptions } from "@/hooks/giftSessionTypes";
 
 interface RecommendationStatusResponse {
   session_id: string;
@@ -147,6 +149,7 @@ function applyStatusSnapshot(
     isSearchingProducts: false,
     error: status.error?.message ?? previous.error,
     errorType: status.error ? "AI_ERROR" : previous.errorType,
+    refundIssued: previous.refundIssued,
     regenerationCount:
       options?.regenerationIncrement ? previous.regenerationCount + 1 : previous.regenerationCount,
   };
@@ -231,6 +234,27 @@ export function useGiftSessionV2() {
     }
 
     return response.data;
+  }, []);
+
+  const refundCredit = useCallback(async (sessionId: string) => {
+    const response = await invokeAuthedFunction<{
+      success?: boolean;
+      refunded?: number;
+      already_refunded?: boolean;
+    }>("refund-credit", { session_id: sessionId, amount: 1 });
+
+    return Boolean(response.data?.success);
+  }, []);
+
+  const updateSessionStatus = useCallback(async (sessionId: string, status: "active" | "abandoned" | "completed" | "errored") => {
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) return;
+
+    await supabase
+      .from("gift_sessions")
+      .update({ status })
+      .eq("id", sessionId)
+      .eq("user_id", currentUserId);
   }, []);
 
   const pollStatus = useCallback(async (
@@ -410,6 +434,13 @@ export function useGiftSessionV2() {
       options: { isRegeneration: boolean },
     ) => {
       const currentState = stateRef.current;
+      let sessionId = currentState.sessionId;
+      let refundIssued: boolean | null = null;
+      const shouldReuseSession =
+        Boolean(currentState.sessionId) &&
+        currentState.recommendations === null &&
+        currentState.errorType !== "NO_CREDITS" &&
+        !currentState.isComplete;
 
       setState((prev) => ({
         ...prev,
@@ -429,18 +460,18 @@ export function useGiftSessionV2() {
         warningCode: null,
         warningMessage: null,
         avgPersonalizationScore: null,
+        refundIssued: null,
         isComplete: false,
       }));
 
       try {
-        let sessionId = currentState.sessionId;
         recoveryAttemptsRef.current = {};
 
         if (options.isRegeneration && !sessionId) {
           throw { type: "GENERIC", message: "Session missing. Please start again." };
         }
 
-        if (!options.isRegeneration || !sessionId) {
+        if (!options.isRegeneration && (!shouldReuseSession || !sessionId)) {
           sessionId = await createSession({
             recipientId: params.recipient.id,
             recipientCountry: params.recipientCountry,
@@ -549,6 +580,7 @@ export function useGiftSessionV2() {
           }),
           error: null,
           errorType: null,
+          refundIssued: null,
         }));
       } catch (error) {
         const typedError =
@@ -562,6 +594,11 @@ export function useGiftSessionV2() {
           typedError.message || getErrorMessage(error),
         );
 
+        if (sessionId && !options.isRegeneration && normalizedType !== "NO_CREDITS") {
+          refundIssued = await refundCredit(sessionId).catch(() => false);
+          await updateSessionStatus(sessionId, "errored").catch(() => undefined);
+        }
+
         setState((prev) => ({
           ...prev,
           isGenerating: false,
@@ -569,12 +606,17 @@ export function useGiftSessionV2() {
           currentNode: null,
           error: normalizedType === "AUTH_REQUIRED"
             ? "Your session expired. Please sign in again and retry."
-            : typedError.message || getErrorMessage(error),
+            : normalizedType === "AI_ERROR" || normalizedType === "AI_PARSE_ERROR" || normalizedType === "NETWORK"
+              ? refundIssued
+                ? "AI had trouble. Your credit was returned. Try again."
+                : "AI had trouble. If your credit was charged, contact support."
+              : typedError.message || getErrorMessage(error),
           errorType: normalizedType,
+          refundIssued,
         }));
       }
     },
-    [createSession, deductCredit, pollStatus, streamStatus],
+    [createSession, deductCredit, pollStatus, refundCredit, streamStatus, updateSessionStatus],
   );
 
   const generateGifts = useCallback(
@@ -592,7 +634,7 @@ export function useGiftSessionV2() {
   );
 
   const selectGift = useCallback(
-    async (giftIndex: number, giftName: string) => {
+    async (giftIndex: number, giftName: string, options?: SelectGiftOptions) => {
       if (!state.sessionId) return;
 
       const accessToken = await getAccessToken();
@@ -605,14 +647,28 @@ export function useGiftSessionV2() {
             session_id: state.sessionId,
             gift_index: giftIndex,
             gift_name: giftName,
+            note: options?.note ?? null,
           }),
         },
         accessToken,
       );
 
+      const currentUserId = await getCurrentUserId();
+      if (currentUserId && options?.createReminder && options.occasion) {
+        await upsertFeedbackReminder({
+          userId: currentUserId,
+          sessionId: state.sessionId,
+          recipientId: options.recipientId ?? null,
+          occasion: options.occasion,
+          occasionDate: options.occasionDate ?? null,
+        }).catch(() => undefined);
+      }
+
       setState((prev) => ({
         ...prev,
         selectedGiftIndex: giftIndex,
+        selectedGiftName: giftName,
+        selectedGiftNote: options?.note ?? null,
         isComplete: true,
       }));
     },
@@ -660,12 +716,20 @@ export function useGiftSessionV2() {
     setState(initialState);
   }, []);
 
+  const hydrateSession = useCallback((session: GiftSessionRow) => {
+    setState((prev) => ({
+      ...prev,
+      ...hydrateGiftSessionState(session),
+    }));
+  }, []);
+
   return {
     ...state,
     generateGifts,
     regenerate,
     selectGift,
     trackProductClick,
+    hydrateSession,
     resetSession,
   };
 }

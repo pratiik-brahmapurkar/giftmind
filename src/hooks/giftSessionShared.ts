@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { GiftSessionState } from "@/hooks/giftSessionTypes";
+import type { GiftRecommendation, GiftSessionRow, GiftSessionState } from "@/hooks/giftSessionTypes";
+import type { ProductResult } from "@/lib/productLinks";
 
 export const initialState: GiftSessionState = {
   sessionId: null,
@@ -22,8 +23,11 @@ export const initialState: GiftSessionState = {
   avgPersonalizationScore: null,
   error: null,
   errorType: null,
+  refundIssued: null,
   regenerationCount: 0,
   selectedGiftIndex: null,
+  selectedGiftName: null,
+  selectedGiftNote: null,
   isComplete: false,
 };
 
@@ -139,6 +143,10 @@ export function normalizeGiftErrorType(
     return "GENERIC";
   }
 
+  if (explicit === "NETWORK" || upperMessage.includes("FAILED TO FETCH") || upperMessage.includes("NETWORK")) {
+    return "NETWORK";
+  }
+
   return "AI_ERROR";
 }
 
@@ -157,4 +165,106 @@ export async function getCurrentUserId() {
     data: { user },
   } = await supabase.auth.getUser();
   return user?.id ?? null;
+}
+
+export function calculateFeedbackReminderAt(occasionDate: string | null | undefined) {
+  if (!occasionDate) {
+    const fallback = new Date();
+    fallback.setDate(fallback.getDate() + 7);
+    return fallback.toISOString();
+  }
+
+  const date = new Date(`${occasionDate}T12:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) {
+    const fallback = new Date();
+    fallback.setDate(fallback.getDate() + 7);
+    return fallback.toISOString();
+  }
+
+  date.setDate(date.getDate() + 2);
+  return date.toISOString();
+}
+
+export async function upsertFeedbackReminder(params: {
+  userId: string;
+  sessionId: string;
+  recipientId?: string | null;
+  occasion: string;
+  occasionDate?: string | null;
+}) {
+  const remindAt = calculateFeedbackReminderAt(params.occasionDate);
+
+  const { error } = await supabase
+    .from("feedback_reminders")
+    .upsert({
+      user_id: params.userId,
+      session_id: params.sessionId,
+      recipient_id: params.recipientId ?? null,
+      occasion: params.occasion,
+      occasion_date: params.occasionDate ?? null,
+      remind_at: remindAt,
+      status: "pending",
+    }, { onConflict: "session_id" });
+
+  if (error) {
+    throw error;
+  }
+}
+
+function parseRecommendations(value: unknown): GiftRecommendation[] | null {
+  if (!value || typeof value !== "object") return null;
+  const recommendations = (value as { recommendations?: GiftRecommendation[] }).recommendations;
+  return Array.isArray(recommendations) ? recommendations : null;
+}
+
+function parseProductResults(value: unknown): ProductResult[] | null {
+  return Array.isArray(value) ? (value as ProductResult[]) : null;
+}
+
+export function hydrateGiftSessionState(session: GiftSessionRow): Partial<GiftSessionState> {
+  const recommendations = parseRecommendations(session.ai_response);
+  const avgPersonalizationScore =
+    session.ai_response && typeof session.ai_response === "object" && "meta" in (session.ai_response as Record<string, unknown>)
+      ? Number(((session.ai_response as { meta?: { avg_personalization_score?: number } }).meta?.avg_personalization_score) ?? null)
+      : null;
+
+  return {
+    sessionId: session.id,
+    recommendations,
+    productResults: parseProductResults(session.product_results),
+    aiProviderUsed: session.ai_provider_used,
+    aiLatencyMs: session.ai_latency_ms,
+    aiAttempt: session.ai_attempt_number,
+    occasionInsight:
+      session.ai_response && typeof session.ai_response === "object"
+        ? ((session.ai_response as { occasion_insight?: string | null }).occasion_insight ?? null)
+        : null,
+    budgetAssessment:
+      session.ai_response && typeof session.ai_response === "object"
+        ? ((session.ai_response as { budget_assessment?: string | null }).budget_assessment ?? null)
+        : null,
+    culturalNote:
+      session.ai_response && typeof session.ai_response === "object"
+        ? ((session.ai_response as { cultural_note?: string | null }).cultural_note ?? null)
+        : null,
+    engineVersion: session.engine_version ?? null,
+    nodeTimings:
+      session.node_timings && typeof session.node_timings === "object"
+        ? (session.node_timings as Record<string, number>)
+        : null,
+    avgPersonalizationScore: Number.isFinite(avgPersonalizationScore) ? avgPersonalizationScore : null,
+    regenerationCount: session.regeneration_count ?? 0,
+    selectedGiftIndex: session.selected_gift_index,
+    selectedGiftName: session.selected_gift_name,
+    selectedGiftNote: session.selected_gift_note,
+    isComplete: session.status === "completed",
+    isGenerating: false,
+    isSearchingProducts: false,
+    error:
+      session.status === "errored"
+        ? "This session ran into an AI error. You can try again."
+        : null,
+    errorType: session.status === "errored" ? "AI_ERROR" : null,
+    refundIssued: null,
+  };
 }

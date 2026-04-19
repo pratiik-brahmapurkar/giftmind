@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Coins, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -18,10 +18,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { detectUserCountry } from "@/lib/geoConfig";
 import { useGiftSession, type Recipient } from "@/hooks/useGiftSession";
 import { normalizePlan, type PlanKey } from "@/lib/plans";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { trackEvent } from "@/lib/posthog";
 import NoCreditGate from "@/components/gift-flow/NoCreditGate";
 import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
@@ -33,11 +35,13 @@ import StepResults from "@/components/gift-flow/StepResults";
 /* ─── Easing curves (Animation guidance) ─── */
 const FORWARD_EASE = [0.22, 1, 0.36, 1] as const;
 const BACKWARD_EASE = [0.55, 0, 1, 0.45] as const;
+type GiftSessionRecord = Tables<"gift_sessions">;
 
 export default function GiftFlow() {
   const { user, loading: authLoading } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const giftSession = useGiftSession();
+  const hydrateSession = giftSession.hydrateSession;
   const planLimits = usePlanLimits();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -66,7 +70,7 @@ export default function GiftFlow() {
   const hasGeneratedRef = useRef(false);
   const previousSnapshotRef = useRef("");
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) {
       setCreditsBalance(0);
       setUserPlan("spark");
@@ -87,12 +91,12 @@ export default function GiftFlow() {
     setUserPlan(normalizePlan(data?.active_plan));
     setUserCountry(data?.country || detectUserCountry());
     setIsCheckingCredits(false);
-  };
+  }, [user]);
 
   useEffect(() => {
     if (authLoading) return;
     void refreshProfile();
-  }, [authLoading, user]);
+  }, [authLoading, refreshProfile]);
 
   // First-time detection (Item 3)
   useEffect(() => {
@@ -111,28 +115,59 @@ export default function GiftFlow() {
     void checkFirstTime();
   }, [user, authLoading]);
 
-  // Query param preloading (Item 6)
   useEffect(() => {
+    if (!user || authLoading) return;
+
+    trackEvent("gift_flow_started", {
+      entry_source: searchParams.get("recipient") ? "recipient_prefill" : "direct",
+      has_prefill: Boolean(
+        searchParams.get("recipient")
+        || searchParams.get("occasion")
+        || searchParams.get("budget_min")
+        || searchParams.get("budget_max")
+        || searchParams.get("context"),
+      ),
+      plan: userPlan,
+    });
+  }, [authLoading, searchParams, user, userPlan]);
+
+  // Query param preloading + session resume
+  useEffect(() => {
+    if (!user) return;
+
     const recipientId = searchParams.get("recipient");
     const occasion = searchParams.get("occasion");
+    const budgetMinParam = searchParams.get("budget_min");
+    const budgetMaxParam = searchParams.get("budget_max");
+    const contextParam = searchParams.get("context");
+    const sessionParam = searchParams.get("session");
 
     if (occasion) {
       setSelectedOccasion(occasion);
     }
+    if (budgetMinParam) {
+      const value = Number(budgetMinParam);
+      if (Number.isFinite(value) && value >= 0) setBudgetMin(value);
+    }
+    if (budgetMaxParam) {
+      const value = Number(budgetMaxParam);
+      if (Number.isFinite(value) && value >= 0) setBudgetMax(value);
+    }
+    if (contextParam) {
+      setSpecialContext(contextParam);
+    }
 
-    if (!recipientId || !user) return;
-
-    async function preloadRecipient() {
+    async function preloadRecipient(id: string) {
       const { data } = await supabase
         .from("recipients")
         .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes")
-        .eq("id", recipientId)
-        .eq("user_id", user!.id)
+        .eq("id", id)
+        .eq("user_id", user.id)
         .single();
 
-      if (!data) return;
+      if (!data) return null;
 
-      setSelectedRecipient({
+      const recipient: Recipient = {
         id: data.id,
         name: data.name,
         relationship: data.relationship ?? "",
@@ -143,14 +178,58 @@ export default function GiftFlow() {
         cultural_context: data.cultural_context ?? "",
         country: data.country,
         notes: data.notes ?? "",
-      });
-      setRecipientCountry(data.country);
-      setIsCrossBorder(Boolean(data.country));
+      };
+
+      setSelectedRecipient(recipient);
+      setRecipientCountry(recipient.country);
+      setIsCrossBorder(Boolean(recipient.country));
       setIsPreloaded(true);
+      return recipient;
     }
 
-    void preloadRecipient();
-  }, [searchParams, user]);
+    async function resumeSession(session: GiftSessionRecord) {
+      if (session.recipient_id) {
+        await preloadRecipient(session.recipient_id);
+      }
+
+      setSelectedOccasion(session.occasion || occasion || null);
+      setOccasionDate(session.occasion_date);
+      setBudgetMin(session.budget_min);
+      setBudgetMax(session.budget_max);
+      setSpecialContext(session.special_context || contextParam || "");
+      setContextTags(session.context_tags || []);
+      setRecipientCountry(session.recipient_country || null);
+      setIsCrossBorder(Boolean(session.recipient_country));
+      setCurrentStep(5);
+      setDirection(1);
+      hydrateSession(session);
+
+      const shouldResumeGeneration = session.status === "active" && !session.ai_response;
+      hasGeneratedRef.current = !shouldResumeGeneration;
+    }
+
+    async function preload() {
+      if (sessionParam) {
+        const { data: session } = await supabase
+          .from("gift_sessions")
+          .select("*")
+          .eq("id", sessionParam)
+          .eq("user_id", user.id)
+          .single();
+
+        if (session) {
+          await resumeSession(session);
+          return;
+        }
+      }
+
+      if (recipientId) {
+        await preloadRecipient(recipientId);
+      }
+    }
+
+    void preload();
+  }, [authLoading, hydrateSession, searchParams, user]);
 
   const generationParams = useMemo(() => {
     if (!selectedRecipient || !selectedOccasion || budgetMin == null || budgetMax == null) return null;
@@ -222,7 +301,17 @@ export default function GiftFlow() {
       await giftSession.generateGifts(generationParams);
       await refreshProfile();
     })();
-  }, [currentStep, generationParams, giftSession]);
+  }, [currentStep, generationParams, giftSession, refreshProfile]);
+
+  useEffect(() => {
+    if (!giftSession.sessionId) return;
+
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("session", giftSession.sessionId!);
+      return next;
+    }, { replace: true });
+  }, [giftSession.sessionId, setSearchParams]);
 
   const goToStep = (nextStep: number) => {
     if (nextStep > currentStep) {
@@ -270,6 +359,11 @@ export default function GiftFlow() {
   const confirmReset = () => {
     hasGeneratedRef.current = false;
     giftSession.resetSession();
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("session");
+      return next;
+    }, { replace: true });
     setShowResetWarning(false);
 
     if (pendingStep != null) {
@@ -377,7 +471,7 @@ export default function GiftFlow() {
               Loading your gift flow...
             </CardContent>
           </Card>
-        ) : creditsBalance <= 0 ? (
+        ) : creditsBalance <= 0 && currentStep < 5 && !giftSession.sessionId ? (
           <NoCreditGate />
         ) : (
           <div className="space-y-6">

@@ -7,12 +7,14 @@ import {
   getErrorMessage,
   getFunctionErrorDetails,
   getAccessToken,
+  hydrateGiftSessionState,
   initialState,
   invokeAuthedFunction,
   isNoCreditError,
   normalizeGiftErrorType,
+  upsertFeedbackReminder,
 } from "@/hooks/giftSessionShared";
-import type { GenerateGiftParams, GenerateGiftsResponse, GiftRecommendation, GiftSessionState } from "@/hooks/giftSessionTypes";
+import type { GenerateGiftParams, GenerateGiftsResponse, GiftRecommendation, GiftSessionRow, GiftSessionState, SelectGiftOptions } from "@/hooks/giftSessionTypes";
 
 export type { GenerateGiftParams, GiftRecommendation, GiftSessionState, Recipient } from "@/hooks/giftSessionTypes";
 
@@ -94,6 +96,27 @@ function useGiftSessionV1() {
     }
 
     return response.data;
+  }, []);
+
+  const refundCredit = useCallback(async (sessionId: string) => {
+    const response = await invokeAuthedFunction<{
+      success?: boolean;
+      refunded?: number;
+      already_refunded?: boolean;
+    }>("refund-credit", { session_id: sessionId, amount: 1 });
+
+    return Boolean(response.data?.success);
+  }, []);
+
+  const updateSessionStatus = useCallback(async (sessionId: string, status: "active" | "abandoned" | "completed" | "errored") => {
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) return;
+
+    await supabase
+      .from("gift_sessions")
+      .update({ status })
+      .eq("id", sessionId)
+      .eq("user_id", currentUserId);
   }, []);
 
   const callAI = useCallback(
@@ -199,6 +222,8 @@ function useGiftSessionV1() {
       options: { isRegeneration: boolean; parseRetryAttempt: number },
     ) => {
       const currentState = stateRef.current;
+      let sessionId = currentState.sessionId;
+      let refundIssued: boolean | null = null;
       const shouldReuseSession =
         Boolean(currentState.sessionId) &&
         currentState.recommendations === null &&
@@ -216,12 +241,11 @@ function useGiftSessionV1() {
         aiProviderUsed: null,
         aiLatencyMs: null,
         aiAttempt: null,
+        refundIssued: null,
         isComplete: false,
       }));
 
       try {
-        let sessionId = currentState.sessionId;
-
         if (options.isRegeneration && !sessionId) {
           throw { type: "GENERIC", message: "Session missing. Please start again." };
         }
@@ -354,18 +378,28 @@ function useGiftSessionV1() {
           typedError.message || getErrorMessage(error),
         );
 
+        if (sessionId && !options.isRegeneration && normalizedType !== "NO_CREDITS") {
+          refundIssued = await refundCredit(sessionId).catch(() => false);
+          await updateSessionStatus(sessionId, "errored").catch(() => undefined);
+        }
+
         setState((prev) => ({
           ...prev,
           isGenerating: false,
           isSearchingProducts: false,
           error: normalizedType === "AUTH_REQUIRED"
             ? "Your session expired. Please sign in again and retry."
-            : typedError.message || getErrorMessage(error),
+            : normalizedType === "AI_ERROR" || normalizedType === "AI_PARSE_ERROR" || normalizedType === "NETWORK"
+              ? refundIssued
+                ? "AI had trouble. Your credit was returned. Try again."
+                : "AI had trouble. If your credit was charged, contact support."
+              : typedError.message || getErrorMessage(error),
           errorType: normalizedType,
+          refundIssued,
         }));
       }
     },
-    [callAI, createSession, deductCredit, searchProducts],
+    [callAI, createSession, deductCredit, refundCredit, searchProducts, updateSessionStatus],
   );
 
   const generateGifts = useCallback(
@@ -383,7 +417,7 @@ function useGiftSessionV1() {
   );
 
   const selectGift = useCallback(
-    async (giftIndex: number, giftName: string) => {
+    async (giftIndex: number, giftName: string, options?: SelectGiftOptions) => {
       if (!state.sessionId) return;
 
       const selectedGift = state.recommendations?.[giftIndex];
@@ -395,6 +429,7 @@ function useGiftSessionV1() {
         .update({
           selected_gift_index: giftIndex,
           selected_gift_name: giftName,
+          selected_gift_note: options?.note ?? null,
           confidence_score: selectedGift?.confidence_score ?? null,
           status: "completed",
         })
@@ -424,9 +459,21 @@ function useGiftSessionV1() {
         // silent
       }
 
+      if (options?.createReminder && options.occasion) {
+        await upsertFeedbackReminder({
+          userId: currentUserId,
+          sessionId: state.sessionId,
+          recipientId: completedSession?.recipient_id ?? options.recipientId ?? null,
+          occasion: options.occasion,
+          occasionDate: options.occasionDate ?? null,
+        }).catch(() => undefined);
+      }
+
       setState((prev) => ({
         ...prev,
         selectedGiftIndex: giftIndex,
+        selectedGiftName: giftName,
+        selectedGiftNote: options?.note ?? null,
         isComplete: true,
       }));
     },
@@ -474,12 +521,20 @@ function useGiftSessionV1() {
     setState(initialState);
   }, []);
 
+  const hydrateSession = useCallback((session: GiftSessionRow) => {
+    setState((prev) => ({
+      ...prev,
+      ...hydrateGiftSessionState(session),
+    }));
+  }, []);
+
   return {
     ...state,
     generateGifts,
     regenerate,
     selectGift,
     trackProductClick,
+    hydrateSession,
     resetSession,
   };
 }

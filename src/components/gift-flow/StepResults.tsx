@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { calculateFeedbackReminderAt } from "@/hooks/giftSessionShared";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import type { Recipient, useGiftSession } from "@/hooks/useGiftSession";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
@@ -177,11 +178,13 @@ function ErrorState({
   icon,
   title,
   message,
+  actionLabel,
   onRetry,
 }: {
   icon: string;
   title: string;
   message: string;
+  actionLabel?: string;
   onRetry: () => void;
 }) {
   return (
@@ -194,7 +197,7 @@ function ErrorState({
         </div>
         <Button type="button" variant="hero" onClick={onRetry}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Try Again
+          {actionLabel || "Try Again"}
         </Button>
       </CardContent>
     </Card>
@@ -206,12 +209,16 @@ function SuccessState({
   selectedGiftName,
   confidenceScore,
   recipientName,
+  recipientId,
+  sessionId,
   occasion,
   occasionDate,
 }: {
   selectedGiftName: string;
   confidenceScore: number | null;
   recipientName: string;
+  recipientId: string | null;
+  sessionId: string;
   occasion: string;
   occasionDate: string | null;
 }) {
@@ -232,8 +239,25 @@ function SuccessState({
   const shareUrl = useMemo(() => `https://giftmind.in/?ref=${referralCode ?? ""}`, [referralCode]);
 
   const handleSaveReminder = async () => {
-    // Save occasion as a reminder note. We store this as metadata
-    // since a dedicated reminders table may not exist yet.
+    if (!user || !sessionId) return;
+
+    const { error } = await supabase
+      .from("feedback_reminders")
+      .upsert({
+        user_id: user.id,
+        session_id: sessionId,
+        recipient_id: recipientId,
+        occasion,
+        occasion_date: occasionDate,
+        remind_at: calculateFeedbackReminderAt(occasionDate),
+        status: "pending",
+      }, { onConflict: "session_id" });
+
+    if (error) {
+      toast.error("Could not save the reminder. Please try again.");
+      return;
+    }
+
     setReminderSaved(true);
     toast.success(`We'll remind you about ${occasion} for ${recipientName} next year!`);
   };
@@ -376,7 +400,8 @@ export default function StepResults({
         <ErrorState
           icon="🤔"
           title="AI had trouble with this one"
-          message="This sometimes happens. Let's try again."
+          message={giftSession.error}
+          actionLabel="Try Again"
           onRetry={() => {
             void giftSession.generateGifts(onRegenerateParams);
           }}
@@ -390,6 +415,7 @@ export default function StepResults({
           icon="⏰"
           title="Too many requests"
           message="You've hit the rate limit. Please wait a minute and try again."
+          actionLabel="Try Again"
           onRetry={() => {
             void giftSession.generateGifts(onRegenerateParams);
           }}
@@ -418,6 +444,8 @@ export default function StepResults({
         selectedGiftName={selectedGift?.name ?? "your gift"}
         confidenceScore={selectedGift?.confidence_score ?? null}
         recipientName={selectedRecipient.name}
+        recipientId={selectedRecipient.id}
+        sessionId={giftSession.sessionId ?? ""}
         occasion={selectedOccasion}
         occasionDate={onRegenerateParams.occasionDate}
       />
@@ -425,9 +453,9 @@ export default function StepResults({
   }
 
   // Sort recommendations by confidence descending (Item 13)
-  const recommendations = [...(giftSession.recommendations ?? [])].sort(
-    (a, b) => b.confidence_score - a.confidence_score,
-  );
+  const recommendations = [...(giftSession.recommendations ?? [])]
+    .map((gift, originalIndex) => ({ gift, originalIndex }))
+    .sort((a, b) => b.gift.confidence_score - a.gift.confidence_score);
 
   const handleRegenerate = () => {
     if (!planLimits.canRegenerate(giftSession.regenerationCount)) {
@@ -462,9 +490,9 @@ export default function StepResults({
         ) : null}
 
         <div className="space-y-5">
-          {recommendations.map((gift, index) => (
+          {recommendations.map(({ gift, originalIndex }, index) => (
             <GiftCard
-              key={`${gift.name}-${index}`}
+              key={`${gift.name}-${originalIndex}`}
               gift={gift}
               index={index}
               products={giftSession.productResults?.find((result) => result.gift_name === gift.name) ?? null}
@@ -474,12 +502,15 @@ export default function StepResults({
               userPlan={userPlan}
               recipient={selectedRecipient}
               occasion={selectedOccasion}
+              occasionDate={onRegenerateParams.occasionDate}
               currency={currency}
               canUseSignalCheck={planLimits.canUseSignalCheck()}
               isBestMatch={index === 0}
               onCreditsChanged={onCreditsChanged}
-              onSelect={(giftIndex, giftName) => {
-                void giftSession.selectGift(giftIndex, giftName);
+              onSelect={(_giftIndex, giftName, options) => {
+                void giftSession.selectGift(originalIndex, giftName, options).then(() => {
+                  toast.success("Gift selection saved!");
+                });
               }}
               onTrackClick={(product) => {
                 void giftSession.trackProductClick(product);

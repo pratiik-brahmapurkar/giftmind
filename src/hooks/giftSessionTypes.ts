@@ -1,4 +1,5 @@
 import type { ProductResult } from "../lib/productLinks";
+import type { Tables } from "@/integrations/supabase/types";
 
 export interface Recipient {
   id: string;
@@ -45,11 +46,24 @@ export interface GiftSessionState {
   warningMessage: string | null;
   avgPersonalizationScore: number | null;
   error: string | null;
-  errorType: "NO_CREDITS" | "RATE_LIMITED" | "AI_ERROR" | "AI_PARSE_ERROR" | "AUTH_REQUIRED" | "GENERIC" | null;
+  errorType: "NO_CREDITS" | "RATE_LIMITED" | "AI_ERROR" | "AI_PARSE_ERROR" | "AUTH_REQUIRED" | "GENERIC" | "NETWORK" | null;
+  refundIssued: boolean | null;
   regenerationCount: number;
   selectedGiftIndex: number | null;
+  selectedGiftName: string | null;
+  selectedGiftNote: string | null;
   isComplete: boolean;
 }
+
+export interface SelectGiftOptions {
+  note?: string;
+  createReminder?: boolean;
+  occasion?: string;
+  occasionDate?: string | null;
+  recipientId?: string | null;
+}
+
+export type GiftSessionRow = Tables<"gift_sessions">;
 
 export interface GenerateGiftParams {
   recipient: Recipient;
