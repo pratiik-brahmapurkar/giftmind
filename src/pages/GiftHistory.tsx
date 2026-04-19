@@ -17,6 +17,7 @@ import {
   Target,
 } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { EmptyState } from "@/components/ui/empty-state";
 import FeedbackModal from "@/components/gift-history/FeedbackModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -547,26 +548,24 @@ export default function GiftHistory() {
         )}
 
         {!isLoading && sessions.length === 0 && (
-          <Card className="border-border/60">
-            <CardContent className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-              <div className="text-5xl">🎁</div>
-              <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-foreground">No gift sessions yet</h2>
-                <p className="text-muted-foreground">Find your first perfect gift</p>
-              </div>
-              <Button variant="hero" onClick={() => navigate("/gift-flow")}>
-                Find a Gift
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="py-12">
+            <EmptyState
+              title="No gift history yet"
+              description="Your completed and saved gift sessions will appear here."
+              actionLabel="Find a Gift"
+              onAction={() => navigate("/gift-flow")}
+            />
+          </div>
         )}
 
         {!isLoading && sessions.length > 0 && filteredSessions.length === 0 && (
-          <Card className="border-border/60">
-            <CardContent className="py-16 text-center text-muted-foreground">
-              No sessions match your filters.
-            </CardContent>
-          </Card>
+          <div className="py-12">
+            <EmptyState
+              title="No sessions found"
+              description="No gift sessions match your current filters. Try adjusting them."
+              icon={<Search className="w-12 h-12" strokeWidth={1.5} />}
+            />
+          </div>
         )}
 
         {!isLoading && Object.entries(groupedSessions).map(([month, items]) => (

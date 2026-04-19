@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, CalendarPlus, CheckCircle2, Copy, Loader2, PartyPopper, RefreshCw, Share2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -105,76 +105,69 @@ function LoadingState({
   );
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        {activeNode?.label ?? loadingMessages[messageIndex]}
+    <div className="py-12 flex flex-col items-center max-w-lg mx-auto space-y-12">
+      <div className="text-center space-y-4">
+        <motion.div 
+          animate={{ scale: [0.95, 1.05, 0.95], opacity: [0.7, 1, 0.7] }} 
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="mx-auto w-20 h-20 rounded-full bg-[#E4C663]/10 flex items-center justify-center border-[1.5px] border-[#D4A04A]/30 mb-6 shadow-xl shadow-[#D4A04A]/10"
+        >
+          <Sparkles className="w-10 h-10 text-[#D4A04A]" strokeWidth={1.5} />
+        </motion.div>
+        <h2 className="text-2xl font-bold font-heading text-foreground">
+          {activeNode?.label ?? "Synthesizing options"}
+        </h2>
+        <p className="text-muted-foreground">
+          {activeNode?.description ?? "Getting everything ready for you..."}
+        </p>
+        <Progress value={progressValue} className="h-1.5 w-64 mx-auto bg-muted mt-6 [&>div]:bg-[#D4A04A]" />
       </div>
-      <Card className="border-border/60">
-        <CardContent className="space-y-4 p-5">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {activeNode?.label ?? "Preparing recommendations"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {activeNode?.description ?? "Setting up the recommendation pipeline."}
-                </p>
+
+      <div className="w-full space-y-3">
+        {NODE_ORDER.map((node, i) => {
+          const isDone = nodesCompleted.includes(node);
+          const isActive = currentNode === node;
+          const isUpcoming = !isDone && !isActive;
+
+          return (
+            <motion.div
+              key={node}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className={`flex items-center gap-4 rounded-xl border-[1.5px] p-4 transition-all duration-500 overflow-hidden ${
+                isActive 
+                  ? "border-[#D4A04A] bg-[#D4A04A]/5 shadow-md scale-[1.02]" 
+                  : isDone
+                  ? "border-border/40 bg-background/80"
+                  : "border-border/20 bg-background/40 opacity-50"
+              }`}
+            >
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${
+                isActive ? "bg-[#D4A04A] text-white shadow-lg shadow-[#D4A04A]/20" : isDone ? "bg-[#3E8E7E]/10 text-[#3E8E7E]" : "bg-muted text-muted-foreground"
+              }`}>
+                {isDone ? <CheckCircle2 className="w-5 h-5" strokeWidth={2} /> : isActive ? <Loader2 className="w-4 h-4 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-current" />}
               </div>
-              <span className="text-xs font-medium text-muted-foreground">{progressValue}%</span>
-            </div>
-            <Progress value={progressValue} className="h-2" />
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            {NODE_ORDER.map((node) => {
-              const isDone = nodesCompleted.includes(node);
-              const isActive = currentNode === node;
-
-              return (
-                <div
-                  key={node}
-                  className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 py-2"
-                >
-                  {isDone ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <div className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-primary" : "bg-muted-foreground/30"}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${isActive ? "text-[#6F5326]" : isDone ? "text-foreground" : "text-muted-foreground"}`}>
+                  {NODE_LABELS[node].label}
+                </p>
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }} 
+                      animate={{ opacity: 1, height: "auto" }} 
+                      exit={{ opacity: 0, height: 0 }}
+                      className="text-xs text-[#6F5326]/80 mt-1 truncate"
+                    >
+                      {NODE_LABELS[node].description}
+                    </motion.div>
                   )}
-                  <span className={`text-xs ${isActive ? "font-medium text-foreground" : "text-muted-foreground"}`}>
-                    {NODE_LABELS[node].label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-      <div className="space-y-4">
-        {[0, 1, 2].map((item) => (
-          <motion.div
-            key={item}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: item * 0.2, duration: 0.35, ease: "easeOut" }}
-          >
-            <Card className="border-border/60">
-              <CardContent className="space-y-4 p-6">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-12 w-full" />
-                <div className="flex gap-3">
-                  {[1, 2, 3].map((s) => (
-                    <Skeleton key={s} className="h-[132px] w-[180px] shrink-0 rounded-xl" />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );

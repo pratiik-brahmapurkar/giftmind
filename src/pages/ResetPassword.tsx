@@ -58,16 +58,16 @@ const ResetPassword = () => {
         </CardHeader>
         <CardContent>
           {error && <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert>}
-          <form onSubmit={handleReset} className="space-y-4">
-            <div className="space-y-2">
+          <form onSubmit={handleReset} className="space-y-6">
+            <div className="grid gap-[6px]">
               <Label htmlFor="password">New Password</Label>
-              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="border-[1.5px] placeholder:text-neutral-500 h-11" required />
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-[6px]">
               <Label htmlFor="confirm">Confirm Password</Label>
-              <Input id="confirm" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+              <Input id="confirm" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="border-[1.5px] placeholder:text-neutral-500 h-11" required />
             </div>
-            <Button type="submit" variant="hero" className="w-full" disabled={loading}>
+            <Button type="submit" variant="hero" className="w-full h-12 text-base" disabled={loading}>
               {loading ? "Updating..." : "Update Password"}
             </Button>
           </form>

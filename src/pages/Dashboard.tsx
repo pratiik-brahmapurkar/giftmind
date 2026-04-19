@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, ArrowRight, Gift, Coins, Users, Clock, Lock } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { motion } from "framer-motion";
 import { SEOHead } from "@/components/common/SEOHead";
@@ -101,19 +102,13 @@ const Dashboard = () => {
     return (
       <DashboardLayout>
         <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
-        <div className="max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 pb-20 md:pb-0">
-          <div className="w-20 h-20 rounded-2xl gradient-primary flex items-center justify-center animate-gift-bounce">
-            <Gift className="w-10 h-10 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground mb-2">
-              👋 Welcome! Let's find your first perfect gift.
-            </h1>
-            <p className="text-muted-foreground">Start by adding someone you care about →</p>
-          </div>
-          <Button variant="hero" size="lg" className="h-14 text-base px-8" onClick={() => navigate("/my-people")}>
-            Add Your First Person <ArrowRight className="w-4 h-4" />
-          </Button>
+        <div className="max-w-2xl mx-auto min-h-[60vh] flex items-center justify-center pb-20 md:pb-0">
+          <EmptyState
+            title="Welcome to GiftMind"
+            description="Let's start by adding someone you'd like to gift. GiftMind will remember what matters to each of them."
+            actionLabel="Add your first person"
+            onAction={() => navigate("/my-people")}
+          />
         </div>
       </DashboardLayout>
     );
@@ -124,23 +119,14 @@ const Dashboard = () => {
     return (
       <DashboardLayout>
         <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
-        <div className="max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 pb-20 md:pb-0">
-          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Users className="w-10 h-10 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground mb-2">
-              You've added {recipientCount} {recipientCount === 1 ? "person" : "people"}. Ready to find a gift?
-            </h1>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button variant="hero" size="lg" onClick={() => navigate("/gift-flow")}>
-              Find a Gift <ArrowRight className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => navigate("/my-people")}>
-              Add another person
-            </Button>
-          </div>
+        <div className="max-w-2xl mx-auto min-h-[60vh] flex items-center justify-center pb-20 md:pb-0">
+          <EmptyState
+            title={`You've added ${recipientCount} ${recipientCount === 1 ? "person" : "people"}`}
+            description="Ready to find the perfect gift? Start a new recommendation session."
+            actionLabel="Find a Gift"
+            onAction={() => navigate("/gift-flow")}
+            icon={<Gift className="w-12 h-12" strokeWidth={1.5} />}
+          />
         </div>
       </DashboardLayout>
     );
@@ -254,9 +240,8 @@ const Dashboard = () => {
                       )}
                     </div>
 
-                    {/* Confidence */}
                     {confidence !== null && (
-                      <Badge variant="outline" className={cn("shrink-0", confidenceColor(confidence))}>
+                      <Badge variant="default" className={cn("shrink-0", confidenceColor(confidence))}>
                         {confidence}%
                       </Badge>
                     )}

@@ -41,12 +41,12 @@ const ForgotPassword = () => {
           {sent ? (
             <Alert><AlertDescription>Check your email for a password reset link.</AlertDescription></Alert>
           ) : (
-            <form onSubmit={handleReset} className="space-y-4">
-              <div className="space-y-2">
+            <form onSubmit={handleReset} className="space-y-6">
+              <div className="grid gap-[6px]">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="border-[1.5px] placeholder:text-neutral-500 h-11" required />
               </div>
-              <Button type="submit" variant="hero" className="w-full" disabled={loading}>
+              <Button type="submit" variant="hero" className="w-full h-12 text-base" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
               </Button>
             </form>

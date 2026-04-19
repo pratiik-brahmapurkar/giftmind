@@ -20,6 +20,7 @@ import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { format } from "date-fns";
 import type { CreditTransaction } from "@/hooks/useCredits";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const TYPE_CONFIG: Record<
   string,
@@ -146,12 +147,11 @@ const CreditHistoryTab = ({ transactions, isLoading }: CreditHistoryTabProps) =>
 
       {/* Empty state */}
       {!isLoading && rows.length === 0 && (
-        <div className="text-center py-16">
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-            <History className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <p className="text-muted-foreground">No transactions yet.</p>
-        </div>
+        <EmptyState
+          title="No transactions yet"
+          description="Your credit history and usage will appear here."
+          icon={<History className="w-12 h-12" strokeWidth={1.5} />}
+        />
       )}
 
       {/* Table */}
@@ -178,7 +178,7 @@ const CreditHistoryTab = ({ transactions, isLoading }: CreditHistoryTabProps) =>
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant="outline"
+                          variant="default"
                           className={cn("text-[10px]", cfg.className)}
                         >
                           {cfg.emoji} {cfg.label}

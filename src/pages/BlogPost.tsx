@@ -89,10 +89,10 @@ export default function BlogPost() {
     if (!post || previewRequested || post.status !== "published") return;
 
     const trackView = async () => {
-      const newRpc = await supabase.rpc("increment_blog_view", { post_id: post.id });
+      const newRpc = await supabase.rpc("increment_blog_view" as any, { post_id: post.id });
       if (!newRpc.error) return;
 
-      const legacyRpc = await supabase.rpc("increment_post_views", { post_slug: post.slug });
+      const legacyRpc = await supabase.rpc("increment_post_views" as any, { post_slug: post.slug });
       if (!legacyRpc.error) return;
 
       await supabase
@@ -148,7 +148,7 @@ export default function BlogPost() {
     return (
       <div className="min-h-screen bg-white">
         <Navbar />
-        <main className="mx-auto max-w-3xl px-4 pb-16 pt-28 text-center text-slate-500">Loading post...</main>
+        <main className="mx-auto max-w-3xl px-4 pb-16 pt-28 text-center text-muted-foreground">Loading post...</main>
         <Footer />
       </div>
     );
@@ -159,8 +159,8 @@ export default function BlogPost() {
       <div className="min-h-screen bg-white">
         <Navbar />
         <main className="mx-auto max-w-3xl px-4 pb-16 pt-28 text-center">
-          <h1 className="text-3xl font-semibold text-slate-950">Post not found</h1>
-          <p className="mt-3 text-slate-500">The post may be unpublished or the slug is incorrect.</p>
+          <h1 className="text-3xl font-semibold text-foreground">Post not found</h1>
+          <p className="mt-3 text-muted-foreground">The post may be unpublished or the slug is incorrect.</p>
           <Button asChild className="mt-6 rounded-full">
             <Link to="/blog">Back to blog</Link>
           </Button>
@@ -174,7 +174,7 @@ export default function BlogPost() {
   const categorySlug = (post.blog_categories as { slug?: string } | null)?.slug;
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fffdf8_0%,#ffffff_18%,#f8fafc_100%)]">
+    <div className="min-h-screen bg-background">
       <SEOHead
         title={post.meta_title || post.title}
         description={post.meta_description || getExcerptFallback(post)}
@@ -187,12 +187,12 @@ export default function BlogPost() {
 
       <main className="mx-auto max-w-5xl px-4 pb-16 pt-28 sm:px-6 lg:px-8">
         {previewRequested && isAdmin ? (
-          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="mb-6 rounded-2xl border-[1.5px] border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             This is a preview. It is not visible to the public.
           </div>
         ) : null}
 
-        <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+        <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Link to="/blog" className="hover:text-primary">Blog</Link>
           <span>/</span>
           {categorySlug ? (
@@ -201,10 +201,10 @@ export default function BlogPost() {
             <span>{categoryName}</span>
           )}
           <span>/</span>
-          <span className="truncate text-slate-700">{post.title}</span>
+          <span className="truncate text-foreground">{post.title}</span>
         </nav>
 
-        <article className="overflow-hidden rounded-[34px] border border-slate-200/80 bg-white shadow-sm">
+        <article className="overflow-hidden rounded-[34px] border-[1.5px] border-border/60 bg-background shadow-sm">
           {post.featured_image_url ? (
             <img
               src={post.featured_image_url}
@@ -214,13 +214,13 @@ export default function BlogPost() {
           ) : null}
 
           <div className="px-6 py-8 sm:px-10">
-            <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 px-3 py-1 text-primary">
+            <Badge variant="primary" className="rounded-full border-primary/20 bg-primary/5 px-3 py-1 text-primary">
               {categoryName}
             </Badge>
-            <h1 className="mt-4 font-['Clash_Display',sans-serif] text-4xl leading-tight text-slate-950 sm:text-5xl">
+            <h1 className="mt-4 font-heading text-4xl leading-tight text-foreground sm:text-5xl">
               {post.title}
             </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>By GiftMind</span>
               <span>·</span>
               <span>{post.published_at ? format(new Date(post.published_at), "MMMM d, yyyy") : "Draft"}</span>
@@ -243,8 +243,8 @@ export default function BlogPost() {
               {contentParts.after ? <BlogMarkdown content={contentParts.after} /> : null}
             </div>
 
-            <section className="mt-10 border-t border-slate-200 pt-8">
-              <p className="mb-4 flex items-center gap-2 text-sm font-medium text-slate-700">
+            <section className="mt-10 border-t border-border pt-8">
+              <p className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
                 <Share2 className="h-4 w-4" />
                 Share
               </p>
@@ -271,7 +271,7 @@ export default function BlogPost() {
 
         {relatedPosts.length > 0 ? (
           <section className="mt-12">
-            <h2 className="text-2xl font-semibold text-slate-950">Related Posts</h2>
+            <h2 className="text-2xl font-semibold text-foreground">Related Posts</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-3">
               {relatedPosts.map((related) => (
                 <BlogPostCard

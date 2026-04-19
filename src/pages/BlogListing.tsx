@@ -56,7 +56,7 @@ export default function BlogListing() {
   const hasMore = posts.length < count;
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fffdf8_0%,#ffffff_22%,#f8fafc_100%)]">
+    <div className="min-h-screen bg-background">
       <SEOHead
         title="The GiftMind Blog"
         description="Gift ideas, guides, and the psychology of thoughtful giving."
@@ -65,13 +65,13 @@ export default function BlogListing() {
       <Navbar />
 
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-28 sm:px-6 lg:px-8">
-        <section className="relative overflow-hidden rounded-[36px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.14),rgba(255,255,255,1)_40%),linear-gradient(135deg,rgba(14,165,233,0.06),rgba(236,72,153,0.08),rgba(255,255,255,1))] px-6 py-10 shadow-sm sm:px-10">
+        <section className="relative overflow-hidden rounded-[36px] border-[1.5px] border-border/40 bg-primary/5 px-6 py-10 shadow-sm sm:px-10">
           <div className="max-w-3xl">
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary/70">GiftMind Editorial</p>
-            <h1 className="mt-3 font-['Clash_Display',sans-serif] text-4xl leading-tight text-slate-950 sm:text-5xl">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">GiftMind Editorial</p>
+            <h1 className="mt-3 font-heading text-4xl leading-tight text-foreground sm:text-5xl">
               The GiftMind Blog
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
               Gift ideas, practical guides, and the psychology of thoughtful giving for every occasion.
             </p>
           </div>
@@ -85,10 +85,10 @@ export default function BlogListing() {
               setPage(1);
             }}
             className={cn(
-              "whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition",
+              "whitespace-nowrap rounded-full border-[1.5px] px-4 py-2 text-sm font-medium transition",
               selectedCategory === "all"
-                ? "border-primary bg-primary text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-primary/30 hover:text-primary",
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border/60 bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground",
             )}
           >
             All
@@ -102,10 +102,10 @@ export default function BlogListing() {
                 setPage(1);
               }}
               className={cn(
-                "whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition",
+                "whitespace-nowrap rounded-full border-[1.5px] px-4 py-2 text-sm font-medium transition",
                 selectedCategory === category.id
-                  ? "border-primary bg-primary text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-primary/30 hover:text-primary",
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border/60 bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground",
               )}
             >
               {category.name}
@@ -116,7 +116,7 @@ export default function BlogListing() {
         <section className="mt-8 grid gap-6 md:grid-cols-2">
           {isLoading
             ? Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="overflow-hidden rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={index} className="overflow-hidden rounded-[26px] border-[1.5px] border-border/40 bg-background p-4 shadow-sm">
                   <Skeleton className="aspect-[16/10] w-full rounded-[20px]" />
                   <Skeleton className="mt-4 h-4 w-28 rounded-full" />
                   <Skeleton className="mt-3 h-8 w-4/5 rounded-xl" />
@@ -139,7 +139,7 @@ export default function BlogListing() {
         </section>
 
         {!isLoading && posts.length === 0 ? (
-          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white/80 px-6 py-16 text-center text-slate-500">
+          <div className="rounded-[28px] border-[1.5px] border-dashed border-border/60 bg-card px-6 py-16 text-center text-muted-foreground">
             No published posts yet.
           </div>
         ) : null}

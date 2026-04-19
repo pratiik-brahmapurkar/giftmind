@@ -8,6 +8,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import RecipientCard from "@/components/recipients/RecipientCard";
 import RecipientFormModal from "@/components/recipients/RecipientFormModal";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -389,32 +390,14 @@ const MyPeople = () => {
             ))}
           </div>
         ) : recipients.length === 0 ? (
-          <Card className="border-border/50 border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-24 h-24 mb-6 relative">
-                <svg viewBox="0 0 96 96" fill="none" className="w-full h-full">
-                  <circle cx="32" cy="36" r="12" fill="hsl(249 76% 64% / 0.15)" />
-                  <circle cx="32" cy="36" r="8" fill="hsl(249 76% 64% / 0.3)" />
-                  <circle cx="64" cy="36" r="12" fill="hsl(0 100% 70% / 0.15)" />
-                  <circle cx="64" cy="36" r="8" fill="hsl(0 100% 70% / 0.3)" />
-                  <rect x="38" y="52" width="20" height="20" rx="4" fill="hsl(249 76% 64% / 0.2)" />
-                  <path d="M44 52 L48 44 L52 52" fill="hsl(0 100% 70% / 0.3)" />
-                  <line x1="32" y1="48" x2="40" y2="56" stroke="hsl(249 76% 64% / 0.3)" strokeWidth="2" />
-                  <line x1="64" y1="48" x2="56" y2="56" stroke="hsl(0 100% 70% / 0.3)" strokeWidth="2" />
-                </svg>
-                <Heart className="absolute bottom-0 right-0 w-5 h-5 text-accent animate-pulse" />
-              </div>
-              <p className="text-foreground font-heading font-semibold text-lg mb-1">
-                Add someone you care about to get started
-              </p>
-              <p className="text-muted-foreground text-sm max-w-xs mb-6">
-                You can always add more later — start with one person.
-              </p>
-              <Button variant="hero" size="lg" className="h-12 px-8" onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-2" /> Add Your First Person
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="py-8">
+            <EmptyState
+              title="Add someone you care about to get started"
+              description="You can always add more later — start with one person."
+              actionLabel="Add Your First Person"
+              onAction={openCreate}
+            />
+          </div>
         ) : (
           <>
             {/* Search & Filter */}

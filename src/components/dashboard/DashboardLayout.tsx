@@ -169,12 +169,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           {sidebarItems.map((item) => (
             <Link key={item.path + item.label} to={item.path}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-l-lg rounded-r-none text-sm font-medium transition-colors border-r-2",
                 isActive(item.path)
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-[#D4A04A]/10 text-[#6F5326] border-[#D4A04A]"
                   : item.accent
-                  ? "bg-accent/10 text-accent hover:bg-accent/20"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-accent/10 text-accent hover:bg-accent/20 border-transparent rounded-r-lg"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground border-transparent rounded-r-lg"
               )}>
               <item.icon className="w-5 h-5 shrink-0" />
               {sidebarOpen && <span>{item.label}</span>}
@@ -193,10 +193,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             ) : (
               <Link key={item.path} to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-l-lg rounded-r-none text-sm font-medium transition-colors border-r-2",
                   isActive(item.path)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-[#D4A04A]/10 text-[#6F5326] border-[#D4A04A]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground border-transparent rounded-r-lg"
                 )}>
                 <item.icon className="w-5 h-5 shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}

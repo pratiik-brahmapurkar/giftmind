@@ -31,23 +31,23 @@ export function PricingCards({
               key={slug}
               className={`
                 relative flex flex-col rounded-3xl transition-all duration-300
-                hover:scale-[1.02] hover:shadow-2xl overflow-visible
+                hover:scale-[1.02] hover:shadow-2xl overflow-visible border-[1.5px]
                 ${compact ? 'p-6' : 'p-8'}
                 ${isDark
-                  ? 'bg-gradient-to-b from-gray-900 to-gray-800 text-white border-gray-700/50 border backdrop-blur-sm shadow-[0_8px_30px_rgb(0,0,0,0.12)]'
+                  ? 'bg-[#2A2724] text-white border-white/10 backdrop-blur-sm shadow-[0_8px_30px_rgb(0,0,0,0.12)]'
                   : isHighlighted || isRecommended
-                    ? 'bg-white ring-2 ring-purple-500 shadow-[0_0_40px_rgba(168,85,247,0.3)]'
-                    : 'bg-white border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'}
+                    ? 'bg-white border-[#D4A04A] shadow-[0_0_40px_rgba(212,160,74,0.3)]'
+                    : 'bg-white border-border/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'}
               `}
             >
               {/* Badge */}
               {plan.badge && (
                 <div className={`
                   absolute -top-4 left-1/2 -translate-x-1/2 
-                  px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap tracking-wide flex items-center gap-1.5 shadow-md
-                  ${isDark ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
-                    : isRecommended ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white'
-                    : 'bg-gray-100/80 backdrop-blur-md text-gray-700 border border-gray-200/50'}
+                  px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap tracking-wide flex items-center gap-1.5 shadow-md border-[1.5px]
+                  ${isDark ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white border-transparent'
+                    : isRecommended ? 'bg-[#D4A04A] text-[#6F5326] border-[#D4A04A]'
+                    : 'bg-card backdrop-blur-md text-foreground border-border/60'}
                 `}>
                   {(isRecommended || isDark) && <Sparkles className="w-3.5 h-3.5" />}
                   {plan.badge}
@@ -55,7 +55,7 @@ export function PricingCards({
               )}
 
               {isRecommended ? (
-                <p className={`text-xs font-bold text-center mb-6 tracking-wider uppercase ${isDark ? 'text-purple-300' : 'text-purple-600'}`}>
+                <p className={`text-xs font-bold text-center mb-6 tracking-wider uppercase ${isDark ? 'text-amber-300' : 'text-[#6F5326]'}`}>
                   Most chosen by gifters
                 </p>
               ) : (
@@ -65,7 +65,7 @@ export function PricingCards({
               {/* Header */}
               <div className="text-center mb-8">
                 <span className="text-4xl inline-block mb-3 bg-white/10 p-3 rounded-2xl ring-1 ring-black/5 shadow-sm transform transition-transform hover:scale-110 duration-300">{plan.emoji}</span>
-                <h3 className={`text-2xl font-black tracking-tight mt-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <h3 className={`text-2xl font-black tracking-tight mt-2 ${isDark ? 'text-white' : 'text-foreground'}`}>
                   {plan.name}
                 </h3>
                 <p className={`text-sm font-medium mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -76,12 +76,12 @@ export function PricingCards({
               {/* Price */}
               <div className="text-center mb-8">
                 <div className="flex items-start justify-center gap-1">
-                  <span className={`text-2xl font-bold mt-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>$</span>
-                  <span className={`text-6xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <span className={`text-2xl font-bold mt-1.5 ${isDark ? 'text-white' : 'text-foreground'}`}>$</span>
+                  <span className={`text-6xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-foreground'}`}>
                     {plan.price}
                   </span>
                 </div>
-                <div className={`text-sm font-medium mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <div className={`text-sm font-medium mt-2 ${isDark ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
                   {plan.perSession}/session
                 </div>
                 {plan.savings && (
@@ -100,10 +100,10 @@ export function PricingCards({
               <ul className="space-y-4 mb-8 flex-1">
                 {plan.features.map((feature, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm group">
-                    <div className={`mt-0.5 rounded-full p-0.5 transition-colors ${isDark ? 'bg-green-500/20 text-green-400 group-hover:bg-green-500/30' : 'bg-green-100 text-green-600 group-hover:bg-green-200'}`}>
+                    <div className={`mt-0.5 rounded-full p-0.5 transition-colors ${isDark ? 'bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/30' : 'bg-[#3E8E7E]/10 text-[#3E8E7E] group-hover:bg-[#3E8E7E]/20'}`}>
                       <Check className="w-3 h-3" strokeWidth={3} />
                     </div>
-                    <span className={`font-medium leading-relaxed ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{feature}</span>
+                    <span className={`font-medium leading-relaxed ${isDark ? 'text-muted-foreground' : 'text-foreground'}`}>{feature}</span>
                   </li>
                 ))}
                 {plan.lockedFeatures.map((locked, i) => (
@@ -113,7 +113,7 @@ export function PricingCards({
                     </div>
                     <span className={`font-medium leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                       {locked.text}
-                      <span className="text-xs font-bold ml-1.5 px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 transition-colors group-hover:bg-purple-500/20 group-hover:text-purple-700">
+                      <span className="text-xs font-bold ml-1.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 transition-colors group-hover:bg-amber-500/20 group-hover:text-amber-800">
                         {PLANS[locked.unlockPlan as PlanSlug]?.name} ↑
                       </span>
                     </span>
@@ -126,14 +126,14 @@ export function PricingCards({
                 onClick={() => !isCurrent && onBuyClick(slug)}
                 disabled={isCurrent}
                 className={`
-                  w-full py-4 rounded-2xl font-bold text-sm transition-all duration-300
+                  w-full py-4 rounded-2xl font-bold text-sm transition-all duration-300 border-[1.5px]
                   ${isCurrent
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed border-border/60'
                     : isDark
-                      ? 'bg-white text-gray-900 hover:bg-gray-100 hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)]'
+                      ? 'bg-white text-[#2A2724] border-transparent hover:bg-gray-100 hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)]'
                       : isHighlighted || isRecommended
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(147,51,234,0.3)] hover:shadow-[0_0_30px_rgba(147,51,234,0.4)]'
-                        : 'bg-indigo-50/50 border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 hover:scale-[1.02] active:scale-95 hover:text-indigo-700'}
+                        ? 'bg-[#D4A04A] border-transparent text-[#6F5326] hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(212,160,74,0.3)] hover:shadow-[0_0_30px_rgba(212,160,74,0.4)]'
+                        : 'bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/30 hover:scale-[1.02] active:scale-95'}
                 `}
               >
                 {isCurrent ? 'Current Plan' : plan.buttonText}
@@ -145,11 +145,11 @@ export function PricingCards({
 
       {/* Footer */}
       <div className="text-center mt-12 space-y-4 pb-8">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 backdrop-blur-md shadow-sm border border-gray-100 text-sm font-medium text-gray-600 hover:scale-105 transition-transform duration-300">
-          <Sparkles className="w-4 h-4 text-purple-500" />
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-background backdrop-blur-md shadow-sm border-[1.5px] border-border/60 text-sm font-medium text-foreground hover:scale-105 transition-transform duration-300">
+          <Sparkles className="w-4 h-4 text-[#D4A04A]" />
           All plans include: AI recommendations · Confidence scores · Regional store links
         </div>
-        <p className="text-sm text-purple-600 font-bold tracking-wide flex items-center justify-center gap-2">
+        <p className="text-sm text-[#6F5326] font-bold tracking-wide flex items-center justify-center gap-2">
           <span className="text-xl inline-block drop-shadow-sm hover:rotate-12 transition-transform duration-300">🎁</span> 
           Start with 3 free credits on Spark — no card needed
         </p>

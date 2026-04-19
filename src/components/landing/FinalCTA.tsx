@@ -4,8 +4,7 @@ import { Link } from "react-router-dom";
 const FinalCTA = () => {
   return (
     <section
-      className="py-20"
-      style={{ background: "linear-gradient(135deg, #6C5CE7, #4834D4)" }}
+      className="py-20 bg-gradient-to-br from-[#D4A04A] to-[#C88D33]"
     >
       <div className="container mx-auto px-4 text-center">
         <motion.div
@@ -22,12 +21,7 @@ const FinalCTA = () => {
           </p>
           <Link to="/signup">
             <button
-              className="h-14 px-10 rounded-xl text-lg font-semibold transition-all duration-200 hover:scale-[1.02]"
-              style={{
-                backgroundColor: "white",
-                color: "#6C5CE7",
-                boxShadow: "0 4px 20px rgba(255,255,255,0.2)",
-              }}
+              className="h-14 px-10 rounded-xl text-lg font-semibold transition-all duration-200 hover:scale-[1.02] bg-white text-[#6F5326] shadow-[0_4px_20px_rgba(255,255,255,0.2)]"
             >
               Find the Perfect Gift — Free →
             </button>

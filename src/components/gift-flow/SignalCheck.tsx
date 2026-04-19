@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Lock, MessageCircleHeart, Sparkles, Wand2 } from "lucide-react";
+import { Check, Loader2, Lock, MessageCircleHeart, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -130,7 +130,7 @@ export default function SignalCheck({
       return;
     }
 
-    void signalMutation.mutateAsync();
+    void signalMutation.mutateAsync(undefined);
   };
 
   const runFollowUp = () => {
@@ -191,22 +191,23 @@ export default function SignalCheck({
         )}
 
         {latestCheck && (
-          <Card className="border-primary/20 bg-primary/5">
+          <Card className="border-[#EDD896] shadow-sm" style={{ background: "linear-gradient(135deg, #FAF5E8, #F5E9C9)" }}>
             <CardContent className="space-y-4 p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Sparkles className="h-4 w-4 text-primary" />
+                <div className="inline-flex items-center gap-2 text-sm font-medium text-[#6F5326]">
+                  <Sparkles className="h-4 w-4 text-[#D4A04A]" />
                   Signal Check
                 </div>
-                <Badge variant="outline">Revision {latestCheck.revision_number}</Badge>
-                {checks.length > 1 ? <Badge variant="outline">{checks.length} saved reads</Badge> : null}
+                <Badge variant="primary" className="border-[#D4A04A]/30 text-[#6F5326] bg-[#D4A04A]/10">Revision {latestCheck.revision_number}</Badge>
+                {checks.length > 1 ? <Badge variant="primary" className="border-[#D4A04A]/30 text-[#6F5326] bg-[#D4A04A]/10">{checks.length} saved reads</Badge> : null}
               </div>
 
               <div className="space-y-2">
                 {latestCheck.result.positive_signals.map((signal) => (
-                  <p key={signal} className="text-sm text-foreground">
-                    {signal}
-                  </p>
+                  <div key={signal} className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-[#3E8E7E] shrink-0 mt-0.5" strokeWidth={2} />
+                    <p className="text-sm text-foreground">{signal}</p>
+                  </div>
                 ))}
               </div>
 
@@ -280,7 +281,7 @@ export default function SignalCheck({
                         .map((check) => (
                           <div key={check.id} className="rounded-xl border border-border/60 bg-background/70 p-3 text-sm">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline">Revision {check.revision_number}</Badge>
+                              <Badge variant="primary">Revision {check.revision_number}</Badge>
                               {check.follow_up_prompt ? (
                                 <span className="text-xs text-muted-foreground">Prompt: {check.follow_up_prompt}</span>
                               ) : (
