@@ -9,6 +9,7 @@ import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { supabase } from "@/integrations/supabase/client";
 import type { GiftRecommendation, Recipient } from "@/hooks/useGiftSession";
 import { buildSignalCheckKey, parseSignalChecks } from "@/lib/signalCheck";
+import { trackEvent } from "@/lib/posthog";
 import { Check, Loader2, Lock, MessageCircleHeart, Sparkles, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +21,8 @@ interface SignalCheckProps {
   currency: string;
   canUseSignalCheck: boolean;
   onCreditsChanged: () => void;
+  recommendationIndex?: number;
+  viewOnly?: boolean;
 }
 
 const SUGGESTED_FOLLOW_UPS = [
@@ -51,11 +54,16 @@ export default function SignalCheck({
   currency,
   canUseSignalCheck,
   onCreditsChanged,
+  recommendationIndex = 0,
+  viewOnly = false,
 }: SignalCheckProps) {
   const [followUpPrompt, setFollowUpPrompt] = useState("");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ["signal-checks", buildSignalCheckKey(sessionId, gift.name)], [gift.name, sessionId]);
+  const previewText = gift.signal_interpretation?.trim() ?? "";
+  const previewVisible = previewText.slice(0, 80);
+  const previewBlurred = previewText.slice(80, 120);
 
   const signalChecksQuery = useQuery({
     queryKey,
@@ -125,6 +133,12 @@ export default function SignalCheck({
   });
 
   const runInitialCheck = () => {
+    trackEvent("signal_check_run", {
+      rec_index: recommendationIndex,
+      plan: canUseSignalCheck ? "paid" : "locked",
+      revision_number: latestCheck?.revision_number ?? 1,
+    });
+
     if (!canUseSignalCheck) {
       setUpgradeOpen(true);
       return;
@@ -136,21 +150,81 @@ export default function SignalCheck({
   const runFollowUp = () => {
     const trimmed = followUpPrompt.trim();
     if (!trimmed) return;
+    trackEvent("signal_check_follow_up", {
+      rec_index: recommendationIndex,
+      plan: canUseSignalCheck ? "paid" : "locked",
+      revision_number: (latestCheck?.revision_number ?? 0) + 1,
+    });
     void signalMutation.mutateAsync(trimmed);
   };
 
   const isLoading = signalMutation.isPending || signalChecksQuery.isLoading;
 
+  if (viewOnly && !latestCheck) {
+    return previewText ? (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <MessageCircleHeart className="h-4 w-4 text-[#D4A04A]" strokeWidth={1.5} />
+          Signal Check
+        </div>
+        <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+          <p>&quot;{previewText.slice(0, 200)}...&quot;</p>
+        </div>
+      </div>
+    ) : null;
+  }
+
   if (!canUseSignalCheck && !latestCheck) {
     return (
       <>
-        <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setUpgradeOpen(true)}>
-          <span className="inline-flex items-center gap-2">
-            <Lock className="h-4 w-4" strokeWidth={1.5} />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <MessageCircleHeart className="h-4 w-4 text-[#D4A04A]" strokeWidth={1.5} />
             Signal Check
-          </span>
-          Unlock with Confident
-        </Button>
+          </div>
+          {previewText ? (
+            <div
+              className="relative cursor-pointer rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground"
+              onClick={() => {
+                trackEvent("signal_check_preview_clicked", {
+                  rec_index: recommendationIndex,
+                  plan: "locked",
+                });
+                setUpgradeOpen(true);
+              }}
+              role="button"
+              aria-label="Preview of Signal Check analysis. Upgrade to Confident to unlock."
+            >
+              <p>
+                <span>&quot;{previewVisible}</span>
+                <span className="blur-[3px] select-none" aria-hidden="true">{previewBlurred}</span>
+                <span>...&quot;</span>
+              </p>
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-8 rounded-b-xl bg-gradient-to-t from-muted/40 to-transparent"
+                aria-hidden="true"
+              />
+            </div>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between"
+            onClick={() => {
+              trackEvent("signal_check_upgrade_clicked", {
+                rec_index: recommendationIndex,
+                current_plan: "locked",
+              });
+              setUpgradeOpen(true);
+            }}
+          >
+            <span className="inline-flex items-center gap-2">
+              <Lock className="h-4 w-4" strokeWidth={1.5} />
+              Unlock full Signal Check
+            </span>
+            Confident 🎯
+          </Button>
+        </div>
         <UpgradeModal
           open={upgradeOpen}
           onOpenChange={setUpgradeOpen}
@@ -165,19 +239,27 @@ export default function SignalCheck({
     <>
       <div className="space-y-3">
         {!latestCheck ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-between"
-            onClick={runInitialCheck}
-            disabled={isLoading}
-          >
-            <span className="inline-flex items-center gap-2">
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} /> : <MessageCircleHeart className="h-4 w-4" strokeWidth={1.5} />}
-              Signal Check
-            </span>
-            {isLoading ? "Analyzing..." : "See what this gift says"}
-          </Button>
+          <div className="space-y-3">
+            {previewText ? (
+              <div className="rounded-xl border border-border/40 bg-muted/10 p-3 text-sm text-muted-foreground">
+                <p className="italic">&quot;{previewText.slice(0, 200)}...&quot;</p>
+                <p className="mt-1 text-xs">Full analysis uses 0.5 credits.</p>
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-between"
+              onClick={runInitialCheck}
+              disabled={isLoading}
+            >
+              <span className="inline-flex items-center gap-2">
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} /> : <MessageCircleHeart className="h-4 w-4" strokeWidth={1.5} />}
+                Signal Check
+              </span>
+              {isLoading ? "Analyzing..." : "See what this gift says"}
+            </Button>
+          </div>
         ) : null}
 
         {latestCheck ? (
@@ -229,40 +311,42 @@ export default function SignalCheck({
                 <p className="text-sm text-muted-foreground">{latestCheck.result.confidence_note}</p>
               </div>
 
-              <div className="space-y-3 rounded-xl border border-border/60 bg-background/80 p-3">
-                <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Wand2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Refine the read
-                </div>
+              {!viewOnly ? (
+                <div className="space-y-3 rounded-xl border border-border/60 bg-background/80 p-3">
+                  <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    Refine the read
+                  </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {SUGGESTED_FOLLOW_UPS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      className="rounded-full border border-border px-3 py-1 text-xs text-foreground transition-colors hover:border-primary hover:text-primary"
-                      onClick={() => setFollowUpPrompt(prompt)}
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
+                  <div className="flex flex-wrap gap-2">
+                    {SUGGESTED_FOLLOW_UPS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        className="rounded-full border border-border px-3 py-1 text-xs text-foreground transition-colors hover:border-primary hover:text-primary"
+                        onClick={() => setFollowUpPrompt(prompt)}
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
 
-                <Textarea
-                  value={followUpPrompt}
-                  onChange={(event) => setFollowUpPrompt(event.target.value)}
-                  rows={2}
-                  placeholder='Ask a follow-up like "make this less romantic" or "make this more premium".'
-                />
+                  <Textarea
+                    value={followUpPrompt}
+                    onChange={(event) => setFollowUpPrompt(event.target.value)}
+                    rows={2}
+                    placeholder='Ask a follow-up like "make this less romantic" or "make this more premium".'
+                  />
 
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">Each follow-up saves a new revision and uses 0.5 credit.</p>
-                  <Button type="button" size="sm" variant="outline" onClick={runFollowUp} disabled={signalMutation.isPending || !followUpPrompt.trim()}>
-                    {signalMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={1.5} /> : null}
-                    Refine
-                  </Button>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">Each follow-up saves a new revision and uses 0.5 credit.</p>
+                    <Button type="button" size="sm" variant="outline" onClick={runFollowUp} disabled={signalMutation.isPending || !followUpPrompt.trim()}>
+                      {signalMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={1.5} /> : null}
+                      Refine
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               {checks.length > 1 ? (
                 <Accordion type="single" collapsible className="w-full">

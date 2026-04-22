@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, CalendarPlus, CheckCircle2, Copy, Loader2, PartyPopper, RefreshCw, Share2, Sparkles } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CheckCircle2, Copy, Loader2, PartyPopper, RefreshCw, RotateCcw, Share2, ShoppingCart, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateFeedbackReminderAt } from "@/hooks/giftSessionShared";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import type { Recipient, useGiftSession } from "@/hooks/useGiftSession";
+import { trackEvent } from "@/lib/posthog";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import NoCreditGate from "./NoCreditGate";
 import GiftCard from "./GiftCard";
@@ -87,6 +87,8 @@ interface StepResultsProps {
     userPlan: string;
   };
   onCreditsChanged: () => void;
+  onStartOver: () => void;
+  viewOnly?: boolean;
 }
 
 /* ─── Staggered skeleton loading state (Item 14, Animation guidance) ─── */
@@ -99,11 +101,18 @@ function LoadingState({
   currentNode: string | null;
   nodesCompleted: string[];
 }) {
+  const [showSlowWarning, setShowSlowWarning] = useState(false);
   const activeNode = currentNode ? NODE_LABELS[currentNode] : null;
   const progressValue = Math.max(
     8,
     Math.min(96, Math.round((nodesCompleted.length / NODE_ORDER.length) * 100)),
   );
+
+  useEffect(() => {
+    setShowSlowWarning(false);
+    const timeout = window.setTimeout(() => setShowSlowWarning(true), 15000);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   return (
     <div className="py-12 flex flex-col items-center max-w-lg mx-auto space-y-12">
@@ -121,14 +130,19 @@ function LoadingState({
         <p className="text-muted-foreground">
           {activeNode?.description ?? "Getting everything ready for you..."}
         </p>
+        <p className="text-sm text-muted-foreground">{loadingMessages[messageIndex]}</p>
         <Progress value={progressValue} className="h-1.5 w-64 mx-auto bg-muted mt-6 [&>div]:bg-[#D4A04A]" />
+        {showSlowWarning ? (
+          <div className="mx-auto max-w-md rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+            Taking longer than usual. If this fails, your credit will be refunded automatically.
+          </div>
+        ) : null}
       </div>
 
       <div className="w-full space-y-3">
         {NODE_ORDER.map((node, i) => {
           const isDone = nodesCompleted.includes(node);
           const isActive = currentNode === node;
-          const isUpcoming = !isDone && !isActive;
 
           return (
             <motion.div
@@ -213,6 +227,9 @@ function SuccessState({
   sessionId,
   occasion,
   occasionDate,
+  buyUrl,
+  storeName,
+  onBuy,
 }: {
   selectedGiftName: string;
   confidenceScore: number | null;
@@ -221,6 +238,9 @@ function SuccessState({
   sessionId: string;
   occasion: string;
   occasionDate: string | null;
+  buyUrl?: string | null;
+  storeName?: string | null;
+  onBuy?: () => void;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -275,6 +295,16 @@ function SuccessState({
             {confidenceScore != null ? ` with ${confidenceScore}% confidence.` : "."}
           </p>
         </div>
+
+        {buyUrl ? (
+          <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 text-left">
+            <p className="mb-3 text-sm font-medium text-foreground">Ready to buy?</p>
+            <Button type="button" variant="hero" className="w-full" onClick={onBuy}>
+              <ShoppingCart className="mr-2 h-4 w-4" strokeWidth={1.5} />
+              Buy on {storeName ?? "Amazon"}
+            </Button>
+          </div>
+        ) : null}
 
         {/* Completion loop — Save for next year (Item E) */}
         {!reminderSaved && (
@@ -357,11 +387,15 @@ export default function StepResults({
   userPlan,
   onRegenerateParams,
   onCreditsChanged,
+  onStartOver,
+  viewOnly = false,
 }: StepResultsProps) {
   const planLimits = usePlanLimits();
   const [messageIndex, setMessageIndex] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const resultsViewedRef = useRef(false);
+  const enteredAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!giftSession.isGenerating) {
@@ -379,6 +413,34 @@ export default function StepResults({
     }, 3000);
     return () => window.clearInterval(interval);
   }, [giftSession.isGenerating, giftSession.error, isRegenerating]);
+
+  useEffect(() => {
+    if (giftSession.isGenerating) {
+      resultsViewedRef.current = false;
+    }
+  }, [giftSession.isGenerating]);
+
+  useEffect(() => {
+    if (giftSession.isGenerating || giftSession.error || !giftSession.recommendations || resultsViewedRef.current) {
+      return;
+    }
+
+    resultsViewedRef.current = true;
+    enteredAtRef.current = Date.now();
+    trackEvent("results_viewed", {
+      session_id: giftSession.sessionId,
+      provider: giftSession.aiProviderUsed,
+      latency_ms: giftSession.aiLatencyMs,
+      rec_count: giftSession.recommendations.length,
+    });
+  }, [
+    giftSession.aiLatencyMs,
+    giftSession.aiProviderUsed,
+    giftSession.error,
+    giftSession.isGenerating,
+    giftSession.recommendations,
+    giftSession.sessionId,
+  ]);
 
   if (giftSession.isGenerating || (!giftSession.recommendations && !giftSession.error)) {
     return (
@@ -438,6 +500,24 @@ export default function StepResults({
   if (giftSession.isComplete) {
     const selectedGift =
       giftSession.selectedGiftIndex != null ? giftSession.recommendations?.[giftSession.selectedGiftIndex] : null;
+    const selectedGiftProduct =
+      giftSession.productResults?.find((result) => result.gift_name === selectedGift?.name)?.products?.[0] ?? null;
+    const amazonDomain =
+      recipientCountry === "IN"
+        ? "amazon.in"
+        : recipientCountry === "GB"
+          ? "amazon.co.uk"
+          : recipientCountry === "AE"
+            ? "amazon.ae"
+            : "amazon.com";
+    const buyUrl =
+      selectedGiftProduct?.affiliate_url
+      || selectedGiftProduct?.product_url
+      || selectedGiftProduct?.search_url
+      || (selectedGift?.search_keywords?.[0]
+        ? `https://${amazonDomain}/s?k=${encodeURIComponent(selectedGift.search_keywords[0])}`
+        : null)
+      || null;
 
     return (
       <SuccessState
@@ -448,6 +528,31 @@ export default function StepResults({
         sessionId={giftSession.sessionId ?? ""}
         occasion={selectedOccasion}
         occasionDate={onRegenerateParams.occasionDate}
+        buyUrl={buyUrl}
+        storeName={selectedGiftProduct?.store_name ?? amazonDomain}
+        onBuy={() => {
+          if (!selectedGift) return;
+          trackEvent("results_buy_link_clicked_post_selection", {
+            store_name: selectedGiftProduct?.store_name ?? amazonDomain,
+            session_id: giftSession.sessionId,
+          });
+          void giftSession.trackProductClick({
+            ...(selectedGiftProduct ?? {
+              gift_name: selectedGift.name,
+              store_id: "amazon",
+              store_name: amazonDomain,
+              domain: amazonDomain,
+              brand_color: "#111827",
+              product_category: selectedGift.product_category,
+              is_search_link: true,
+              search_url: buyUrl,
+            }),
+            recommendationIndex: giftSession.selectedGiftIndex ?? 0,
+            recommendationConfidence: selectedGift.confidence_score,
+            recipientId: selectedRecipient.id,
+            clickedFrom: "success_screen",
+          });
+        }}
       />
     );
   }
@@ -456,12 +561,23 @@ export default function StepResults({
   const recommendations = [...(giftSession.recommendations ?? [])]
     .map((gift, originalIndex) => ({ gift, originalIndex }))
     .sort((a, b) => b.gift.confidence_score - a.gift.confidence_score);
+  const allLowConfidence = recommendations.length > 0 && recommendations.every(({ gift }) => gift.confidence_score < 75);
+  const timeOnScreenMs = enteredAtRef.current ? Date.now() - enteredAtRef.current : 0;
 
   const handleRegenerate = () => {
     if (!planLimits.canRegenerate(giftSession.regenerationCount)) {
+      trackEvent("regenerate_limit_hit", {
+        regen_count: giftSession.regenerationCount,
+        plan: userPlan,
+      });
       setUpgradeOpen(true);
       return;
     }
+    trackEvent("regenerate_clicked", {
+      regen_count: giftSession.regenerationCount,
+      plan: userPlan,
+      time_on_screen_ms: timeOnScreenMs,
+    });
     setIsRegenerating(true);
     toast.info("Generating new ideas…");
     void giftSession.regenerate(onRegenerateParams);
@@ -475,6 +591,11 @@ export default function StepResults({
           <p className="text-sm text-muted-foreground md:text-base">
             Ranked options for {selectedRecipient.name}, tuned for {selectedOccasion}.
           </p>
+          {viewOnly ? (
+            <div className="inline-flex items-center rounded-full border border-border/60 bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+              View Only
+            </div>
+          ) : null}
         </div>
 
         {giftSession.warningMessage ? (
@@ -485,6 +606,18 @@ export default function StepResults({
                 <p className="text-sm font-medium text-amber-900">Limited results in this exact budget</p>
                 <p className="text-sm text-amber-800">{giftSession.warningMessage}</p>
               </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {allLowConfidence ? (
+          <Card className="border-amber-300 bg-amber-50/70">
+            <CardContent className="flex items-start gap-3 p-4">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-700" strokeWidth={1.5} />
+              <p className="text-sm text-amber-900">
+                These are decent starting points, but the AI wasn&apos;t highly confident.
+                Try adding more context or regenerating for fresher ideas.
+              </p>
             </CardContent>
           </Card>
         ) : null}
@@ -504,16 +637,46 @@ export default function StepResults({
               occasion={selectedOccasion}
               occasionDate={onRegenerateParams.occasionDate}
               currency={currency}
+              budgetMin={onRegenerateParams.budgetMin}
+              budgetMax={onRegenerateParams.budgetMax}
               canUseSignalCheck={planLimits.canUseSignalCheck()}
               isBestMatch={index === 0}
               onCreditsChanged={onCreditsChanged}
+              viewOnly={viewOnly}
               onSelect={(_giftIndex, giftName, options) => {
+                trackEvent("gift_selected", {
+                  rec_index: originalIndex,
+                  confidence: gift.confidence_score,
+                  has_note: Boolean(options?.note?.trim()),
+                  reminder_set: Boolean(options?.createReminder),
+                  time_on_screen_ms: timeOnScreenMs,
+                });
                 void giftSession.selectGift(originalIndex, giftName, options).then(() => {
                   toast.success("Gift selection saved!");
                 });
               }}
               onTrackClick={(product) => {
-                void giftSession.trackProductClick(product);
+                trackEvent("buy_link_clicked", {
+                  rec_index: originalIndex,
+                  store_name: product.store_name,
+                  country: recipientCountry || onRegenerateParams.userCountry,
+                  confidence: gift.confidence_score,
+                  is_search_link: Boolean(product.is_search_link),
+                });
+                void giftSession.trackProductClick({
+                  ...product,
+                  recommendationIndex: originalIndex,
+                  recommendationConfidence: gift.confidence_score,
+                  recipientId: selectedRecipient.id,
+                  clickedFrom: "results_screen",
+                });
+              }}
+              onLockedStoreClick={(storeName, unlockPlan) => {
+                trackEvent("buy_link_locked_clicked", {
+                  rec_index: originalIndex,
+                  store_name: storeName,
+                  unlock_plan: unlockPlan,
+                });
               }}
             />
           ))}
@@ -547,31 +710,43 @@ export default function StepResults({
           </CardContent>
         </Card>
 
-        {/* Regenerate button with loading state + toast (Item 17) */}
-        <div className="space-y-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-12 w-full"
-            onClick={handleRegenerate}
-            disabled={giftSession.isGenerating || isRegenerating}
-          >
-            {isRegenerating || giftSession.isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating new ideas…
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Regenerate ideas
-              </>
-            )}
-            <span className="ml-2 text-xs text-muted-foreground">
-              {giftSession.regenerationCount}/{planLimits.maxRegenerations === -1 ? "∞" : planLimits.maxRegenerations}
-            </span>
-          </Button>
-        </div>
+        {!viewOnly ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-12 w-full"
+              onClick={handleRegenerate}
+              disabled={giftSession.isGenerating || isRegenerating}
+            >
+              {isRegenerating || giftSession.isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating new ideas…
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Regenerate ({giftSession.regenerationCount}/{planLimits.maxRegenerations === -1 ? "∞" : planLimits.maxRegenerations} free)
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-12 w-full"
+              onClick={() => {
+                trackEvent("start_over_clicked", {
+                  time_on_screen_ms: timeOnScreenMs,
+                });
+                onStartOver();
+              }}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" strokeWidth={1.5} />
+              Start Over
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <UpgradeModal

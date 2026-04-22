@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ExternalLink, Globe2, Lock, TicketPercent, Truck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,10 @@ interface ProductLinksProps {
   lockedStores: LockedStore[];
   isLoading: boolean;
   recipientCountry: string | null;
+  giftName: string;
+  fallbackSearchTerm: string;
   onTrackClick: (product: ProductLinkRecord) => void;
+  onLockedStoreClick?: (store: LockedStore) => void;
 }
 
 function formatPrice(amount: number | null | undefined) {
@@ -34,12 +37,15 @@ function stockBadge(product: ProductLinkRecord) {
   }
 }
 
-export default function ProductLinks({
+function ProductLinks({
   products,
   lockedStores,
   isLoading,
   recipientCountry,
+  giftName,
+  fallbackSearchTerm,
   onTrackClick,
+  onLockedStoreClick,
 }: ProductLinksProps) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState("Upgrade to unlock more stores.");
@@ -48,6 +54,31 @@ export default function ProductLinks({
   const crossBorderMeta = SUPPORTED_COUNTRIES.find((country) => country.code === crossBorderCountry);
   const currentPlan = lockedStores.some((store) => store.unlock_plan === "thoughtful") ? "spark" : "thoughtful";
   const upgradeText = getUpgradeText(currentPlan, "more_stores");
+  const amazonDomain =
+    recipientCountry === "IN"
+      ? "amazon.in"
+      : recipientCountry === "GB"
+        ? "amazon.co.uk"
+        : recipientCountry === "AE"
+          ? "amazon.ae"
+          : recipientCountry === "DE"
+            ? "amazon.de"
+            : recipientCountry === "FR"
+              ? "amazon.fr"
+              : recipientCountry === "IT"
+                ? "amazon.it"
+                : recipientCountry === "ES"
+                  ? "amazon.es"
+                  : recipientCountry === "NL"
+                    ? "amazon.nl"
+                    : recipientCountry === "CA"
+                      ? "amazon.ca"
+                      : recipientCountry === "AU"
+                        ? "amazon.com.au"
+                        : recipientCountry === "SG"
+                          ? "amazon.sg"
+                          : "amazon.com";
+  const fallbackUrl = `https://${amazonDomain}/s?k=${encodeURIComponent(fallbackSearchTerm)}`;
 
   return (
     <>
@@ -61,11 +92,11 @@ export default function ProductLinks({
           </div>
         )}
 
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
           {isLoading &&
             products.length === 0 &&
             [1, 2, 3].map((item) => (
-              <Card key={item} className="min-h-[132px] min-w-[180px] animate-pulse border-border/60">
+              <Card key={item} className="min-h-[132px] min-w-[180px] animate-pulse border-border/60 snap-center">
                 <CardContent className="space-y-3 p-4">
                   <div className="h-5 w-20 rounded bg-muted" />
                   <div className="h-4 w-24 rounded bg-muted" />
@@ -77,7 +108,7 @@ export default function ProductLinks({
           {products.map((product) => (
             <Card
               key={`${product.store_id}-${product.gift_name}`}
-              className="min-w-[260px] border-border/60 transition-shadow hover:shadow-md"
+              className="min-w-[260px] border-border/60 transition-shadow hover:shadow-md snap-center"
             >
               <CardContent className="flex h-full min-h-[220px] flex-col gap-4 p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -176,11 +207,47 @@ export default function ProductLinks({
             </Card>
           ))}
 
+          {!isLoading && products.length === 0 ? (
+            <Card className="min-w-[260px] border-border/60 snap-center">
+              <CardContent className="flex min-h-[220px] flex-col gap-4 p-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    We couldn&apos;t find specific products right now.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    You can still run a live search for this idea on Amazon.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="mt-auto inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
+                  onClick={() =>
+                    onTrackClick({
+                      gift_name: giftName,
+                      store_id: "amazon",
+                      store_name: amazonDomain,
+                      domain: amazonDomain,
+                      brand_color: "#111827",
+                      product_category: "fallback_search",
+                      is_search_link: true,
+                      search_url: fallbackUrl,
+                    })
+                  }
+                >
+                  Search on Amazon
+                  <ExternalLink className="h-4 w-4" />
+                </button>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {lockedStores.map((store) => (
             <Card
               key={store.store_id}
-              className="min-w-[180px] cursor-pointer border-border/60 bg-muted/30 opacity-80 transition-opacity hover:opacity-100"
+              className="min-w-[180px] cursor-pointer border-border/60 bg-muted/30 opacity-80 transition-opacity hover:opacity-100 snap-center"
               onClick={() => {
+                onLockedStoreClick?.(store);
                 setUpgradeReason(`${upgradeText} to unlock ${store.store_name}.`);
                 setUpgradeOpen(true);
               }}
@@ -201,6 +268,12 @@ export default function ProductLinks({
           ))}
         </div>
 
+        {lockedStores.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            +{lockedStores.length} more stores available on Confident 🎯
+          </p>
+        ) : null}
+
         <p className="text-xs text-muted-foreground">
           Affiliate note: some outbound store links may earn GiftMind a commission.
         </p>
@@ -210,3 +283,5 @@ export default function ProductLinks({
     </>
   );
 }
+
+export default memo(ProductLinks);

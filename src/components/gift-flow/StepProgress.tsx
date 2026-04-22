@@ -9,7 +9,7 @@ interface StepProgressProps {
 
 export default function StepProgress({ currentStep }: StepProgressProps) {
   return (
-    <div className="space-y-2">
+    <div className="sticky top-0 z-10 space-y-2 bg-background py-2">
       {/* Mobile step indicator — visible < 400px */}
       <p className="text-center text-xs font-medium text-muted-foreground sm:hidden" aria-live="polite">
         Step {currentStep} of {labels.length}

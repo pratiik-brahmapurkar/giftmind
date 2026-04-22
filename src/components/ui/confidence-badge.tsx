@@ -1,4 +1,10 @@
 import * as React from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export function useCountUp(target: number, duration = 800, delay = 0) {
@@ -75,13 +81,13 @@ export function ConfidenceBadge({
     label = "Strong match";
   } else if (score >= 60) {
     styleConfig = "border-neutral-200 bg-neutral-100 text-neutral-700";
-    label = "Good match";
+    label = "Good fit";
   } else {
     styleConfig = "border-neutral-200 bg-neutral-100 text-neutral-500";
     label = "Moderate match";
   }
 
-  return (
+  const badge = (
     <div
       className={cn(
         "inline-flex flex-col items-center justify-center rounded-[1.25rem] border-[1.5px] text-center transition-colors",
@@ -90,7 +96,7 @@ export function ConfidenceBadge({
         className,
       )}
       role="status"
-      aria-label={`${score}% confidence score`}
+      aria-label={`${score} percent confidence — ${label}`}
     >
       <div className="flex items-baseline leading-none">
         <span className={cn("font-heading font-bold tracking-tight", sizeMap[size].score)}>{displayScore}</span>
@@ -100,5 +106,17 @@ export function ConfidenceBadge({
         <span className={cn("mt-1 font-body font-medium leading-tight opacity-85", sizeMap[size].label)}>{label}</span>
       ) : null}
     </div>
+  );
+
+  return (
+    <TooltipProvider delayDuration={250}>
+      <Tooltip>
+        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+        <TooltipContent className="hidden max-w-[220px] md:block">
+          This score reflects how well the gift matches your recipient&apos;s interests,
+          relationship depth, and occasion fit.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

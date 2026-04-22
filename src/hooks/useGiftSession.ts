@@ -491,6 +491,11 @@ function useGiftSessionV1() {
       domain?: string;
       is_search_link?: boolean;
       product_title?: string | null;
+      price_amount?: number | null;
+      recommendationIndex?: number;
+      recommendationConfidence?: number | null;
+      recipientId?: string | null;
+      clickedFrom?: "results_screen" | "success_screen";
     }) => {
       const {
         data: { user },
@@ -504,12 +509,19 @@ function useGiftSessionV1() {
       await supabase.from("product_clicks").insert({
         user_id: user.id,
         session_id: state.sessionId,
+        recipient_id: product.recipientId ?? null,
         gift_concept_name: product.gift_name,
+        recommendation_index: product.recommendationIndex ?? null,
+        recommendation_confidence: product.recommendationConfidence ?? null,
         product_title: product.product_title || product.store_name,
         product_url: outboundUrl,
         store: product.store_id,
+        store_id: product.store_id,
+        store_name: product.store_name,
         country: product.domain?.split(".").pop() || "",
+        estimated_price: product.price_amount ?? null,
         is_search_link: Boolean(product.is_search_link),
+        clicked_from: product.clickedFrom ?? "results_screen",
       });
 
       window.open(outboundUrl, "_blank", "noopener,noreferrer");

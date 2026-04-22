@@ -24,6 +24,8 @@ export interface GiftRecommendation {
   product_category: string;
   price_anchor: number;
   what_not_to_do: string;
+  personalization_score?: number;
+  personalization_issues?: string[];
 }
 
 export interface GiftSessionState {

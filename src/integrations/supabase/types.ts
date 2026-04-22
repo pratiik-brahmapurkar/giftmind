@@ -806,41 +806,69 @@ export type Database = {
       product_clicks: {
         Row: {
           clicked_at: string | null
+          clicked_from: string | null
           country: string | null
+          estimated_price: number | null
           gift_concept_name: string | null
           id: string
           is_search_link: boolean | null
           product_title: string | null
           product_url: string | null
+          recipient_id: string | null
+          recommendation_confidence: number | null
+          recommendation_index: number | null
           session_id: string | null
           store: string | null
+          store_id: string | null
+          store_name: string | null
           user_id: string | null
         }
         Insert: {
           clicked_at?: string | null
+          clicked_from?: string | null
           country?: string | null
+          estimated_price?: number | null
           gift_concept_name?: string | null
           id?: string
           is_search_link?: boolean | null
           product_title?: string | null
           product_url?: string | null
+          recipient_id?: string | null
+          recommendation_confidence?: number | null
+          recommendation_index?: number | null
           session_id?: string | null
           store?: string | null
+          store_id?: string | null
+          store_name?: string | null
           user_id?: string | null
         }
         Update: {
           clicked_at?: string | null
+          clicked_from?: string | null
           country?: string | null
+          estimated_price?: number | null
           gift_concept_name?: string | null
           id?: string
           is_search_link?: boolean | null
           product_title?: string | null
           product_url?: string | null
+          recipient_id?: string | null
+          recommendation_confidence?: number | null
+          recommendation_index?: number | null
           session_id?: string | null
           store?: string | null
+          store_id?: string | null
+          store_name?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "product_clicks_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "recipients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_clicks_session_id_fkey"
             columns: ["session_id"]

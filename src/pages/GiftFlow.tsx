@@ -452,6 +452,30 @@ export default function GiftFlow() {
             onCreditsChanged={() => {
               void refreshProfile();
             }}
+            onStartOver={() => {
+              giftSession.resetSession();
+              hasGeneratedRef.current = false;
+              setDirection(-1);
+              setCurrentStep(1);
+              setSelectedOccasion(null);
+              setOccasionDate(null);
+              setBudgetMin(null);
+              setBudgetMax(null);
+              setSpecialContext("");
+              setContextTags([]);
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete("session");
+                next.delete("occasion");
+                next.delete("budget_min");
+                next.delete("budget_max");
+                next.delete("context");
+                if (selectedRecipient?.id) {
+                  next.set("recipient", selectedRecipient.id);
+                }
+                return next;
+              }, { replace: true });
+            }}
           />
         );
       default:
