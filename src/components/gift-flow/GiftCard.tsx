@@ -167,8 +167,10 @@ export default function GiftCard({
           <ProductLinks
             products={products?.products ?? []}
             lockedStores={products?.locked_stores ?? []}
+            lockedStoreCountTotal={products?.locked_store_count_total ?? products?.locked_stores?.length ?? 0}
             isLoading={isSearchingProducts}
             recipientCountry={recipientCountry}
+            isGlobalFallback={Boolean(products?.is_global_fallback)}
             giftName={gift.name}
             fallbackSearchTerm={gift.search_keywords[0] || gift.name}
             onTrackClick={onTrackClick}

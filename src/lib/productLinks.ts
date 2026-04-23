@@ -35,8 +35,13 @@ export interface ProductResult {
   gift_name: string;
   products: ProductLink[];
   locked_stores: LockedStore[];
+  is_global_fallback?: boolean;
+  locked_store_count_total?: number;
 }
 
-export function getOutboundProductUrl(product: ProductLink) {
+export function getOutboundProductUrl(product: Pick<ProductLink, "affiliate_url" | "product_url" | "search_url" | "is_affiliate">) {
+  if (product.is_affiliate === false) {
+    return product.product_url || product.search_url || product.affiliate_url || "";
+  }
   return product.affiliate_url || product.product_url || product.search_url || "";
 }

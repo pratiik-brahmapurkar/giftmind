@@ -51,6 +51,7 @@ interface MarketplaceStore {
   categories: string[] | null;
   priority: number | null;
   is_active: boolean | null;
+  affiliate_variants?: Array<{ param?: string; weight?: number; label?: string }> | null;
 }
 
 interface MarketplaceProduct {
@@ -114,6 +115,8 @@ interface GiftResult {
   gift_name: string;
   products: ProductLink[];
   locked_stores: LockedStore[];
+  is_global_fallback?: boolean;
+  locked_store_count_total?: number;
 }
 
 function json(body: unknown, status = 200) {
@@ -137,29 +140,81 @@ const STORE_LIMITS: Record<string, number> = {
 // affiliate_tag is the tag value, e.g. "giftmind-21"
 // We append: <encoded_keyword>&tag=<affiliate_tag>  (for Amazon-style)
 // For non-Amazon stores the pattern may already be complete or use a different param.
-function buildSearchUrl(store: MarketplaceStore, keyword: string): string {
+function normalizeAffiliateVariants(store: MarketplaceStore) {
+  if (!Array.isArray(store.affiliate_variants)) return [];
+
+  return store.affiliate_variants
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const param = sanitizeString(String(entry.param ?? ""), 500);
+      const weight = Number.isFinite(Number(entry.weight)) && Number(entry.weight) > 0 ? Number(entry.weight) : 1;
+
+      if (!param) return null;
+
+      return {
+        param,
+        weight,
+      };
+    })
+    .filter((entry): entry is { param: string; weight: number } => Boolean(entry?.param));
+}
+
+function hashSeed(input: string) {
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function pickAffiliateParam(store: MarketplaceStore, identitySeed: string) {
+  const variants = normalizeAffiliateVariants(store);
+  if (variants.length === 0) {
+    return store.affiliate_param;
+  }
+
+  const totalWeight = variants.reduce((sum, variant) => sum + variant.weight, 0);
+  const bucket = hashSeed(`${identitySeed}:${store.store_id}`) % totalWeight;
+
+  let cursor = 0;
+  for (const variant of variants) {
+    cursor += variant.weight;
+    if (bucket < cursor) {
+      return variant.param;
+    }
+  }
+
+  return variants[0]?.param ?? store.affiliate_param;
+}
+
+function buildSearchUrl(store: MarketplaceStore, keyword: string, identitySeed: string): string {
   const basePattern = store.search_url;
+  const affiliateParam = pickAffiliateParam(store, identitySeed);
 
   const encoded = encodeURIComponent(keyword);
 
   // If the pattern already includes a placeholder token, replace it
   if (basePattern.includes("{keyword}")) {
     const withKeyword = basePattern.replace("{keyword}", encoded);
-    if (store.affiliate_param) {
-      return `${withKeyword}${store.affiliate_param}`;
+    if (affiliateParam) {
+      return `${withKeyword}${affiliateParam}`;
     }
     return withKeyword;
   }
 
   // Otherwise treat the pattern as a prefix (most common format: "https://...?k=")
-  if (store.affiliate_param) {
-    return `${basePattern}${encoded}${store.affiliate_param}`;
+  if (affiliateParam) {
+    return `${basePattern}${encoded}${affiliateParam}`;
   }
   return `${basePattern}${encoded}`;
 }
 
 // ── Fetch stores with country-then-GLOBAL fallback ────────────────────────────
-async function fetchStores(targetCountry: string): Promise<MarketplaceStore[]> {
+async function fetchStores(targetCountry: string): Promise<{
+  stores: MarketplaceStore[];
+  isGlobalFallback: boolean;
+}> {
   const { data: countryStores, error: countryError } = await supabaseAdmin
     .from("marketplace_config")
     .select("*")
@@ -170,7 +225,10 @@ async function fetchStores(targetCountry: string): Promise<MarketplaceStore[]> {
   if (countryError) throw new Error(`DB error fetching stores: ${countryError.message}`);
 
   if (countryStores && countryStores.length > 0) {
-    return countryStores as MarketplaceStore[];
+    return {
+      stores: countryStores as MarketplaceStore[],
+      isGlobalFallback: false,
+    };
   }
 
   // No stores for this country — try GLOBAL fallback
@@ -183,7 +241,10 @@ async function fetchStores(targetCountry: string): Promise<MarketplaceStore[]> {
 
   if (globalError) throw new Error(`DB error fetching global stores: ${globalError.message}`);
 
-  return (globalStores ?? []) as MarketplaceStore[];
+  return {
+    stores: (globalStores ?? []) as MarketplaceStore[],
+    isGlobalFallback: true,
+  };
 }
 
 async function fetchProducts(targetCountry: string, storeIds: string[]): Promise<MarketplaceProduct[]> {
@@ -276,7 +337,8 @@ function buildEnrichedProductLink(store: MarketplaceStore, concept: GiftConcept,
   };
 }
 
-function buildSearchProductLink(store: MarketplaceStore, concept: GiftConcept, keyword: string): ProductLink {
+function buildSearchProductLink(store: MarketplaceStore, concept: GiftConcept, keyword: string, identitySeed: string): ProductLink {
+  const affiliateParam = pickAffiliateParam(store, identitySeed);
   return {
     store_id: store.store_id,
     store_name: store.store_name,
@@ -285,9 +347,9 @@ function buildSearchProductLink(store: MarketplaceStore, concept: GiftConcept, k
     gift_name: concept.name,
     product_category: concept.product_category,
     is_search_link: true,
-    search_url: buildSearchUrl(store, keyword),
-    attribution_label: store.affiliate_param ? "Affiliate search" : "Search",
-    is_affiliate: Boolean(store.affiliate_param),
+    search_url: buildSearchUrl(store, keyword, identitySeed),
+    attribution_label: affiliateParam ? "Affiliate search" : "Search",
+    is_affiliate: Boolean(affiliateParam),
   };
 }
 
@@ -388,8 +450,11 @@ serve(async (req: Request): Promise<Response> => {
 
     // ── 4. Fetch stores ────────────────────────────────────────────────────────
     let allStores: MarketplaceStore[];
+    let isGlobalFallback = false;
     try {
-      allStores = await fetchStores(targetCountry);
+      const storeResult = await fetchStores(targetCountry);
+      allStores = storeResult.stores;
+      isGlobalFallback = storeResult.isGlobalFallback;
     } catch (err) {
       console.error("Store fetch error:", err);
       return new Response(
@@ -408,10 +473,13 @@ serve(async (req: Request): Promise<Response> => {
             gift_name: c.name,
             products: [],
             locked_stores: [],
+            is_global_fallback: false,
+            locked_store_count_total: 0,
           })),
           total_stores_available: 0,
           stores_shown: 0,
           is_cross_border: isCrossBorder,
+          is_global_fallback: false,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -464,7 +532,7 @@ serve(async (req: Request): Promise<Response> => {
           return buildEnrichedProductLink(store, concept, topMatch.product);
         }
 
-        return buildSearchProductLink(store, concept, primaryKeyword);
+        return buildSearchProductLink(store, concept, primaryKeyword, user.id);
       });
 
       // Build locked store placeholders (max 3 shown)
@@ -482,6 +550,8 @@ serve(async (req: Request): Promise<Response> => {
         gift_name: concept.name,
         products,
         locked_stores,
+        is_global_fallback: isGlobalFallback,
+        locked_store_count_total: lockedStoreSource.length,
       };
     });
 
@@ -498,6 +568,7 @@ serve(async (req: Request): Promise<Response> => {
         total_stores_available: allStores.length,
         stores_shown: Math.min(maxStores, allStores.length),
         is_cross_border: isCrossBorder,
+        is_global_fallback: isGlobalFallback,
         server_plan: serverPlan,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

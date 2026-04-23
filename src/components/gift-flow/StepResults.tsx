@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { calculateFeedbackReminderAt } from "@/hooks/giftSessionShared";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import type { Recipient, useGiftSession } from "@/hooks/useGiftSession";
+import { getOutboundProductUrl } from "@/lib/productLinks";
 import { trackEvent } from "@/lib/posthog";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import NoCreditGate from "./NoCreditGate";
@@ -511,9 +512,7 @@ export default function StepResults({
             ? "amazon.ae"
             : "amazon.com";
     const buyUrl =
-      selectedGiftProduct?.affiliate_url
-      || selectedGiftProduct?.product_url
-      || selectedGiftProduct?.search_url
+      (selectedGiftProduct ? getOutboundProductUrl(selectedGiftProduct) : null)
       || (selectedGift?.search_keywords?.[0]
         ? `https://${amazonDomain}/s?k=${encodeURIComponent(selectedGift.search_keywords[0])}`
         : null)
@@ -550,6 +549,7 @@ export default function StepResults({
             recommendationIndex: giftSession.selectedGiftIndex ?? 0,
             recommendationConfidence: selectedGift.confidence_score,
             recipientId: selectedRecipient.id,
+            recipientCountry: recipientCountry || onRegenerateParams.userCountry,
             clickedFrom: "success_screen",
           });
         }}
@@ -668,6 +668,7 @@ export default function StepResults({
                   recommendationIndex: originalIndex,
                   recommendationConfidence: gift.confidence_score,
                   recipientId: selectedRecipient.id,
+                  recipientCountry: recipientCountry || onRegenerateParams.userCountry,
                   clickedFrom: "results_screen",
                 });
               }}

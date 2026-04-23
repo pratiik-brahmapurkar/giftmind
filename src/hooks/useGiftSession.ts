@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGiftSessionV2 } from "@/hooks/useGiftSessionV2";
-import type { ProductResult } from "@/lib/productLinks";
+import { getOutboundProductUrl, type ProductResult } from "@/lib/productLinks";
+import { trackEvent } from "@/lib/posthog";
 import {
   getCurrentUserId,
   getErrorMessage,
@@ -495,7 +496,10 @@ function useGiftSessionV1() {
       recommendationIndex?: number;
       recommendationConfidence?: number | null;
       recipientId?: string | null;
+      recipientCountry?: string | null;
       clickedFrom?: "results_screen" | "success_screen";
+      product_category?: string;
+      is_affiliate?: boolean | null;
     }) => {
       const {
         data: { user },
@@ -503,7 +507,7 @@ function useGiftSessionV1() {
 
       if (!user) return;
 
-      const outboundUrl = product.affiliate_url || product.product_url || product.search_url;
+      const outboundUrl = getOutboundProductUrl(product);
       if (!outboundUrl) return;
 
       await supabase.from("product_clicks").insert({
@@ -513,14 +517,29 @@ function useGiftSessionV1() {
         gift_concept_name: product.gift_name,
         recommendation_index: product.recommendationIndex ?? null,
         recommendation_confidence: product.recommendationConfidence ?? null,
-        product_title: product.product_title || product.store_name,
+        product_title:
+          product.product_title
+          || (product.is_search_link ? `Search: ${product.gift_name} on ${product.store_name}` : product.store_name),
         product_url: outboundUrl,
         store: product.store_id,
         store_id: product.store_id,
         store_name: product.store_name,
-        country: product.domain?.split(".").pop() || "",
+        country: product.recipientCountry ?? null,
         estimated_price: product.price_amount ?? null,
         is_search_link: Boolean(product.is_search_link),
+        clicked_from: product.clickedFrom ?? "results_screen",
+      });
+
+      trackEvent("product_link_clicked", {
+        store_id: product.store_id,
+        store_name: product.store_name,
+        is_search_link: Boolean(product.is_search_link),
+        is_affiliate: product.is_affiliate ?? null,
+        gift_concept: product.gift_name,
+        product_category: product.product_category ?? null,
+        recommendation_index: product.recommendationIndex ?? null,
+        estimated_price: product.price_amount ?? null,
+        country: product.recipientCountry ?? null,
         clicked_from: product.clickedFrom ?? "results_screen",
       });
 

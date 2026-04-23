@@ -761,6 +761,8 @@ export type Database = {
       marketplace_config: {
         Row: {
           affiliate_param: string | null
+          affiliate_network: string | null
+          affiliate_variants: Json
           brand_color: string | null
           categories: string[] | null
           country_code: string
@@ -768,6 +770,7 @@ export type Database = {
           domain: string
           id: string
           is_active: boolean | null
+          notes: string | null
           priority: number | null
           search_url: string
           store_id: string
@@ -775,6 +778,8 @@ export type Database = {
         }
         Insert: {
           affiliate_param?: string | null
+          affiliate_network?: string | null
+          affiliate_variants?: Json
           brand_color?: string | null
           categories?: string[] | null
           country_code: string
@@ -782,6 +787,7 @@ export type Database = {
           domain: string
           id?: string
           is_active?: boolean | null
+          notes?: string | null
           priority?: number | null
           search_url: string
           store_id: string
@@ -789,6 +795,8 @@ export type Database = {
         }
         Update: {
           affiliate_param?: string | null
+          affiliate_network?: string | null
+          affiliate_variants?: Json
           brand_color?: string | null
           categories?: string[] | null
           country_code?: string
@@ -796,10 +804,92 @@ export type Database = {
           domain?: string
           id?: string
           is_active?: boolean | null
+          notes?: string | null
           priority?: number | null
           search_url?: string
           store_id?: string
           store_name?: string
+        }
+        Relationships: []
+      }
+      marketplace_products: {
+        Row: {
+          affiliate_source: string | null
+          affiliate_url: string | null
+          attribution_label: string | null
+          country_code: string
+          coupon_code: string | null
+          coupon_text: string | null
+          created_at: string
+          delivery_eta_text: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          is_affiliate: boolean
+          keyword_tags: string[]
+          metadata: Json
+          original_price_amount: number | null
+          price_amount: number | null
+          price_currency: string | null
+          priority: number
+          product_category: string | null
+          product_title: string
+          product_url: string
+          stock_status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_source?: string | null
+          affiliate_url?: string | null
+          attribution_label?: string | null
+          country_code?: string
+          coupon_code?: string | null
+          coupon_text?: string | null
+          created_at?: string
+          delivery_eta_text?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_affiliate?: boolean
+          keyword_tags?: string[]
+          metadata?: Json
+          original_price_amount?: number | null
+          price_amount?: number | null
+          price_currency?: string | null
+          priority?: number
+          product_category?: string | null
+          product_title: string
+          product_url: string
+          stock_status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_source?: string | null
+          affiliate_url?: string | null
+          attribution_label?: string | null
+          country_code?: string
+          coupon_code?: string | null
+          coupon_text?: string | null
+          created_at?: string
+          delivery_eta_text?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_affiliate?: boolean
+          keyword_tags?: string[]
+          metadata?: Json
+          original_price_amount?: number | null
+          price_amount?: number | null
+          price_currency?: string | null
+          priority?: number
+          product_category?: string | null
+          product_title?: string
+          product_url?: string
+          stock_status?: string
+          store_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -878,6 +968,66 @@ export type Database = {
           },
           {
             foreignKeyName: "product_clicks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_conversions: {
+        Row: {
+          click_id: string | null
+          commission: number | null
+          converted_at: string
+          currency: string | null
+          id: string
+          metadata: Json
+          network: string
+          order_id: string
+          product_url: string | null
+          reported_at: string
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          click_id?: string | null
+          commission?: number | null
+          converted_at?: string
+          currency?: string | null
+          id?: string
+          metadata?: Json
+          network: string
+          order_id: string
+          product_url?: string | null
+          reported_at?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          click_id?: string | null
+          commission?: number | null
+          converted_at?: string
+          currency?: string | null
+          id?: string
+          metadata?: Json
+          network?: string
+          order_id?: string
+          product_url?: string | null
+          reported_at?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_conversions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "gift_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_conversions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -1192,7 +1342,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      admin_product_catalog_health: {
+        Row: {
+          country_code: string | null
+          has_affiliate_url: number | null
+          has_image: number | null
+          in_stock: number | null
+          last_updated: string | null
+          out_of_stock: number | null
+          product_category: string | null
+          store_id: string | null
+          store_name: string | null
+          total_products: number | null
+          unknown_stock: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_profile_completion: {

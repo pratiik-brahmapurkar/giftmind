@@ -1,16 +1,20 @@
 import { memo, useState } from "react";
 import { ExternalLink, Globe2, Lock, TicketPercent, Truck } from "lucide-react";
+import AffiliateDisclaimer from "@/components/AffiliateDisclaimer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { detectUserCountry, getUpgradeText, SUPPORTED_COUNTRIES } from "@/lib/geoConfig";
+import { trackEvent } from "@/lib/posthog";
 import type { ProductLink as ProductLinkRecord, LockedStore } from "@/lib/productLinks";
 
 interface ProductLinksProps {
   products: ProductLinkRecord[];
   lockedStores: LockedStore[];
+  lockedStoreCountTotal?: number;
   isLoading: boolean;
   recipientCountry: string | null;
+  isGlobalFallback?: boolean;
   giftName: string;
   fallbackSearchTerm: string;
   onTrackClick: (product: ProductLinkRecord) => void;
@@ -40,8 +44,10 @@ function stockBadge(product: ProductLinkRecord) {
 function ProductLinks({
   products,
   lockedStores,
+  lockedStoreCountTotal = lockedStores.length,
   isLoading,
   recipientCountry,
+  isGlobalFallback = false,
   giftName,
   fallbackSearchTerm,
   onTrackClick,
@@ -92,14 +98,25 @@ function ProductLinks({
           </div>
         )}
 
+        {isGlobalFallback ? (
+          <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-2">
+              <Globe2 className="h-3.5 w-3.5" />
+              International store links shown. No region-specific stores are configured for this country yet.
+            </span>
+          </div>
+        ) : null}
+
         <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
           {isLoading &&
             products.length === 0 &&
             [1, 2, 3].map((item) => (
-              <Card key={item} className="min-h-[132px] min-w-[180px] animate-pulse border-border/60 snap-center">
+              <Card key={item} className="min-h-[220px] min-w-[260px] animate-pulse border-border/60 snap-center">
                 <CardContent className="space-y-3 p-4">
                   <div className="h-5 w-20 rounded bg-muted" />
                   <div className="h-4 w-24 rounded bg-muted" />
+                  <div className="h-28 rounded bg-muted" />
+                  <div className="h-12 rounded bg-muted" />
                   <div className="h-10 rounded bg-muted" />
                 </CardContent>
               </Card>
@@ -248,6 +265,12 @@ function ProductLinks({
               className="min-w-[180px] cursor-pointer border-border/60 bg-muted/30 opacity-80 transition-opacity hover:opacity-100 snap-center"
               onClick={() => {
                 onLockedStoreClick?.(store);
+                trackEvent("locked_store_clicked", {
+                  store_id: store.store_id,
+                  store_name: store.store_name,
+                  unlock_plan: store.unlock_plan,
+                  current_plan: currentPlan,
+                });
                 setUpgradeReason(`${upgradeText} to unlock ${store.store_name}.`);
                 setUpgradeOpen(true);
               }}
@@ -268,15 +291,13 @@ function ProductLinks({
           ))}
         </div>
 
-        {lockedStores.length > 0 ? (
+        {lockedStoreCountTotal > 0 ? (
           <p className="text-xs text-muted-foreground">
-            +{lockedStores.length} more stores available on Confident 🎯
+            +{lockedStoreCountTotal} more stores available on Confident
           </p>
         ) : null}
 
-        <p className="text-xs text-muted-foreground">
-          Affiliate note: some outbound store links may earn GiftMind a commission.
-        </p>
+        <AffiliateDisclaimer />
       </div>
 
       <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} reason={upgradeReason} highlightPlan="confident" />
