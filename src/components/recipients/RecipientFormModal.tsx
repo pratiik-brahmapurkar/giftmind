@@ -1,12 +1,12 @@
 import { useState, useEffect, type ElementType, type FormEvent, type ReactNode } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -52,6 +52,13 @@ interface RecipientFormModalProps {
   initialData?: RecipientFormData;
   loading?: boolean;
   reminderNote?: string;
+  reminderQuota?: {
+    plan: "locked" | "confident" | "gifting-pro";
+    used: number;
+    limit: number | null;
+    remaining: number | null;
+  };
+  onUpgradeReminders?: () => void;
   stats?: {
     giftCount: number;
     sessionCount: number;
@@ -90,6 +97,8 @@ const RecipientFormModal = ({
   initialData,
   loading,
   reminderNote,
+  reminderQuota,
+  onUpgradeReminders,
   stats,
 }: RecipientFormModalProps) => {
   const [form, setForm] = useState<RecipientFormData>(defaultFormData);
@@ -98,6 +107,9 @@ const RecipientFormModal = ({
   const [error, setError] = useState("");
   const isEdit = mode === "edit";
   const noteCount = form.notes.length;
+  const reminderLimitForRecipient = reminderQuota?.limit == null
+    ? 5
+    : Math.max(0, Math.min(5, reminderQuota.limit));
 
   useEffect(() => {
     if (open) {
@@ -144,7 +156,7 @@ const RecipientFormModal = ({
   };
 
   const addDate = () => {
-    if (form.important_dates.length >= 5) return;
+    if (form.important_dates.length >= reminderLimitForRecipient) return;
 
     update("important_dates", [
       ...form.important_dates,
@@ -181,7 +193,7 @@ const RecipientFormModal = ({
         .map((entry) => ({
           label: sanitizeString(entry.label, 50),
           date: sanitizeString(entry.date, 5),
-          recurring: Boolean(entry.recurring),
+          recurring: true,
         }))
         .filter((entry) => entry.label && entry.date),
     };
@@ -492,6 +504,41 @@ const RecipientFormModal = ({
             </FormSection>
 
             <FormSection icon={CalendarDays} title="Important Dates">
+              {reminderQuota?.plan === "locked" ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="font-medium">Dates saved. Reminders require Confident 🎯</p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    You&apos;ll get email alerts 14, 3, and 1 day before each saved date.
+                  </p>
+                  {onUpgradeReminders ? (
+                    <Button type="button" size="sm" variant="outline" className="mt-3 border-amber-300 bg-white" onClick={onUpgradeReminders}>
+                      Unlock reminders →
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {reminderQuota?.plan === "confident" ? (
+                <div className="rounded-xl border border-border/60 bg-background p-3 text-sm">
+                  <p className="font-medium text-foreground">
+                    {reminderQuota.used} upcoming reminder{reminderQuota.used === 1 ? "" : "s"} saved
+                    {" · "}
+                    {reminderQuota.remaining ?? 0} remaining
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Confident includes up to {reminderQuota.limit} reminder slots. Upgrade to Gifting Pro for unlimited reminders.
+                  </p>
+                </div>
+              ) : null}
+
+              {reminderQuota?.plan === "gifting-pro" ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                  <p className="font-medium">
+                    {reminderQuota.used} upcoming reminder{reminderQuota.used === 1 ? "" : "s"} saved · Unlimited plan
+                  </p>
+                </div>
+              ) : null}
+
               {form.important_dates.map((date, index) => {
                 const labelValue = normalizeDateLabelInput(date.label);
                 return (
@@ -518,7 +565,7 @@ const RecipientFormModal = ({
                         </SelectContent>
                       </Select>
                       <Input
-                        placeholder="MM-DD"
+                        placeholder="04-25"
                         value={date.date}
                         onChange={(event) => updateDate(index, { ...date, date: event.target.value })}
                         maxLength={5}
@@ -537,16 +584,6 @@ const RecipientFormModal = ({
                         className="h-9 text-sm"
                       />
                     )}
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={date.recurring}
-                        onCheckedChange={(value) => updateDate(index, { ...date, recurring: !!value })}
-                        id={`recurring-${index}`}
-                      />
-                      <Label htmlFor={`recurring-${index}`} className="cursor-pointer text-xs text-muted-foreground">
-                        Repeats yearly
-                      </Label>
-                    </div>
                   </div>
                 );
               })}
@@ -556,11 +593,13 @@ const RecipientFormModal = ({
                 size="sm"
                 onClick={addDate}
                 className="h-8 text-xs"
-                disabled={form.important_dates.length >= 5}
+                disabled={form.important_dates.length >= reminderLimitForRecipient}
               >
                 <Plus className="mr-1 h-3 w-3" /> Add Date
               </Button>
-              <p className="text-xs text-muted-foreground">Use `MM-DD` format. Maximum 5 dates per person.</p>
+              <p className="text-xs text-muted-foreground">
+                Use `MM-DD` format (Month-Day, e.g. 04-25). All saved dates repeat yearly automatically.
+              </p>
               {reminderNote && <p className="text-xs text-muted-foreground">{reminderNote}</p>}
             </FormSection>
 

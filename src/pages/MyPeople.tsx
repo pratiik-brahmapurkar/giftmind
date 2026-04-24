@@ -42,6 +42,7 @@ import {
   parseRecipientImportantDates,
   type RecipientMutationError,
 } from "@/lib/recipients";
+import { countScheduledReminderDates } from "@/lib/reminders";
 import { sanitizeString } from "@/lib/validation";
 import { useRecipients } from "@/hooks/useRecipients";
 
@@ -68,13 +69,14 @@ const MyPeople = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState<"more_recipients" | "reminders">("more_recipients");
   const [search, setSearch] = useState("");
   const [filterIdx, setFilterIdx] = useState(0);
   const [sort, setSort] = useState<SortOption>("recent");
   const [prefilledName, setPrefilledName] = useState("");
 
   const deferredSearch = useDeferredValue(search);
-  const recommendedPlan = getUpgradePlan(plan, "more_recipients");
+  const recommendedPlan = getUpgradePlan(plan, upgradeFeature);
 
   useEffect(() => {
     const trimmed = deferredSearch.trim();
@@ -157,7 +159,33 @@ const MyPeople = () => {
       ? { ...defaultFormData, name: prefilledName }
       : undefined;
 
-  const reminderCount = recipients.filter((recipient) => parseRecipientImportantDates(recipient.important_dates).length > 0).length;
+  const reminderCount = recipients.reduce(
+    (total, recipient) => total + countScheduledReminderDates(parseRecipientImportantDates(recipient.important_dates)),
+    0,
+  );
+  const editingReminderCount = editingRecipient
+    ? countScheduledReminderDates(parseRecipientImportantDates(editingRecipient.important_dates))
+    : 0;
+  const reminderQuota = limits.reminders === 0
+    ? {
+      plan: "locked" as const,
+      used: reminderCount,
+      limit: null,
+      remaining: null,
+    }
+    : limits.reminders === Infinity
+      ? {
+        plan: "gifting-pro" as const,
+        used: reminderCount,
+        limit: null,
+        remaining: null,
+      }
+      : {
+        plan: "confident" as const,
+        used: reminderCount,
+        limit: Math.min(5, editingReminderCount + Math.max(0, limits.reminders - Math.max(0, reminderCount - editingReminderCount))),
+        remaining: Math.max(0, limits.reminders - reminderCount),
+      };
   const capacityPct = limits.recipients === Infinity ? 0 : recipients.length / limits.recipients;
   const capacityColor = capacityPct >= 1 ? "text-destructive" : capacityPct >= 0.8 ? "text-warning" : "text-muted-foreground";
 
@@ -177,6 +205,7 @@ const MyPeople = () => {
 
   const openCreate = (name = "") => {
     if (atLimit) {
+      setUpgradeFeature("more_recipients");
       setUpgradeOpen(true);
       return;
     }
@@ -197,6 +226,7 @@ const MyPeople = () => {
 
   const handleFindGift = (id: string, from: "card" | "panel" | "menu", isLocked: boolean) => {
     if (isLocked) {
+      setUpgradeFeature("more_recipients");
       setUpgradeOpen(true);
       return;
     }
@@ -336,6 +366,7 @@ const MyPeople = () => {
                       onFindGift={() => handleFindGift(recipient.id, "card", isLocked)}
                       onCardClick={() => openDetailPanel(recipient.id, isLocked)}
                       isLocked={isLocked}
+                      emphasizeUpcoming={sort === "upcoming"}
                     />
                   );
                 })}
@@ -377,6 +408,7 @@ const MyPeople = () => {
             onError: (error) => {
               const mutationError = error as RecipientMutationError;
               if ((mutationError.userMessage || "").toLowerCase().includes("limit")) {
+                setUpgradeFeature("more_recipients");
                 setUpgradeOpen(true);
               }
               toast.error(mutationError.userMessage || "Failed to add person. Please try again.");
@@ -386,11 +418,16 @@ const MyPeople = () => {
         onDelete={editingRecipient ? () => setDeletingId(editingRecipient.id) : undefined}
         initialData={editInitialData}
         loading={createMutation.isPending || updateMutation.isPending}
+        reminderQuota={reminderQuota}
+        onUpgradeReminders={() => {
+          setUpgradeFeature("reminders");
+          setUpgradeOpen(true);
+        }}
         reminderNote={
           plan === "spark" || plan === "thoughtful"
             ? "Date saved. Reminders are available on Confident and above."
             : plan === "confident"
-              ? `${Math.min(reminderCount, 3)}/3 reminders active. Upgrade to Gifting Pro for unlimited reminders.`
+              ? `${reminderCount}/${limits.reminders} reminders saved. Upgrade to Gifting Pro for unlimited reminders.`
               : undefined
         }
         stats={editingRecipient ? {
@@ -419,7 +456,7 @@ const MyPeople = () => {
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         highlightPlan={recommendedPlan}
-        reason={getUpgradeText(plan, "more_recipients")}
+        reason={getUpgradeText(plan, upgradeFeature)}
       />
 
       <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>

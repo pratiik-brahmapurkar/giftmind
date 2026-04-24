@@ -12,18 +12,22 @@ import { Sparkles, ArrowRight, Gift, Coins, Users, Clock, Lock } from "lucide-re
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { EmptyState } from "@/components/ui/empty-state";
+import { UpcomingOccasionsWidget } from "@/components/dashboard/UpcomingOccasionsWidget";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { motion } from "framer-motion";
 import { SEOHead } from "@/components/common/SEOHead";
 import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner";
 import { getProfileCompletionMissingFields, parseOnboardingState } from "@/features/onboarding/utils";
+import { parseRecipientImportantDates } from "@/lib/recipients";
+import { getOccasionSlugFromLabel, getUpcomingDates } from "@/lib/reminders";
+import { trackEvent } from "@/lib/posthog";
 import type { Tables } from "@/integrations/supabase/types";
 
 type DashboardProfile = Pick<
   Tables<"users">,
   "credits_balance" | "profile_completion_percentage" | "full_name" | "country" | "birthday" | "onboarding_state"
 >;
-type DashboardRecipient = Pick<Tables<"recipients">, "id" | "name">;
+type DashboardRecipient = Pick<Tables<"recipients">, "id" | "name" | "important_dates">;
 type DashboardSession = Pick<
   Tables<"gift_sessions">,
   "id" | "occasion" | "status" | "created_at" | "selected_gift_name" | "selected_gift_index" | "recipient_id"
@@ -42,6 +46,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { limits } = useUserPlan();
   const [batchUpgradeOpen, setBatchUpgradeOpen] = useState(false);
+  const [reminderUpgradeOpen, setReminderUpgradeOpen] = useState(false);
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
 
   // Fetch real data
@@ -63,7 +68,7 @@ const Dashboard = () => {
     queryKey: ["dashboard-recipients", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data } = await supabase.from("recipients").select("id,name").eq("user_id", user.id);
+      const { data } = await supabase.from("recipients").select("id,name,important_dates").eq("user_id", user.id);
       return (data || []) as DashboardRecipient[];
     },
     enabled: !!user,
@@ -87,6 +92,13 @@ const Dashboard = () => {
   const credits = profile?.credits_balance ?? 0;
   const recipientCount = recipients.length;
   const sessionCount = sessions.length;
+  const upcomingOccasions = getUpcomingDates(
+    recipients.map((recipient) => ({
+      ...recipient,
+      parsedDates: parseRecipientImportantDates(recipient.important_dates),
+    })),
+  );
+  const hasReminderAccess = limits.reminders > 0;
   const isDashboardLoading = profileLoading || recipientsLoading || sessionsLoading;
   const onboardingState = parseOnboardingState(profile?.onboarding_state ?? null);
   const profileCompletion = profile?.profile_completion_percentage ?? 0;
@@ -211,6 +223,33 @@ const Dashboard = () => {
           </Card>
         </motion.div>
 
+        {upcomingOccasions.length > 0 && (
+          <UpcomingOccasionsWidget
+            occasions={upcomingOccasions}
+            isLocked={!hasReminderAccess}
+            onManage={() => navigate("/my-people")}
+            onUpgrade={() => setReminderUpgradeOpen(true)}
+            onFindGift={(occasion) => {
+              trackEvent("upcoming_occasions_gift_clicked", {
+                recipient_id: occasion.recipientId,
+                label: occasion.label,
+                days_until: occasion.daysUntil,
+              });
+
+              const params = new URLSearchParams({
+                recipient: occasion.recipientId,
+                source: "dashboard_upcoming",
+              });
+              const occasionSlug = getOccasionSlugFromLabel(occasion.label);
+              if (occasionSlug) {
+                params.set("occasion", occasionSlug);
+              }
+
+              navigate(`/gift-flow?${params.toString()}`);
+            }}
+          />
+        )}
+
         {/* Quick stats — horizontal scroll on mobile */}
         <div className="flex gap-3 md:gap-4 overflow-x-auto snap-x snap-mandatory pb-1 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-3">
           {[
@@ -330,6 +369,12 @@ const Dashboard = () => {
         onOpenChange={setBatchUpgradeOpen}
         highlightPlan="confident"
         reason="Batch mode is available on Confident and above. Find gifts for your entire Diwali list in one session."
+      />
+      <UpgradeModal
+        open={reminderUpgradeOpen}
+        onOpenChange={setReminderUpgradeOpen}
+        highlightPlan="confident"
+        reason="Occasion reminders are available on Confident and above."
       />
     </DashboardLayout>
   );

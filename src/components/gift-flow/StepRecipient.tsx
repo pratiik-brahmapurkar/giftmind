@@ -49,6 +49,7 @@ interface StepRecipientProps {
   userPlan: string;
   isFirstTime?: boolean;
   isPreloaded?: boolean;
+  prefillSource?: string | null;
 }
 
 interface RecipientRecord {
@@ -63,6 +64,8 @@ interface RecipientRecord {
   country: string | null;
   notes: string | null;
   last_gift_date: string | null;
+  last_gift_name: string | null;
+  gift_count_cached: number | null;
   created_at: string | null;
 }
 
@@ -110,6 +113,7 @@ export default function StepRecipient({
   onContinue,
   isFirstTime = false,
   isPreloaded = false,
+  prefillSource = null,
 }: StepRecipientProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -145,7 +149,7 @@ export default function StepRecipient({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipients")
-        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date, created_at")
+        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date, last_gift_name, gift_count_cached, created_at")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: true });
 
@@ -178,7 +182,7 @@ export default function StepRecipient({
       const { data, error } = await supabase
         .from("recipients")
         .insert(payload)
-        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date, created_at")
+        .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes, last_gift_date, last_gift_name, gift_count_cached, created_at")
         .single();
 
       if (error) throw createRecipientMutationError("insert", error, payload);
@@ -253,6 +257,16 @@ export default function StepRecipient({
     () => [...recipients].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()),
     [recipients],
   );
+  const selectedRecipientRecord = useMemo(
+    () => recipients.find((recipient) => recipient.id === selectedRecipient?.id) ?? null,
+    [recipients, selectedRecipient?.id],
+  );
+  const prefillBannerText = useMemo(() => {
+    if (prefillSource === "gift_again") return "Pre-filled from Gift History";
+    if (prefillSource?.startsWith("reminder_")) return "Pre-filled from your reminder";
+    if (prefillSource === "dashboard_upcoming") return "Pre-filled from Upcoming Occasions";
+    return "Pre-filled from your People page";
+  }, [prefillSource]);
   const activeRecipients = maxAllowed === -1 ? sortedRecipients : sortedRecipients.slice(0, maxAllowed);
   const lockedRecipients = maxAllowed === -1 ? [] : sortedRecipients.slice(maxAllowed);
   const activeRecipientIds = useMemo(() => new Set(activeRecipients.map((recipient) => recipient.id)), [activeRecipients]);
@@ -280,7 +294,7 @@ export default function StepRecipient({
             onClick={() => setShowPrefilledBanner(false)}
           >
             <Info className="h-4 w-4 shrink-0" />
-            Pre-filled from your People page
+            {prefillBannerText}
           </motion.div>
         )}
       </AnimatePresence>
@@ -353,6 +367,7 @@ export default function StepRecipient({
             const relationshipLabel =
               RELATIONSHIP_TYPES.find((item) => item.value === recipient.relationship)?.label ?? recipient.relationship;
             const lastGifted = formatLastGifted(record.last_gift_date);
+            const priorGiftCount = record.gift_count_cached ?? 0;
 
             return (
               <Card
@@ -407,6 +422,18 @@ export default function StepRecipient({
                       </div>
                     </div>
                   </div>
+
+                  {priorGiftCount > 0 && (
+                    <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      <p className="font-medium text-foreground">
+                        🎁 Last gifted: {record.last_gift_name || "A previous GiftMind pick"}
+                        {lastGifted ? ` (${lastGifted.text})` : ""}
+                      </p>
+                      <p className="mt-1">
+                        {priorGiftCount} gift{priorGiftCount === 1 ? "" : "s"} in GiftMind memory
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-2">
                     {(recipient.interests ?? []).slice(0, 3).map((interest) => (
@@ -611,6 +638,24 @@ export default function StepRecipient({
       </div>
 
       {/* Smart skip detection — interests nudge (Item B) */}
+      <AnimatePresence>
+        {selectedRecipientRecord && (selectedRecipientRecord.gift_count_cached ?? 0) > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              GiftMind remembers {selectedRecipientRecord.gift_count_cached} gift
+              {selectedRecipientRecord.gift_count_cached === 1 ? "" : "s"} for {selectedRecipientRecord.name}. The AI will suggest something different this time.
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {selectedRecipient && (selectedRecipient.interests?.length ?? 0) < 3 && (
           <motion.div

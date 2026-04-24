@@ -142,8 +142,9 @@ export default function GiftFlow() {
   useEffect(() => {
     if (!user || authLoading) return;
 
+    const source = searchParams.get("source");
     trackEvent("gift_flow_started", {
-      entry_source: searchParams.get("recipient") ? "recipient_prefill" : "direct",
+      entry_source: source || (searchParams.get("recipient") ? "recipient_prefill" : "direct"),
       has_prefill: Boolean(
         searchParams.get("recipient")
         || searchParams.get("occasion")
@@ -417,6 +418,7 @@ export default function GiftFlow() {
             userPlan={userPlan}
             isFirstTime={isFirstTime}
             isPreloaded={isPreloaded}
+            prefillSource={searchParams.get("source")}
           />
         );
       case 2:

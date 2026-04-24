@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { calculateFeedbackReminderAt } from "@/hooks/giftSessionShared";
+import { calculateFeedbackReminderAt, upsertFeedbackReminder } from "@/hooks/giftSessionShared";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import type { Recipient, useGiftSession } from "@/hooks/useGiftSession";
 import { getOutboundProductUrl } from "@/lib/productLinks";
@@ -66,6 +66,12 @@ const NODE_LABELS: Record<string, { label: string; description: string }> = {
     description: "Preparing your ranked recommendations and insights.",
   },
 };
+
+function humanizeOccasionLabel(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 interface StepResultsProps {
   giftSession: ReturnType<typeof useGiftSession>;
@@ -261,29 +267,43 @@ function SuccessState({
   });
 
   const shareUrl = useMemo(() => `https://giftmind.in/?ref=${referralCode ?? ""}`, [referralCode]);
+  const reminderAt = useMemo(() => calculateFeedbackReminderAt(occasionDate), [occasionDate]);
+  const reminderTimingCopy = useMemo(() => {
+    if (!occasionDate) return "In about a week, we’ll ask how the gift landed.";
+
+    try {
+      const date = new Date(reminderAt);
+      if (Number.isNaN(date.getTime())) {
+        return "In about a week, we’ll ask how the gift landed.";
+      }
+
+      return `Two days after ${humanizeOccasionLabel(occasion)}, on ${date.toLocaleDateString("en-IN", {
+        month: "short",
+        day: "numeric",
+      })}, we’ll ask how ${recipientName} liked it.`;
+    } catch {
+      return "In about a week, we’ll ask how the gift landed.";
+    }
+  }, [occasion, occasionDate, recipientName, reminderAt]);
 
   const handleSaveReminder = async () => {
     if (!user || !sessionId) return;
 
-    const { error } = await supabase
-      .from("feedback_reminders")
-      .upsert({
-        user_id: user.id,
-        session_id: sessionId,
-        recipient_id: recipientId,
+    try {
+      await upsertFeedbackReminder({
+        userId: user.id,
+        sessionId,
+        recipientId,
         occasion,
-        occasion_date: occasionDate,
-        remind_at: calculateFeedbackReminderAt(occasionDate),
-        status: "pending",
-      }, { onConflict: "session_id" });
-
-    if (error) {
+        occasionDate,
+      });
+    } catch {
       toast.error("Could not save the reminder. Please try again.");
       return;
     }
 
     setReminderSaved(true);
-    toast.success(`We'll remind you about ${occasion} for ${recipientName} next year!`);
+    toast.success(`We’ll follow up after ${humanizeOccasionLabel(occasion)} and ask how it went.`);
   };
 
   return (
@@ -310,7 +330,7 @@ function SuccessState({
           </div>
         ) : null}
 
-        {/* Completion loop — Save for next year (Item E) */}
+        {/* Completion loop — post-occasion follow-up */}
         {!reminderSaved && (
           <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 text-left">
             <div className="flex items-start gap-3">
@@ -318,15 +338,17 @@ function SuccessState({
                 <CalendarPlus className="h-5 w-5" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">Save this for next year?</p>
+                <p className="text-sm font-medium text-foreground">
+                  Ask me after {humanizeOccasionLabel(occasion)} how it went
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  We&apos;ll remind you about {occasion} for {recipientName} next year.
+                  {reminderTimingCopy} You&apos;ll also be able to compare the real outcome with Signal Check later.
                 </p>
               </div>
             </div>
             <div className="mt-3 flex gap-2">
               <Button type="button" size="sm" variant="hero" className="flex-1" onClick={handleSaveReminder}>
-                Save reminder
+                Yes, follow up with me
               </Button>
               <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => setReminderSaved(true)}>
                 No thanks

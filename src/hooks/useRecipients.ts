@@ -13,9 +13,12 @@ import {
   getRecipientRelationship,
   parseRecipientImportantDates,
 } from "@/lib/recipients";
+import { getDaysUntilImportantDate } from "@/lib/reminders";
 import type { ImportantDate, RecipientFormData } from "@/components/recipients/constants";
 
-type RecipientRow = Database["public"]["Tables"]["recipients"]["Row"];
+type RecipientRow = Database["public"]["Tables"]["recipients"]["Row"] & {
+  last_gift_name?: string | null;
+};
 type UserProfileRow = Pick<Tables<"users">, "country" | "active_plan">;
 
 export type RecipientWithIntelligence = RecipientRow & {
@@ -27,22 +30,6 @@ export type RecipientWithIntelligence = RecipientRow & {
   next_important_date_days: number | null;
 };
 
-function getDaysUntilDate(mmdd: string) {
-  const [month, day] = mmdd.split("-").map(Number);
-  if (!month || !day) return null;
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let target = new Date(today.getFullYear(), month - 1, day);
-
-  if (Number.isNaN(target.getTime())) return null;
-  if (target < today) {
-    target = new Date(today.getFullYear() + 1, month - 1, day);
-  }
-
-  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
 function isBirthdayOrAnniversary(label: string) {
   const normalized = label.trim().toLowerCase();
   return normalized.includes("birthday") || normalized.includes("anniversary");
@@ -52,7 +39,7 @@ function getNextImportantDate(value: RecipientRow["important_dates"]) {
   const dated = parseRecipientImportantDates(value)
     .map((entry) => ({
       entry,
-      days: getDaysUntilDate(entry.date),
+      days: getDaysUntilImportantDate(entry.date),
       priority: isBirthdayOrAnniversary(entry.label) ? 0 : 1,
     }))
     .filter((entry): entry is { entry: ImportantDate; days: number; priority: number } => entry.days !== null)

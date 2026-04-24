@@ -14,6 +14,8 @@ import {
   RELATIONSHIP_BADGE_COLORS,
   COUNTRY_OPTIONS,
 } from "./constants";
+import { parseRecipientImportantDates } from "@/lib/recipients";
+import { formatCountdown, formatImportantDate, getOccasionEmoji } from "@/lib/reminders";
 import { cn } from "@/lib/utils";
 
 interface RecipientCardProps {
@@ -25,6 +27,9 @@ interface RecipientCardProps {
     interests: string[];
     last_gift_date: string | null;
     gift_count?: number;
+    last_gift_name?: string | null;
+    next_important_date?: { label: string; date: string; recurring?: boolean } | null;
+    next_important_date_days?: number | null;
     important_dates: Array<{ label?: string; date?: string; recurring?: boolean }> | null;
     country?: string;
   };
@@ -34,23 +39,7 @@ interface RecipientCardProps {
   onFindGift: () => void;
   onCardClick: () => void;
   isLocked?: boolean;
-}
-
-/** Check if MM-DD date is within next N days */
-function isWithinDays(mmdd: string, days: number): boolean {
-  const diff = getDaysUntil(mmdd);
-  return diff !== null && diff >= 0 && diff <= days;
-}
-
-function getDaysUntil(mmdd: string): number | null {
-  if (!mmdd || mmdd.length < 4) return null;
-  const [mm, dd] = mmdd.split("-").map(Number);
-  if (!mm || !dd) return null;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let target = new Date(today.getFullYear(), mm - 1, dd);
-  if (target < today) target = new Date(today.getFullYear() + 1, mm - 1, dd);
-  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  emphasizeUpcoming?: boolean;
 }
 
 function isPriorityDateLabel(label: string) {
@@ -58,14 +47,16 @@ function isPriorityDateLabel(label: string) {
   return normalized.includes("birthday") || normalized.includes("anniversary");
 }
 
-function formatMMDD(mmdd: string): string {
-  if (!mmdd) return "";
-  const [mm, dd] = mmdd.split("-").map(Number);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[(mm || 1) - 1]} ${dd}`;
-}
-
-const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, onCardClick, isLocked = false }: RecipientCardProps) => {
+const RecipientCard = ({
+  recipient,
+  userCountry,
+  onEdit,
+  onDelete,
+  onFindGift,
+  onCardClick,
+  isLocked = false,
+  emphasizeUpcoming = false,
+}: RecipientCardProps) => {
   const initial = recipient.name.charAt(0).toUpperCase();
   const relationship = recipient.relationship ?? recipient.relationship_type ?? "";
   const rel = RELATIONSHIP_TYPES.find((r) => r.value === relationship);
@@ -73,25 +64,34 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, o
   const avatarColor = RELATIONSHIP_AVATAR_COLORS[relationship] || "#D4A04A";
   const badgeClass = RELATIONSHIP_BADGE_COLORS[relationship] || "bg-muted text-muted-foreground";
 
-  const dates: { label: string; date: string; recurring?: boolean }[] =
-    [...(Array.isArray(recipient.important_dates) ? recipient.important_dates : [])].sort((a, b) => {
-      const priorityA = isPriorityDateLabel(a.label || "") ? 0 : 1;
-      const priorityB = isPriorityDateLabel(b.label || "") ? 0 : 1;
-      if (priorityA !== priorityB) return priorityA - priorityB;
+  const dates = parseRecipientImportantDates(recipient.important_dates).sort((a, b) => {
+    const priorityA = isPriorityDateLabel(a.label || "") ? 0 : 1;
+    const priorityB = isPriorityDateLabel(b.label || "") ? 0 : 1;
+    if (priorityA !== priorityB) return priorityA - priorityB;
 
-      const daysA = getDaysUntil(a.date || "");
-      const daysB = getDaysUntil(b.date || "");
-      if (daysA === null && daysB === null) return 0;
-      if (daysA === null) return 1;
-      if (daysB === null) return -1;
-      return daysA - daysB;
-    });
+    const daysA = recipient.next_important_date?.date === a.date && recipient.next_important_date_days != null
+      ? recipient.next_important_date_days
+      : Number.POSITIVE_INFINITY;
+    const daysB = recipient.next_important_date?.date === b.date && recipient.next_important_date_days != null
+      ? recipient.next_important_date_days
+      : Number.POSITIVE_INFINITY;
+
+    return daysA - daysB;
+  });
 
   const maxInterests = 3;
   const interests = recipient.interests ?? [];
   const shownInterests = interests.slice(0, maxInterests);
   const overflow = interests.length - maxInterests;
   const giftCount = recipient.gift_count || 0;
+  const nextDate = recipient.next_important_date;
+  const nextDateDays = recipient.next_important_date_days;
+  const shouldShowUpcoming = emphasizeUpcoming && nextDate && nextDateDays !== null && nextDateDays <= 30;
+  const upcomingTone = nextDateDays != null && nextDateDays <= 3
+    ? "text-warning"
+    : nextDateDays != null && nextDateDays <= 14
+      ? "text-foreground"
+      : "text-muted-foreground";
 
   return (
     <Card
@@ -178,16 +178,35 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, o
           </div>
         )}
 
+        {emphasizeUpcoming && (
+          <div className="mb-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
+            {shouldShowUpcoming ? (
+              <div className={cn("flex items-center justify-between gap-3 text-xs font-medium", upcomingTone)}>
+                <span className="truncate">
+                  {getOccasionEmoji(nextDate.label)} {nextDate.label}
+                </span>
+                <span className="shrink-0">{formatCountdown(nextDateDays)}</span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {nextDate && nextDateDays != null
+                  ? `${getOccasionEmoji(nextDate.label)} ${nextDate.label} · ${formatImportantDate(nextDate.date)}`
+                  : "No upcoming dates"}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Important dates */}
-        {dates.length > 0 && (
+        {!emphasizeUpcoming && dates.length > 0 && (
           <div className="space-y-1 mb-3">
             {dates.slice(0, 2).map((d, i) => (
               <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span>{d.label?.toLowerCase().includes("birthday") ? "🎂" : "💍"}</span>
-                <span>{d.label}: {formatMMDD(d.date)}</span>
-                {isWithinDays(d.date, 14) && (
+                <span>{getOccasionEmoji(d.label)}</span>
+                <span>{d.label}: {formatImportantDate(d.date)}</span>
+                {recipient.next_important_date?.label === d.label && recipient.next_important_date?.date === d.date && nextDateDays != null && nextDateDays <= 14 && (
                   <Badge className="text-[9px] px-1.5 py-0 bg-warning/10 text-warning border-warning/20 ml-1" variant="outline">
-                    Coming up!
+                    {formatCountdown(nextDateDays)}
                   </Badge>
                 )}
               </div>
@@ -198,6 +217,7 @@ const RecipientCard = ({ recipient, userCountry, onEdit, onDelete, onFindGift, o
         {/* Last gift */}
         <p className="text-[11px] text-muted-foreground">
           {giftCount > 0 ? `${giftCount} gift${giftCount === 1 ? "" : "s"} chosen` : "No gifts yet"}
+          {recipient.last_gift_name ? ` · ${recipient.last_gift_name}` : ""}
           {recipient.last_gift_date
             ? ` · Last gift: ${new Date(recipient.last_gift_date).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`
             : ""}

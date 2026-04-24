@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -207,6 +207,7 @@ function StatCard({ emoji, value, label }: { emoji: string; value: string | numb
 export default function GiftHistory() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState({
@@ -345,6 +346,21 @@ export default function GiftHistory() {
     });
   }, [filters, sessions]);
 
+  const requestedSessionId = searchParams.get("session");
+  const shouldOpenFeedback = searchParams.get("feedback") === "true";
+
+  useEffect(() => {
+    if (!requestedSessionId || sessions.length === 0) return;
+
+    const matchingSession = sessions.find((session) => session.id === requestedSessionId);
+    if (!matchingSession) return;
+
+    setExpandedIds((current) => (current.includes(requestedSessionId) ? current : [...current, requestedSessionId]));
+    if (shouldOpenFeedback) {
+      setFeedbackSession(matchingSession);
+    }
+  }, [requestedSessionId, sessions, shouldOpenFeedback]);
+
   const stats = useMemo(() => {
     const completed = sessions.filter((session) => getSessionStatus(session) === "completed");
     const scores = completed
@@ -473,6 +489,19 @@ export default function GiftHistory() {
     }
 
     navigate(`/gift-flow?recipient=${session.recipient_id}&occasion=${session.occasion}`);
+  };
+
+  const handleGiftAgain = (session: GiftSessionRecord) => {
+    const params = new URLSearchParams({
+      recipient: session.recipient_id ?? "",
+      source: "gift_again",
+    });
+
+    if (session.occasion) {
+      params.set("occasion", session.occasion);
+    }
+
+    navigate(`/gift-flow?${params.toString()}`);
   };
 
   return (
@@ -660,10 +689,17 @@ export default function GiftHistory() {
                             ) : null}
 
                             {status === "completed" && (
-                              <Button variant="outline" size="sm" onClick={() => handleShopAgain(session)}>
-                                Shop Again
-                                <ShoppingBag className="ml-2 h-4 w-4" />
-                              </Button>
+                              <>
+                                <Button variant="outline" size="sm" onClick={() => handleShopAgain(session)}>
+                                  Shop Again
+                                  <ShoppingBag className="ml-2 h-4 w-4" />
+                                </Button>
+                                {session.recipient_id ? (
+                                  <Button variant="outline" size="sm" onClick={() => handleGiftAgain(session)}>
+                                    Gift Again for Next {humanizeOccasion(session.occasion)}
+                                  </Button>
+                                ) : null}
+                              </>
                             )}
 
                             {(status === "no_selection" || status === "abandoned") && (
@@ -874,7 +910,16 @@ export default function GiftHistory() {
       <FeedbackModal
         session={feedbackSession}
         existingFeedback={feedbackSession ? feedbackBySession.get(feedbackSession.id) ?? null : null}
-        onClose={() => setFeedbackSession(null)}
+        onClose={() => {
+          setFeedbackSession(null);
+          if (shouldOpenFeedback) {
+            setSearchParams((current) => {
+              const next = new URLSearchParams(current);
+              next.delete("feedback");
+              return next;
+            }, { replace: true });
+          }
+        }}
         onSubmit={(rating, notes) => {
           if (!feedbackSession) return;
           feedbackMutation.mutate({

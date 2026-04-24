@@ -26,6 +26,12 @@ import { normalizePlan } from "@/lib/plans";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 
 type UserProfile = Tables<"users">;
+type NotificationPrefs = {
+  reminders?: boolean;
+  feedback_reminders?: boolean;
+  credit_expiry?: boolean;
+  tips?: boolean;
+};
 
 const Settings = () => {
   const { user } = useAuth();
@@ -51,23 +57,35 @@ const Settings = () => {
 
   const notificationPrefs =
     profile?.notification_prefs && typeof profile.notification_prefs === "object" && !Array.isArray(profile.notification_prefs)
-      ? profile.notification_prefs
+      ? profile.notification_prefs as NotificationPrefs
       : null;
   const notifyReminders = notificationPrefs && "reminders" in notificationPrefs ? notificationPrefs.reminders !== false : true;
+  const notifyFeedbackReminders =
+    notificationPrefs && "feedback_reminders" in notificationPrefs
+      ? notificationPrefs.feedback_reminders !== false
+      : true;
   const notifyCreditExpiry = notificationPrefs && "credit_expiry" in notificationPrefs ? notificationPrefs.credit_expiry !== false : true;
   const notifyTips = notificationPrefs && "tips" in notificationPrefs ? Boolean(notificationPrefs.tips) : false;
-  const hasExportAccess = normalizePlan(profile?.active_plan) === "gifting-pro";
+  const normalizedPlan = normalizePlan(profile?.active_plan);
+  const hasExportAccess = normalizedPlan === "gifting-pro";
+  const hasOccasionReminderAccess = normalizedPlan === "confident" || normalizedPlan === "gifting-pro";
 
   const updateNotif = useMutation({
     mutationFn: async (updates: Record<string, boolean>) => {
+      const nextPrefs: NotificationPrefs = {
+        ...(notificationPrefs ?? {}),
+        ...updates,
+      };
       const { error } = await supabase
         .from("users")
-        .update(updates satisfies TablesUpdate<"users">)
+        .update({
+          notification_prefs: nextPrefs,
+        } satisfies TablesUpdate<"users">)
         .eq("id", user!.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
       toast.success("Preferences saved");
     },
   });
@@ -147,7 +165,7 @@ const Settings = () => {
         <h1 className="text-2xl font-heading font-bold text-foreground">Settings</h1>
 
         {/* Notifications */}
-        <Card>
+        <Card id="notifications">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-primary" />
@@ -156,35 +174,68 @@ const Settings = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label htmlFor="notif-reminders" className="text-sm cursor-pointer">
-                Email me gift reminders for upcoming occasions
-              </Label>
+              <div className="space-y-1 pr-4">
+                <Label htmlFor="notif-reminders" className="text-sm cursor-pointer">
+                  Occasion reminders
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Get emailed 14, 3, and 1 day before saved occasions.
+                  {!hasOccasionReminderAccess ? " Available on Confident and Gifting Pro." : ""}
+                </p>
+              </div>
               <Switch
                 id="notif-reminders"
                 checked={notifyReminders}
-                onCheckedChange={(v) => updateNotif.mutate({ notify_gift_reminders: v })}
+                disabled={!hasOccasionReminderAccess}
+                onCheckedChange={(v) => updateNotif.mutate({ reminders: v })}
               />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <Label htmlFor="notif-credits" className="text-sm cursor-pointer">
-                Email me when credits are about to expire
-              </Label>
+              <div className="space-y-1 pr-4">
+                <Label htmlFor="notif-followups" className="text-sm cursor-pointer">
+                  Gift follow-ups
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Ask me how the gift was received after each occasion.
+                </p>
+              </div>
+              <Switch
+                id="notif-followups"
+                checked={notifyFeedbackReminders}
+                onCheckedChange={(v) => updateNotif.mutate({ feedback_reminders: v })}
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-1 pr-4">
+                <Label htmlFor="notif-credits" className="text-sm cursor-pointer">
+                  Credit expiry warnings
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Notify me when my credits are about to expire.
+                </p>
+              </div>
               <Switch
                 id="notif-credits"
                 checked={notifyCreditExpiry}
-                onCheckedChange={(v) => updateNotif.mutate({ notify_credit_expiry: v })}
+                onCheckedChange={(v) => updateNotif.mutate({ credit_expiry: v })}
               />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <Label htmlFor="notif-tips" className="text-sm cursor-pointer">
-                Email me GiftMind tips and updates
-              </Label>
+              <div className="space-y-1 pr-4">
+                <Label htmlFor="notif-tips" className="text-sm cursor-pointer">
+                  Tips and updates
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Product news, gifting tips, and occasional updates from GiftMind.
+                </p>
+              </div>
               <Switch
                 id="notif-tips"
                 checked={notifyTips}
-                onCheckedChange={(v) => updateNotif.mutate({ notify_tips: v })}
+                onCheckedChange={(v) => updateNotif.mutate({ tips: v })}
               />
             </div>
           </CardContent>
