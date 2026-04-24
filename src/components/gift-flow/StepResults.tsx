@@ -74,6 +74,9 @@ interface StepResultsProps {
   currency: string;
   recipientCountry: string | null;
   userPlan: string;
+  canUseSignalCheck: boolean;
+  isSignalCheckEnabled?: boolean;
+  signalCheckCost?: number;
   onRegenerateParams: {
     recipient: Recipient;
     occasion: string;
@@ -87,7 +90,7 @@ interface StepResultsProps {
     contextTags: string[];
     userPlan: string;
   };
-  onCreditsChanged: () => void;
+  onCreditsChanged: (nextBalance?: number | null) => void;
   onStartOver: () => void;
   viewOnly?: boolean;
 }
@@ -386,6 +389,9 @@ export default function StepResults({
   currency,
   recipientCountry,
   userPlan,
+  canUseSignalCheck,
+  isSignalCheckEnabled = true,
+  signalCheckCost = 0.5,
   onRegenerateParams,
   onCreditsChanged,
   onStartOver,
@@ -639,7 +645,9 @@ export default function StepResults({
               currency={currency}
               budgetMin={onRegenerateParams.budgetMin}
               budgetMax={onRegenerateParams.budgetMax}
-              canUseSignalCheck={planLimits.canUseSignalCheck()}
+              canUseSignalCheck={canUseSignalCheck}
+              isSignalCheckEnabled={isSignalCheckEnabled}
+              signalCheckCost={signalCheckCost}
               isBestMatch={index === 0}
               onCreditsChanged={onCreditsChanged}
               viewOnly={viewOnly}

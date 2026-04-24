@@ -23,6 +23,7 @@ import { detectUserCountry } from "@/lib/geoConfig";
 import { useGiftSession, type Recipient } from "@/hooks/useGiftSession";
 import { normalizePlan, type PlanKey } from "@/lib/plans";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { usePublicPlatformSettings } from "@/hooks/usePlatformSettings";
 import { trackEvent } from "@/lib/posthog";
 import NoCreditGate from "@/components/gift-flow/NoCreditGate";
 import StepBudget from "@/components/gift-flow/StepBudget";
@@ -37,12 +38,32 @@ const FORWARD_EASE = [0.22, 1, 0.36, 1] as const;
 const BACKWARD_EASE = [0.55, 0, 1, 0.45] as const;
 type GiftSessionRecord = Tables<"gift_sessions">;
 
+function parseBooleanSetting(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+  return fallback;
+}
+
+function parseNumberSetting(value: unknown, fallback: number) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 export default function GiftFlow() {
   const { user, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const giftSession = useGiftSession();
   const hydrateSession = giftSession.hydrateSession;
   const planLimits = usePlanLimits();
+  const publicSettingKeys = useMemo(() => ["feature_signal_check", "signal_check_cost"], []);
+  const { settings: publicSettings } = usePublicPlatformSettings(publicSettingKeys);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(1);
@@ -69,6 +90,9 @@ export default function GiftFlow() {
 
   const hasGeneratedRef = useRef(false);
   const previousSnapshotRef = useRef("");
+  const featureSignalCheck = parseBooleanSetting(publicSettings.feature_signal_check, true);
+  const signalCheckCost = parseNumberSetting(publicSettings.signal_check_cost, 0.5);
+  const canUseSignalCheck = featureSignalCheck && planLimits.canUseSignalCheck();
 
   const refreshProfile = useCallback(async () => {
     if (!user) {
@@ -434,7 +458,10 @@ export default function GiftFlow() {
             onContinue={() => goToStep(5)}
             onSkip={() => goToStep(5)}
             onBack={goBack}
-            canUseSignalCheck={planLimits.canUseSignalCheck()}
+            recipientName={selectedRecipient?.name ?? null}
+            canUseSignalCheck={canUseSignalCheck}
+            isSignalCheckEnabled={featureSignalCheck}
+            signalCheckCost={signalCheckCost}
             creditsBalance={creditsBalance}
           />
         );
@@ -448,9 +475,16 @@ export default function GiftFlow() {
             currency={currency}
             recipientCountry={recipientCountry}
             userPlan={userPlan}
+            canUseSignalCheck={canUseSignalCheck}
+            isSignalCheckEnabled={featureSignalCheck}
+            signalCheckCost={signalCheckCost}
             onRegenerateParams={generationParams}
-            onCreditsChanged={() => {
-              void refreshProfile();
+            onCreditsChanged={(nextBalance) => {
+              if (typeof nextBalance === "number") {
+                setCreditsBalance(nextBalance);
+              } else {
+                void refreshProfile();
+              }
             }}
             onStartOver={() => {
               giftSession.resetSession();

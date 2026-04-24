@@ -47,6 +47,8 @@ interface StoredSignalCheck {
 }
 
 const ALLOWED_PLANS = ["confident", "gifting-pro"];
+const DEFAULT_SIGNAL_CHECK_COST = 0.5;
+const DEFAULT_SIGNAL_CHECKS_PER_DAY = 30;
 
 const SIGNAL_CHECK_SYSTEM_PROMPT = `You are a relationship psychologist analyzing what a gift communicates.
 
@@ -77,6 +79,57 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function formatCreditAmount(amount: number) {
+  return Number.isInteger(amount) ? `${amount}` : amount.toFixed(1).replace(/\.0$/, "");
+}
+
+function parseNumberSetting(value: unknown, fallback: number) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function parseBooleanSetting(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+  return fallback;
+}
+
+async function loadSignalCheckSettings(
+  supabaseAdmin: ReturnType<typeof createClient>,
+) {
+  const { data, error } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", ["feature_signal_check", "signal_check_cost", "signal_checks_per_day"]);
+
+  if (error) {
+    console.error("Failed to load Signal Check platform settings:", error.message);
+    return {
+      featureSignalCheck: true,
+      signalCheckCost: DEFAULT_SIGNAL_CHECK_COST,
+      signalChecksPerDay: DEFAULT_SIGNAL_CHECKS_PER_DAY,
+    };
+  }
+
+  const settings = new Map((data ?? []).map((row) => [row.key, row.value]));
+
+  return {
+    featureSignalCheck: parseBooleanSetting(settings.get("feature_signal_check"), true),
+    signalCheckCost: parseNumberSetting(settings.get("signal_check_cost"), DEFAULT_SIGNAL_CHECK_COST),
+    signalChecksPerDay: Math.max(
+      1,
+      Math.floor(parseNumberSetting(settings.get("signal_checks_per_day"), DEFAULT_SIGNAL_CHECKS_PER_DAY)),
+    ),
+  };
 }
 
 function validateSignalCheckResult(parsed: unknown): parsed is SignalCheckResult {
@@ -121,26 +174,64 @@ function mapAIError(error: unknown) {
     if (type === "rate_limit") {
       return {
         status: 429,
-        body: { error: "Signal Check is busy right now. Please wait a minute and try again." },
+        body: {
+          error: "AI_BUSY",
+          message: "Signal Check is busy right now. Please wait a minute and try again.",
+        },
       };
     }
 
     if (type === "invalid_response") {
       return {
         status: 502,
-        body: { error: "Signal Check returned an invalid analysis. Please try again." },
+        body: {
+          error: "AI_INVALID_RESPONSE",
+          message: "Signal Check returned an invalid analysis. Please try again.",
+        },
       };
     }
 
     return {
       status: type === "timeout" ? 504 : 502,
-      body: { error: "Signal Check temporarily unavailable. Please try again." },
+      body: {
+        error: type === "timeout" ? "AI_TIMEOUT" : "AI_UNAVAILABLE",
+        message: "Signal Check temporarily unavailable. Please try again.",
+      },
     };
   }
 
   return {
     status: 500,
-    body: { error: "Signal Check temporarily unavailable. Please try again." },
+    body: {
+      error: "AI_UNAVAILABLE",
+      message: "Signal Check temporarily unavailable. Please try again.",
+    },
+  };
+}
+
+async function refundSignalCheckCredits(params: {
+  supabaseAdmin: ReturnType<typeof createClient>;
+  userId: string;
+  sessionId: string;
+  amount: number;
+}) {
+  const { data, error } = await params.supabaseAdmin.rpc("refund_user_credit", {
+    p_user_id: params.userId,
+    p_session_id: params.sessionId,
+    p_amount: params.amount,
+    p_reason: "signal_check_ai_failure",
+  });
+
+  if (error) {
+    console.error("Signal Check refund failed:", error.message);
+    return { refunded: false, newBalance: null as number | null };
+  }
+
+  const payload = data && typeof data === "object" ? data as Record<string, unknown> : null;
+
+  return {
+    refunded: typeof payload?.refunded === "number" ? payload.refunded > 0 : Boolean(payload?.already_refunded),
+    newBalance: typeof payload?.new_balance === "number" ? payload.new_balance : null,
   };
 }
 
@@ -202,8 +293,25 @@ serve(async (req) => {
       );
     }
 
-    if ((userData.credits_balance || 0) < 0.5) {
-      return json({ error: "NO_CREDITS", message: "Not enough credits for Signal Check" }, 402);
+    const signalSettings = await loadSignalCheckSettings(supabaseAdmin);
+    if (!signalSettings.featureSignalCheck) {
+      return json(
+        {
+          error: "FEATURE_DISABLED",
+          message: "Signal Check is temporarily unavailable.",
+        },
+        503,
+      );
+    }
+
+    if ((userData.credits_balance || 0) < signalSettings.signalCheckCost) {
+      return json(
+        {
+          error: "NO_CREDITS",
+          message: `Not enough credits. ${formatCreditAmount(signalSettings.signalCheckCost)} credits required for Signal Check.`,
+        },
+        402,
+      );
     }
 
     const parsedBody = await parseJsonBody<SignalCheckRequest>(req, json);
@@ -234,12 +342,13 @@ serve(async (req) => {
       return json({ error: "Forbidden" }, 403);
     }
 
+    const giftName = sanitizeString(body.gift_name, 200);
     const { data: existingChecks, error: signalChecksError } = await supabaseAdmin
       .from("signal_checks")
       .select("id, gift_name, revision_number, follow_up_prompt, result_payload")
       .eq("user_id", user.id)
       .eq("session_id", body.session_id)
-      .eq("gift_name", sanitizeString(body.gift_name, 200))
+      .eq("gift_name", giftName)
       .order("revision_number", { ascending: false });
 
     if (signalChecksError) {
@@ -286,30 +395,20 @@ serve(async (req) => {
       return json({ error: "Failed to validate request rate" }, 500);
     }
 
-    if ((rateLimitCount ?? 0) >= 30) {
-      return json({ error: "RATE_LIMITED", message: "Too many requests. Please wait." }, 429);
-    }
-
-    const { error: rateLimitInsertError } = await supabaseAdmin
-      .from("rate_limit_events")
-      .insert({
-        action: "signal-check",
-        identifier: user.id,
-        metadata: {
-          session_id: body.session_id,
-          gift_name: sanitizeString(body.gift_name, 200),
+    if ((rateLimitCount ?? 0) >= signalSettings.signalChecksPerDay) {
+      return json(
+        {
+          error: "RATE_LIMITED",
+          message: `You've run ${signalSettings.signalChecksPerDay} analyses today. Check back tomorrow.`,
         },
-      });
-
-    if (rateLimitInsertError) {
-      console.error("Failed to record signal-check rate limit event:", rateLimitInsertError.message);
-      return json({ error: "Failed to validate request rate" }, 500);
+        429,
+      );
     }
 
     const { data: deductResult, error: rpcError } = await supabaseAdmin.rpc("deduct_user_credit", {
       p_user_id: user.id,
       p_session_id: body.session_id,
-      p_amount: 0.5,
+      p_amount: signalSettings.signalCheckCost,
     });
 
     if (rpcError) {
@@ -321,10 +420,44 @@ serve(async (req) => {
       return json(
         {
           error: "NO_CREDITS",
-          message: "Not enough credits for Signal Check",
+          message: `Not enough credits. ${formatCreditAmount(signalSettings.signalCheckCost)} credits required for Signal Check.`,
           remaining: deductResult?.remaining_balance ?? 0,
         },
         402,
+      );
+    }
+
+    const { error: rateLimitInsertError } = await supabaseAdmin
+      .from("rate_limit_events")
+      .insert({
+        action: "signal-check",
+        identifier: user.id,
+        metadata: {
+          session_id: body.session_id,
+          gift_name: giftName,
+          cost: signalSettings.signalCheckCost,
+        },
+      });
+
+    if (rateLimitInsertError) {
+      console.error("Failed to record signal-check rate limit event:", rateLimitInsertError.message);
+      const refund = await refundSignalCheckCredits({
+        supabaseAdmin,
+        userId: user.id,
+        sessionId: body.session_id,
+        amount: signalSettings.signalCheckCost,
+      });
+
+      return json(
+        {
+          error: "SIGNAL_CHECK_UNAVAILABLE",
+          message: refund.refunded
+            ? `Signal Check couldn't start. Your ${formatCreditAmount(signalSettings.signalCheckCost)} credits were refunded.`
+            : "Signal Check couldn't start. Please try again.",
+          credits_refunded: refund.refunded,
+          credits_remaining: refund.newBalance,
+        },
+        500,
       );
     }
 
@@ -335,24 +468,55 @@ serve(async (req) => {
         : "";
 
     const chain = getProviderChain(plan, "signal-check");
-    const result = await callAIWithFallback(chain, {
-      systemPrompt: SIGNAL_CHECK_SYSTEM_PROMPT,
-      userMessage: buildSignalCheckMessage(body, parentContext),
-      maxTokens: 1000,
-      temperature: 0.6,
-      responseFormat: "json",
-    });
-
     let parsed: unknown;
+    let result;
     try {
-      parsed = parseAIJson(result.text);
-    } catch (parseError) {
-      console.error("Failed to parse signal check JSON:", parseError);
-      return json({ error: "Could not parse signal analysis" }, 502);
-    }
+      result = await callAIWithFallback(chain, {
+        systemPrompt: SIGNAL_CHECK_SYSTEM_PROMPT,
+        userMessage: buildSignalCheckMessage(body, parentContext),
+        maxTokens: 1000,
+        temperature: 0.6,
+        responseFormat: "json",
+      });
 
-    if (!validateSignalCheckResult(parsed)) {
-      return json({ error: "Could not parse signal analysis" }, 502);
+      try {
+        parsed = parseAIJson(result.text);
+      } catch (parseError) {
+        throw new AIProviderError(
+          result.provider,
+          "invalid_response",
+          parseError instanceof Error ? parseError.message : String(parseError),
+        );
+      }
+
+      if (!validateSignalCheckResult(parsed)) {
+        throw new AIProviderError(
+          result.provider,
+          "invalid_response",
+          "Signal Check returned an invalid analysis.",
+        );
+      }
+    } catch (error) {
+      console.error("Signal Check AI failure:", error);
+      const refund = await refundSignalCheckCredits({
+        supabaseAdmin,
+        userId: user.id,
+        sessionId: body.session_id,
+        amount: signalSettings.signalCheckCost,
+      });
+      const mapped = mapAIError(error);
+
+      return json(
+        {
+          ...mapped.body,
+          message: refund.refunded
+            ? `Signal analysis failed. Your ${formatCreditAmount(signalSettings.signalCheckCost)} credits were refunded.`
+            : mapped.body.message,
+          credits_refunded: refund.refunded,
+          credits_remaining: refund.newBalance,
+        },
+        mapped.status,
+      );
     }
 
     let storedSignalCheckId: string | null = null;
@@ -364,21 +528,21 @@ serve(async (req) => {
         .insert({
           user_id: user.id,
           session_id: body.session_id,
-          gift_name: sanitizeString(body.gift_name, 200),
+          gift_name: giftName,
           parent_signal_check_id: cleanFollowUpPrompt ? (parentSignalCheck?.id ?? null) : null,
           revision_number: nextRevisionNumber,
           follow_up_prompt: cleanFollowUpPrompt || null,
           result_payload: parsed,
-          credits_used: 0.5,
+          credits_used: signalSettings.signalCheckCost,
         })
         .select("id")
         .single();
 
       if (insertSignalCheckError) {
-        console.error("Failed to store signal check row:", insertSignalCheckError.message);
-      } else {
-        storedSignalCheckId = insertedSignalCheck.id;
+        throw insertSignalCheckError;
       }
+
+      storedSignalCheckId = insertedSignalCheck.id;
 
       const currentAiResponse =
         session.ai_response && typeof session.ai_response === "object" && !Array.isArray(session.ai_response)
@@ -395,7 +559,8 @@ serve(async (req) => {
         ...currentAiResponse,
         signal_checks: {
           ...existingSignalChecks,
-          [sanitizeString(body.gift_name, 200)]: {
+          // Deprecated compatibility mirror. `signal_checks` table is the source of truth.
+          [giftName]: {
             latest_signal_check_id: storedSignalCheckId,
             revision_number: nextRevisionNumber,
             follow_up_prompt: cleanFollowUpPrompt || null,
@@ -420,6 +585,24 @@ serve(async (req) => {
       }
     } catch (storeError) {
       console.error("Error storing signal check:", storeError);
+      const refund = await refundSignalCheckCredits({
+        supabaseAdmin,
+        userId: user.id,
+        sessionId: body.session_id,
+        amount: signalSettings.signalCheckCost,
+      });
+
+      return json(
+        {
+          error: "SIGNAL_CHECK_SAVE_FAILED",
+          message: refund.refunded
+            ? `Signal Check couldn't be saved. Your ${formatCreditAmount(signalSettings.signalCheckCost)} credits were refunded.`
+            : "Signal Check couldn't be saved. Please try again.",
+          credits_refunded: refund.refunded,
+          credits_remaining: refund.newBalance,
+        },
+        500,
+      );
     }
 
     return json({
@@ -430,7 +613,7 @@ serve(async (req) => {
       credits_remaining: deductResult.remaining_balance,
       _meta: {
         provider: result.provider,
-        credits_used: 0.5,
+        credits_used: signalSettings.signalCheckCost,
         latency_ms: result.latencyMs,
         attempt: result.attemptNumber,
       },

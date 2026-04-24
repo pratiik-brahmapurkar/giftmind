@@ -43,8 +43,10 @@ interface GiftCardProps {
   budgetMin: number;
   budgetMax: number;
   canUseSignalCheck: boolean;
+  isSignalCheckEnabled?: boolean;
+  signalCheckCost?: number;
   isBestMatch?: boolean;
-  onCreditsChanged: () => void;
+  onCreditsChanged: (nextBalance?: number | null) => void;
   onSelect: (index: number, name: string, options?: SelectGiftOptions) => void;
   onTrackClick: (product: ProductResult["products"][number]) => void;
   onLockedStoreClick?: (storeName: string, unlockPlan: string) => void;
@@ -66,6 +68,8 @@ export default function GiftCard({
   budgetMin,
   budgetMax,
   canUseSignalCheck,
+  isSignalCheckEnabled = true,
+  signalCheckCost = 0.5,
   isBestMatch = false,
   onCreditsChanged,
   onSelect,
@@ -159,6 +163,8 @@ export default function GiftCard({
             occasion={occasion}
             currency={currency}
             canUseSignalCheck={canUseSignalCheck}
+            isSignalCheckEnabled={isSignalCheckEnabled}
+            signalCheckCost={signalCheckCost}
             onCreditsChanged={onCreditsChanged}
             recommendationIndex={index}
             viewOnly={viewOnly}

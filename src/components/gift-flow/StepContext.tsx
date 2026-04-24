@@ -14,7 +14,10 @@ interface StepContextProps {
   onContinue: () => void;
   onSkip: () => void;
   onBack: () => void;
+  recipientName?: string | null;
   canUseSignalCheck?: boolean;
+  isSignalCheckEnabled?: boolean;
+  signalCheckCost?: number;
   creditsBalance?: number;
 }
 
@@ -26,7 +29,10 @@ export default function StepContext({
   onContinue,
   onSkip,
   onBack,
+  recipientName,
   canUseSignalCheck = false,
+  isSignalCheckEnabled = true,
+  signalCheckCost = 0.5,
   creditsBalance = 0,
 }: StepContextProps) {
   const toggleTag = (id: string) => {
@@ -38,6 +44,9 @@ export default function StepContext({
   };
 
   const tagCount = contextTags.length;
+  const signalCostLabel = Number.isInteger(signalCheckCost)
+    ? `${signalCheckCost}`
+    : signalCheckCost.toFixed(1).replace(/\.0$/, "");
 
   return (
     <div className="space-y-6">
@@ -117,24 +126,30 @@ export default function StepContext({
       </div>
 
       {/* Signal Check teaser (Item 2) */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <MessageCircleHeart className="h-5 w-5" />
+      {isSignalCheckEnabled ? (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MessageCircleHeart className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">After results, try Signal Check</p>
+                <p className="text-xs text-muted-foreground">
+                  {recipientName
+                    ? `Signal Check tells you what each gift says about your relationship with ${recipientName}.`
+                    : "Signal Check tells you what each gift says about your relationship."}
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  {canUseSignalCheck
+                    ? `${signalCostLabel} credits per analysis`
+                    : "Available on Confident plan"}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">After results, try Signal Check</p>
-              <p className="text-xs text-muted-foreground">
-                See what your gift says about the relationship — like a gift therapist.
-              </p>
-              <p className="text-xs text-muted-foreground/70">
-                {canUseSignalCheck ? "1 credit per gift" : "Available on Confident plan"}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Credit deduction nudge (Item 1) — inline callout on Continue */}
       <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3">

@@ -22,7 +22,19 @@ type PlatformSettingsClient = {
   };
 };
 
+type PublicPlatformSettingsClient = {
+  rpc: (
+    fn: "get_public_platform_settings",
+    params: { p_keys: string[] },
+  ) => Promise<{ data: Json | null; error: Error | null }>;
+};
+
 const platformSettingsClient = supabase as unknown as PlatformSettingsClient;
+const publicPlatformSettingsClient = supabase as unknown as PublicPlatformSettingsClient;
+
+function isRecord(value: Json | null): value is Record<string, Json> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export function usePlatformSettings(enabled = true) {
   const [settings, setSettings] = useState<PlatformSettings>({});
@@ -118,6 +130,42 @@ export function usePlatformSettings(enabled = true) {
     isSaving,
     updateSetting,
     updateMultipleSettings,
+    refresh: fetchSettings,
+  };
+}
+
+export function usePublicPlatformSettings(keys: string[], enabled = true) {
+  const [settings, setSettings] = useState<Record<string, Json>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchSettings = useCallback(async () => {
+    if (!enabled || keys.length === 0) {
+      setSettings({});
+      setIsLoading(false);
+      return { data: null, error: null };
+    }
+
+    setIsLoading(true);
+
+    const { data, error } = await publicPlatformSettingsClient.rpc("get_public_platform_settings", {
+      p_keys: keys,
+    });
+
+    if (!error) {
+      setSettings(isRecord(data) ? data : {});
+    }
+
+    setIsLoading(false);
+    return { data, error };
+  }, [enabled, keys]);
+
+  useEffect(() => {
+    void fetchSettings();
+  }, [fetchSettings]);
+
+  return {
+    settings,
+    isLoading,
     refresh: fetchSettings,
   };
 }
