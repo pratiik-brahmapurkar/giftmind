@@ -31,6 +31,8 @@ export interface StartRequestBody {
   context_tags: string[];
   user_plan: string;
   is_regeneration?: boolean;
+  action_id?: string | null;
+  gift_generation_units?: number | null;
 }
 
 export interface RecipientRecord {

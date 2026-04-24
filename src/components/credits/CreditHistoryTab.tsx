@@ -19,6 +19,7 @@ import {
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { format } from "date-fns";
 import type { CreditTransaction } from "@/hooks/useCredits";
+import { formatCreditsValue } from "@/lib/credits";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -84,7 +85,8 @@ function getTransactionDetails(transaction: CreditTransaction) {
 
   if (typeof metadata.reason === "string") {
     if (metadata.reason === "signup_bonus") return "Signup bonus";
-    if (metadata.reason === "referral_reward") return "Referral reward";
+    if (metadata.reason === "referral_reward") return "1 free Signal Check earned";
+    if (metadata.reason === "monthly_free_allocation") return "Monthly free credits";
     return metadata.reason.replace(/_/g, " ");
   }
 
@@ -184,14 +186,14 @@ const CreditHistoryTab = ({ transactions, isLoading }: CreditHistoryTabProps) =>
                           {cfg.emoji} {cfg.label}
                         </Badge>
                       </TableCell>
-                      <TableCell
+                  <TableCell
                         className={cn(
                           "text-right text-sm font-medium",
                           isPositive ? "text-emerald-600" : "text-destructive"
                         )}
                       >
-                        {isPositive ? "+" : ""}
-                        {tx.amount}
+                        {isPositive ? "+" : "-"}
+                        {formatCreditsValue(Math.abs(tx.amount))}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
                         {getTransactionDetails(tx)}

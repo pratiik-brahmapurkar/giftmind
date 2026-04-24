@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { formatCreditUnits } from "../_shared/credits.ts";
 
 // ── Environment ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -93,6 +94,7 @@ serve(async (req: Request): Promise<Response> => {
         ),
       );
       const userName = user.full_name || "there";
+      const creditsLabel = formatCreditUnits(batch.credits_remaining);
       const expiryDateFormatted = new Date(batch.expires_at).toLocaleDateString(
         "en-US",
         { month: "long", day: "numeric", year: "numeric" },
@@ -108,12 +110,12 @@ serve(async (req: Request): Promise<Response> => {
           body: JSON.stringify({
             from: "GiftMind <noreply@giftmind.in>",
             to: [user.email],
-            subject: `⏰ ${batch.credits_remaining} GiftMind credit${batch.credits_remaining !== 1 ? "s" : ""} expiring in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}!`,
+            subject: `⏰ ${creditsLabel} GiftMind credit${creditsLabel === "1" ? "" : "s"} expiring in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}!`,
             html: `
               <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
                 <h2 style="color: #6C5CE7;">Don't let your credits expire!</h2>
                 <p>Hi ${userName},</p>
-                <p>You have <strong>${batch.credits_remaining} credit${batch.credits_remaining !== 1 ? "s" : ""}</strong>
+                <p>You have <strong>${creditsLabel} credit${creditsLabel === "1" ? "" : "s"}</strong>
                    expiring on <strong>${expiryDateFormatted}</strong>.</p>
                 <p>Each credit is a chance to find the perfect gift with confidence.
                    Use them before they're gone!</p>

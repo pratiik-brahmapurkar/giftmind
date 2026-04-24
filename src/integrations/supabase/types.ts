@@ -192,6 +192,8 @@ export type Database = {
       }
       credit_batches: {
         Row: {
+          batch_type: string
+          credit_month: string | null
           created_at: string | null
           credits_purchased: number
           credits_remaining: number
@@ -208,6 +210,8 @@ export type Database = {
           warning_sent: boolean | null
         }
         Insert: {
+          batch_type?: string
+          credit_month?: string | null
           created_at?: string | null
           credits_purchased: number
           credits_remaining: number
@@ -224,6 +228,8 @@ export type Database = {
           warning_sent?: boolean | null
         }
         Update: {
+          batch_type?: string
+          credit_month?: string | null
           created_at?: string | null
           credits_purchased?: number
           credits_remaining?: number
@@ -242,6 +248,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "credit_batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_action_ledger: {
+        Row: {
+          action_id: string
+          action_type: string
+          created_at: string
+          id: string
+          status: string
+          units: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          action_type: string
+          created_at?: string
+          id?: string
+          status?: string
+          units: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          action_type?: string
+          created_at?: string
+          id?: string
+          status?: string
+          units?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_action_ledger_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -1411,9 +1458,33 @@ export type Database = {
           similarity: number
         }[]
       }
+      deduct_user_credit: {
+        Args: {
+          p_action_id?: string
+          p_action_type?: string
+          p_amount?: number
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      get_public_platform_settings: {
+        Args: {
+          p_keys?: string[]
+        }
+        Returns: Json
+      }
+      issue_free_monthly_credits: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
       refund_user_credit: {
         Args: {
+          p_action_id?: string
           p_amount?: number
+          p_reason?: string
           p_session_id: string
           p_user_id: string
         }

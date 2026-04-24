@@ -22,10 +22,9 @@ import type { Tables } from "@/integrations/supabase/types";
 import { detectUserCountry } from "@/lib/geoConfig";
 import { useGiftSession, type Recipient } from "@/hooks/useGiftSession";
 import { normalizePlan, type PlanKey } from "@/lib/plans";
-import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { usePublicPlatformSettings } from "@/hooks/usePlatformSettings";
+import { formatCreditsValue } from "@/lib/credits";
 import { trackEvent } from "@/lib/posthog";
-import NoCreditGate from "@/components/gift-flow/NoCreditGate";
 import StepBudget from "@/components/gift-flow/StepBudget";
 import StepContext from "@/components/gift-flow/StepContext";
 import StepOccasion from "@/components/gift-flow/StepOccasion";
@@ -61,8 +60,7 @@ export default function GiftFlow() {
   const [searchParams, setSearchParams] = useSearchParams();
   const giftSession = useGiftSession();
   const hydrateSession = giftSession.hydrateSession;
-  const planLimits = usePlanLimits();
-  const publicSettingKeys = useMemo(() => ["feature_signal_check", "signal_check_cost"], []);
+  const publicSettingKeys = useMemo(() => ["feature_signal_check", "signal_check_units", "gift_generation_units"], []);
   const { settings: publicSettings } = usePublicPlatformSettings(publicSettingKeys);
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -91,8 +89,10 @@ export default function GiftFlow() {
   const hasGeneratedRef = useRef(false);
   const previousSnapshotRef = useRef("");
   const featureSignalCheck = parseBooleanSetting(publicSettings.feature_signal_check, true);
-  const signalCheckCost = parseNumberSetting(publicSettings.signal_check_cost, 0.5);
-  const canUseSignalCheck = featureSignalCheck && planLimits.canUseSignalCheck();
+  const signalCheckUnits = parseNumberSetting(publicSettings.signal_check_units, 1);
+  const giftGenerationUnits = parseNumberSetting(publicSettings.gift_generation_units, 2);
+  const signalCheckCost = signalCheckUnits / 2;
+  const canUseSignalCheck = featureSignalCheck;
 
   const refreshProfile = useCallback(async () => {
     if (!user) {
@@ -465,6 +465,7 @@ export default function GiftFlow() {
             isSignalCheckEnabled={featureSignalCheck}
             signalCheckCost={signalCheckCost}
             creditsBalance={creditsBalance}
+            giftGenerationUnits={giftGenerationUnits}
           />
         );
       case 5:
@@ -531,8 +532,6 @@ export default function GiftFlow() {
               Loading your gift flow...
             </CardContent>
           </Card>
-        ) : creditsBalance <= 0 && currentStep < 5 && !giftSession.sessionId ? (
-          <NoCreditGate />
         ) : (
           <div className="space-y-6">
             <div className="flex items-center justify-between gap-3">
@@ -547,7 +546,7 @@ export default function GiftFlow() {
 
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground">
                 <Coins className="h-4 w-4 text-primary" />
-                🪙 {creditsBalance}
+                🪙 {formatCreditsValue(creditsBalance)}
               </div>
             </div>
 

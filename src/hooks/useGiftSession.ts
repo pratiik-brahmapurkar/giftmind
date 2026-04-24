@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGiftSessionV2 } from "@/hooks/useGiftSessionV2";
 import { getOutboundProductUrl, type ProductResult } from "@/lib/productLinks";
 import { trackEvent } from "@/lib/posthog";
+import { buildGiftGenerationActionId, DEFAULT_GIFT_GENERATION_UNITS } from "@/lib/credits";
 import {
   getCurrentUserId,
   getErrorMessage,
@@ -11,7 +12,6 @@ import {
   hydrateGiftSessionState,
   initialState,
   invokeAuthedFunction,
-  isNoCreditError,
   normalizeGiftErrorType,
   upsertFeedbackReminder,
 } from "@/hooks/giftSessionShared";
@@ -73,38 +73,16 @@ function useGiftSessionV1() {
     [],
   );
 
-  const deductCredit = useCallback(async (sessionId: string) => {
-    const response = await invokeAuthedFunction<{
-      success?: boolean;
-      deducted?: number;
-      remaining?: number;
-      error?: string;
-      message?: string;
-    }>("deduct-credit", { session_id: sessionId, amount: 1 });
-
-    if (response.error) {
-      if (isNoCreditError(response.error)) {
-        throw { type: "NO_CREDITS", message: "No credits available" };
-      }
-      throw new Error(`Credit deduction failed: ${getErrorMessage(response.error)}`);
-    }
-
-    if (response.data && response.data.success === false) {
-      if (isNoCreditError(response.data)) {
-        throw { type: "NO_CREDITS", message: getErrorMessage(response.data) || "No credits available" };
-      }
-      throw new Error(`Credit deduction failed: ${getErrorMessage(response.data)}`);
-    }
-
-    return response.data;
-  }, []);
-
-  const refundCredit = useCallback(async (sessionId: string) => {
+  const refundCredit = useCallback(async (sessionId: string, actionId: string) => {
     const response = await invokeAuthedFunction<{
       success?: boolean;
       refunded?: number;
       already_refunded?: boolean;
-    }>("refund-credit", { session_id: sessionId, amount: 1 });
+    }>("refund-credit", {
+      session_id: sessionId,
+      amount: DEFAULT_GIFT_GENERATION_UNITS,
+      action_id: actionId,
+    });
 
     return Boolean(response.data?.success);
   }, []);
@@ -121,7 +99,7 @@ function useGiftSessionV1() {
   }, []);
 
   const callAI = useCallback(
-    async (params: GenerateGiftParams & { sessionId: string; isRegeneration?: boolean }) => {
+    async (params: GenerateGiftParams & { sessionId: string; isRegeneration?: boolean; actionId: string }) => {
       const accessToken = await getAccessToken();
       const functions = supabase.functions;
       functions.setAuth(accessToken);
@@ -150,6 +128,7 @@ function useGiftSessionV1() {
           user_plan: params.userPlan,
           session_id: params.sessionId,
           is_regeneration: Boolean(params.isRegeneration),
+          action_id: params.actionId,
         },
       });
 
@@ -225,6 +204,7 @@ function useGiftSessionV1() {
       const currentState = stateRef.current;
       let sessionId = currentState.sessionId;
       let refundIssued: boolean | null = null;
+      let generationActionId: string | null = null;
       const shouldReuseSession =
         Boolean(currentState.sessionId) &&
         currentState.recommendations === null &&
@@ -263,56 +243,22 @@ function useGiftSessionV1() {
             specialContext: params.specialContext,
             contextTags: params.contextTags,
           });
-
-          try {
-            await deductCredit(sessionId);
-          } catch (creditError) {
-            if (isNoCreditError(creditError)) {
-              setState((prev) => ({
-                ...prev,
-                isGenerating: false,
-                error: "No credits available",
-                errorType: "NO_CREDITS",
-                sessionId,
-              }));
-
-              const currentUserId = await getCurrentUserId();
-              if (currentUserId) {
-                await supabase
-                  .from("gift_sessions")
-                  .update({ status: "abandoned" })
-                  .eq("id", sessionId)
-                  .eq("user_id", currentUserId);
-              }
-              return;
-            }
-
-            const message = getErrorMessage(creditError) || "Something went wrong while checking credits. Please try again.";
-            setState((prev) => ({
-              ...prev,
-              isGenerating: false,
-              error: message,
-              errorType:
-                typeof creditError === "object" &&
-                creditError &&
-                "type" in creditError &&
-                (creditError as { type?: string }).type === "AUTH_REQUIRED"
-                  ? "AUTH_REQUIRED"
-                  : "AI_ERROR",
-              sessionId,
-            }));
-            return;
-          }
         }
 
         if (!sessionId) {
           throw { type: "GENERIC", message: "Session missing. Please start again." };
         }
 
+        generationActionId = buildGiftGenerationActionId(
+          sessionId,
+          options.isRegeneration ? currentState.regenerationCount + 1 : 0,
+        );
+
         const aiResult = await callAI({
           ...params,
           sessionId,
           isRegeneration: options.isRegeneration,
+          actionId: generationActionId,
         });
 
         setState((prev) => ({
@@ -379,8 +325,8 @@ function useGiftSessionV1() {
           typedError.message || getErrorMessage(error),
         );
 
-        if (sessionId && !options.isRegeneration && normalizedType !== "NO_CREDITS") {
-          refundIssued = await refundCredit(sessionId).catch(() => false);
+        if (sessionId && generationActionId && normalizedType !== "NO_CREDITS") {
+          refundIssued = await refundCredit(sessionId, generationActionId).catch(() => false);
           await updateSessionStatus(sessionId, "errored").catch(() => undefined);
         }
 
@@ -400,7 +346,7 @@ function useGiftSessionV1() {
         }));
       }
     },
-    [callAI, createSession, deductCredit, refundCredit, searchProducts, updateSessionStatus],
+    [callAI, createSession, refundCredit, searchProducts, updateSessionStatus],
   );
 
   const generateGifts = useCallback(

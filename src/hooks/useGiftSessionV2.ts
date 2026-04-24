@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getOutboundProductUrl } from "@/lib/productLinks";
 import { trackEvent } from "@/lib/posthog";
+import { buildGiftGenerationActionId, DEFAULT_GIFT_GENERATION_UNITS } from "@/lib/credits";
 import {
   getAccessToken,
   getCurrentUserId,
@@ -10,7 +11,6 @@ import {
   hydrateGiftSessionState,
   initialState,
   invokeAuthedFunction,
-  isNoCreditError,
   normalizeGiftErrorType,
   upsertFeedbackReminder,
 } from "@/hooks/giftSessionShared";
@@ -212,38 +212,16 @@ export function useGiftSessionV2() {
     [],
   );
 
-  const deductCredit = useCallback(async (sessionId: string) => {
-    const response = await invokeAuthedFunction<{
-      success?: boolean;
-      deducted?: number;
-      remaining?: number;
-      error?: string;
-      message?: string;
-    }>("deduct-credit", { session_id: sessionId, amount: 1 });
-
-    if (response.error) {
-      if (isNoCreditError(response.error)) {
-        throw { type: "NO_CREDITS", message: "No credits available" };
-      }
-      throw new Error(`Credit deduction failed: ${getErrorMessage(response.error)}`);
-    }
-
-    if (response.data && response.data.success === false) {
-      if (isNoCreditError(response.data)) {
-        throw { type: "NO_CREDITS", message: getErrorMessage(response.data) || "No credits available" };
-      }
-      throw new Error(`Credit deduction failed: ${getErrorMessage(response.data)}`);
-    }
-
-    return response.data;
-  }, []);
-
-  const refundCredit = useCallback(async (sessionId: string) => {
+  const refundCredit = useCallback(async (sessionId: string, actionId: string) => {
     const response = await invokeAuthedFunction<{
       success?: boolean;
       refunded?: number;
       already_refunded?: boolean;
-    }>("refund-credit", { session_id: sessionId, amount: 1 });
+    }>("refund-credit", {
+      session_id: sessionId,
+      amount: DEFAULT_GIFT_GENERATION_UNITS,
+      action_id: actionId,
+    });
 
     return Boolean(response.data?.success);
   }, []);
@@ -438,6 +416,7 @@ export function useGiftSessionV2() {
       const currentState = stateRef.current;
       let sessionId = currentState.sessionId;
       let refundIssued: boolean | null = null;
+      let generationActionId: string | null = null;
       const shouldReuseSession =
         Boolean(currentState.sessionId) &&
         currentState.recommendations === null &&
@@ -485,37 +464,16 @@ export function useGiftSessionV2() {
             specialContext: params.specialContext,
             contextTags: params.contextTags,
           });
-
-          try {
-            await deductCredit(sessionId);
-          } catch (creditError) {
-            if (isNoCreditError(creditError)) {
-              setState((prev) => ({
-                ...prev,
-                isGenerating: false,
-                error: "No credits available",
-                errorType: "NO_CREDITS",
-                sessionId,
-              }));
-
-              const currentUserId = await getCurrentUserId();
-              if (currentUserId) {
-                await supabase
-                  .from("gift_sessions")
-                  .update({ status: "abandoned" })
-                  .eq("id", sessionId)
-                  .eq("user_id", currentUserId);
-              }
-              return;
-            }
-
-            throw creditError;
-          }
         }
 
         if (!sessionId) {
           throw { type: "GENERIC", message: "Session missing. Please start again." };
         }
+
+        generationActionId = buildGiftGenerationActionId(
+          sessionId,
+          options.isRegeneration ? currentState.regenerationCount + 1 : 0,
+        );
 
         const accessToken = await getAccessToken();
 
@@ -538,6 +496,7 @@ export function useGiftSessionV2() {
               context_tags: params.contextTags,
               user_plan: params.userPlan,
               is_regeneration: options.isRegeneration,
+              action_id: generationActionId,
             }),
           },
           accessToken,
@@ -596,8 +555,8 @@ export function useGiftSessionV2() {
           typedError.message || getErrorMessage(error),
         );
 
-        if (sessionId && !options.isRegeneration && normalizedType !== "NO_CREDITS") {
-          refundIssued = await refundCredit(sessionId).catch(() => false);
+        if (sessionId && generationActionId && normalizedType !== "NO_CREDITS") {
+          refundIssued = await refundCredit(sessionId, generationActionId).catch(() => false);
           await updateSessionStatus(sessionId, "errored").catch(() => undefined);
         }
 
@@ -618,7 +577,7 @@ export function useGiftSessionV2() {
         }));
       }
     },
-    [createSession, deductCredit, pollStatus, refundCredit, streamStatus, updateSessionStatus],
+    [createSession, pollStatus, refundCredit, streamStatus, updateSessionStatus],
   );
 
   const generateGifts = useCallback(

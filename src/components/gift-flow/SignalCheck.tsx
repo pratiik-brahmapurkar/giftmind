@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import SoftPaywall from "@/components/credits/SoftPaywall";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { supabase } from "@/integrations/supabase/client";
 import type { GiftRecommendation, Recipient } from "@/hooks/useGiftSession";
 import { getAccessToken, getFunctionErrorDetails } from "@/hooks/giftSessionShared";
+import { formatCreditsValue } from "@/lib/credits";
 import { buildSignalCheckKey, parseSignalCheckResult, parseSignalChecks } from "@/lib/signalCheck";
 import { trackEvent } from "@/lib/posthog";
 import { Check, Loader2, Lock, MessageCircleHeart, Sparkles, Wand2, X } from "lucide-react";
@@ -449,14 +451,13 @@ export default function SignalCheck({
             )}
 
             {inlineError ? (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                <p>{inlineError.message}</p>
-                {inlineError.code === "NO_CREDITS" ? (
-                  <a href="/credits" className="mt-1 inline-flex text-sm font-medium text-rose-800 underline underline-offset-2">
-                    Get more credits →
-                  </a>
-                ) : null}
-              </div>
+              inlineError.code === "NO_CREDITS" ? (
+                <SoftPaywall compact title={inlineError.message} />
+              ) : (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  <p>{inlineError.message}</p>
+                </div>
+              )
             ) : null}
           </div>
         ) : null}
@@ -570,14 +571,13 @@ export default function SignalCheck({
                       </div>
 
                       {inlineError ? (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                          <p>{inlineError.message}</p>
-                          {inlineError.code === "NO_CREDITS" ? (
-                            <a href="/credits" className="mt-1 inline-flex font-medium text-rose-800 underline underline-offset-2">
-                              Get more credits →
-                            </a>
-                          ) : null}
-                        </div>
+                        inlineError.code === "NO_CREDITS" ? (
+                          <SoftPaywall compact title={inlineError.message} />
+                        ) : (
+                          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                            <p>{inlineError.message}</p>
+                          </div>
+                        )
                       ) : null}
 
                       <div className="flex items-center justify-end gap-3">
@@ -653,7 +653,7 @@ export default function SignalCheck({
               exit={{ opacity: 0, y: -4 }}
             >
               {formatCreditAmount(creditUsageNotice.used)} credits used
-              {creditUsageNotice.remaining != null ? ` · ${creditUsageNotice.remaining} remaining` : ""}
+              {creditUsageNotice.remaining != null ? ` · ${formatCreditsValue(creditUsageNotice.remaining)} remaining` : ""}
             </motion.p>
           ) : null}
         </AnimatePresence>

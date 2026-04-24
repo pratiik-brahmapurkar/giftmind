@@ -42,6 +42,8 @@ serve(async (req) => {
     const body = await req.json();
     const sessionId = body.session_id;
     const amount = body.amount || 1;
+    const actionId = typeof body.action_id === "string" ? body.action_id : undefined;
+    const actionType = typeof body.action_type === "string" ? body.action_type : undefined;
 
     if (!sessionId) {
       return new Response(
@@ -54,6 +56,8 @@ serve(async (req) => {
       p_user_id: user.id,
       p_session_id: sessionId,
       p_amount: amount,
+      p_action_id: actionId,
+      p_action_type: actionType,
     });
 
     if (error) {
@@ -77,7 +81,14 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, remaining: data?.remaining_balance }),
+      JSON.stringify({
+        success: true,
+        remaining: data?.remaining_balance,
+        deducted: data?.deducted ?? amount,
+        action_id: data?.action_id ?? actionId ?? null,
+        already_processed: Boolean(data?.already_processed),
+        ledger_status: data?.ledger_status ?? null,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {

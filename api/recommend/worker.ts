@@ -62,6 +62,24 @@ function getErrorStatus(error: unknown) {
   return 500;
 }
 
+async function refundGenerationCharge(
+  supabase: ReturnType<typeof createServiceRoleSupabaseClient> | ReturnType<typeof createUserSupabaseClient>,
+  userId: string,
+  sessionId: string,
+  actionId?: string | null,
+  amount?: number | null,
+) {
+  if (!actionId || !amount) return;
+
+  await supabase.rpc("refund_user_credit", {
+    p_user_id: userId,
+    p_session_id: sessionId,
+    p_amount: amount,
+    p_reason: "gift_generation_worker_failed",
+    p_action_id: actionId,
+  }).catch(() => null);
+}
+
 export default async function handler(request: Request) {
   if (request.method !== "POST") {
     return jsonResponse({ message: "Method not allowed" }, 405);
@@ -123,7 +141,7 @@ export default async function handler(request: Request) {
     .from("recipients")
     .select("id, name, relationship, relationship_depth, age_range, gender, interests, cultural_context, country, notes")
     .eq("id", persistedRequestBody.recipient_id)
-    .eq("user_id", user.id)
+    .eq("user_id", session.user_id)
     .single();
 
   if (recipientError || !recipient) {
@@ -243,6 +261,13 @@ export default async function handler(request: Request) {
       .eq("user_id", session.user_id);
 
     if (updateError) {
+      await refundGenerationCharge(
+        supabase,
+        session.user_id,
+        body.session_id,
+        persistedRequestBody.action_id,
+        persistedRequestBody.gift_generation_units ?? null,
+      );
       await failSession(currentState);
       return jsonResponse({ message: updateError.message }, 500);
     }
@@ -262,6 +287,13 @@ export default async function handler(request: Request) {
     });
   } catch (error) {
     const failedState = error instanceof GraphExecutionError ? error.state : currentState;
+    await refundGenerationCharge(
+      supabase,
+      session.user_id,
+      body.session_id,
+      persistedRequestBody.action_id,
+      persistedRequestBody.gift_generation_units ?? null,
+    );
     await failSession(failedState);
 
     const payload = getErrorPayload(error);

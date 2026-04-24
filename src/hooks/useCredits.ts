@@ -1,8 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import {
+  DEFAULT_FREE_MONTHLY_UNITS,
+  formatCreditsLabel,
+  formatCreditsValue,
+  getHalfCreditNotice,
+  getMonthlyUsageProgress,
+  getNextResetDateFromMonthlyBatch,
+  getResetCountdownLabel,
+} from "@/lib/credits";
+import { invokeAuthedFunction } from "@/hooks/giftSessionShared";
 
 export interface CreditBatch {
+  batch_type: string;
+  credit_month: string | null;
   id: string;
   package_name: string;
   credits_purchased: number;
@@ -22,9 +34,19 @@ export interface CreditTransaction {
 
 export interface UseCreditsReturn {
   balance: number;
+  balanceDisplay: string;
+  balanceLabel: string;
+  halfCreditNotice: string | null;
   batches: CreditBatch[];
   transactions: CreditTransaction[];
   isLoading: boolean;
+  userPlan: string | null;
+  isFreeTier: boolean;
+  monthlyBatch: CreditBatch | null;
+  monthlyAllocationUnits: number;
+  monthlyProgress: number;
+  resetDate: string | null;
+  resetCountdownLabel: string | null;
   nearestExpiry: { credits: number; daysLeft: number } | null;
   isLow: boolean;
   isEmpty: boolean;
@@ -37,6 +59,8 @@ export function useCredits(): UseCreditsReturn {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userPlan, setUserPlan] = useState<string | null>(null);
+  const ensuredMonthlyForRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,15 +91,29 @@ export function useCredits(): UseCreditsReturn {
     setIsLoading(true);
 
     try {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("credits_balance, active_plan")
+        .eq("id", userId)
+        .single();
+
+      if (profile?.active_plan === "spark" && ensuredMonthlyForRef.current !== userId) {
+        await invokeAuthedFunction<{
+          issued?: boolean;
+          new_balance?: number | null;
+        }>("ensure-monthly-credits", {}).catch(() => null);
+        ensuredMonthlyForRef.current = userId;
+      }
+
       const [{ data: userData }, { data: batchData }, { data: txData }] = await Promise.all([
         supabase
           .from("users")
-          .select("credits_balance")
+          .select("credits_balance, active_plan")
           .eq("id", userId)
           .single(),
         supabase
           .from("credit_batches")
-          .select("id, package_name, credits_purchased, credits_remaining, expires_at, is_expired, created_at")
+          .select("id, package_name, credits_purchased, credits_remaining, expires_at, is_expired, created_at, batch_type, credit_month")
           .eq("user_id", userId)
           .eq("is_expired", false)
           .gt("credits_remaining", 0)
@@ -90,8 +128,11 @@ export function useCredits(): UseCreditsReturn {
       ]);
 
       setBalance(userData?.credits_balance ?? 0);
+      setUserPlan(userData?.active_plan ?? null);
       setBatches((batchData ?? []).map((batch) => ({
         ...batch,
+        batch_type: batch.batch_type ?? "paid",
+        credit_month: batch.credit_month ?? null,
         is_expired: batch.is_expired ?? false,
         created_at: batch.created_at ?? new Date().toISOString(),
       })));
@@ -153,18 +194,40 @@ export function useCredits(): UseCreditsReturn {
     );
 
     return {
-      credits: nearest.credits_remaining,
+      credits: Number(formatCreditsValue(nearest.credits_remaining)),
       daysLeft,
     };
   }, [batches]);
 
+  const monthlyBatch = useMemo(
+    () => batches.find((batch) => batch.batch_type === "free_monthly") ?? null,
+    [batches],
+  );
+
+  const resetDate = useMemo(
+    () => getNextResetDateFromMonthlyBatch(monthlyBatch?.expires_at),
+    [monthlyBatch?.expires_at],
+  );
+
+  const monthlyAllocationUnits = DEFAULT_FREE_MONTHLY_UNITS;
+
   return {
     balance,
+    balanceDisplay: formatCreditsValue(balance),
+    balanceLabel: formatCreditsLabel(balance),
+    halfCreditNotice: getHalfCreditNotice(balance),
     batches,
     transactions,
     isLoading,
+    userPlan,
+    isFreeTier: userPlan === "spark",
+    monthlyBatch,
+    monthlyAllocationUnits,
+    monthlyProgress: getMonthlyUsageProgress(monthlyBatch?.credits_remaining ?? balance, monthlyAllocationUnits),
+    resetDate,
+    resetCountdownLabel: getResetCountdownLabel(resetDate),
     nearestExpiry,
-    isLow: balance > 0 && balance <= 3,
+    isLow: balance > 0 && balance < 4,
     isEmpty: balance === 0,
     refresh: fetchCredits,
   };

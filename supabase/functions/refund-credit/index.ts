@@ -43,6 +43,7 @@ serve(async (req) => {
     const sessionId = body.session_id;
     const amount = body.amount || 1;
     const reason = typeof body.reason === "string" ? body.reason : undefined;
+    const actionId = typeof body.action_id === "string" ? body.action_id : undefined;
 
     if (!sessionId) {
       return new Response(
@@ -56,6 +57,7 @@ serve(async (req) => {
       p_session_id: sessionId,
       p_amount: amount,
       p_reason: reason,
+      p_action_id: actionId,
     });
 
     if (error) {

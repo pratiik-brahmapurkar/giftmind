@@ -1,19 +1,32 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import BuyCreditsTab from "@/components/credits/BuyCreditsTab";
 import CreditHistoryTab from "@/components/credits/CreditHistoryTab";
+import SoftPaywall from "@/components/credits/SoftPaywall";
 import { SEOHead } from "@/components/common/SEOHead";
 import { useCredits } from "@/hooks/useCredits";
-import { useUserPlan } from "@/hooks/useUserPlan";
 import { Coins } from "lucide-react";
 
 const Credits = () => {
-  const { balance, batches, transactions, isLoading, nearestExpiry, isEmpty, refresh } = useCredits();
-  const { plan } = useUserPlan();
+  const {
+    balanceLabel,
+    batches,
+    transactions,
+    isLoading,
+    nearestExpiry,
+    isEmpty,
+    refresh,
+    userPlan,
+    isFreeTier,
+    monthlyProgress,
+    resetDate,
+    resetCountdownLabel,
+    halfCreditNotice,
+  } = useCredits();
   const [activeTab, setActiveTab] = useState("buy");
 
   const formatDate = (value: string) =>
@@ -36,7 +49,23 @@ const Credits = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="text-[40px] font-bold leading-none text-primary">🪙 {balance} credits available</div>
+              <div className="space-y-2">
+                <div className="text-[40px] font-bold leading-none text-primary">🪙 {balanceLabel} available</div>
+                {halfCreditNotice ? <p className="text-sm text-muted-foreground">{halfCreditNotice}</p> : null}
+              </div>
+
+              {isFreeTier ? (
+                <div className="space-y-2 rounded-2xl border border-primary/15 bg-primary/5 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm font-medium text-foreground">Credits this month</p>
+                    <p className="text-xs text-muted-foreground">{resetCountdownLabel ?? "Resets monthly"}</p>
+                  </div>
+                  <Progress value={monthlyProgress} className="h-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Resets on {formatDate(resetDate ?? new Date().toISOString())}
+                  </p>
+                </div>
+              ) : null}
 
               {nearestExpiry && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -50,7 +79,7 @@ const Credits = () => {
                   <div className="space-y-2 text-sm text-muted-foreground">
                     {batches.map((batch) => (
                       <p key={batch.id}>
-                        {batch.package_name}: {batch.credits_remaining} remaining (expires {formatDate(batch.expires_at)})
+                        {batch.package_name}: {(batch.credits_remaining / 2).toString().replace(/\.0$/, "")} remaining (expires {formatDate(batch.expires_at)})
                       </p>
                     ))}
                   </div>
@@ -60,12 +89,7 @@ const Credits = () => {
               </div>
 
               {isEmpty && (
-                <div className="flex flex-col gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-medium text-destructive">No credits remaining</p>
-                  <Button type="button" onClick={() => setActiveTab("buy")}>
-                    Get Credits →
-                  </Button>
-                </div>
+                <SoftPaywall compact />
               )}
             </CardContent>
           </Card>
@@ -78,7 +102,7 @@ const Credits = () => {
           </TabsList>
 
           <TabsContent value="buy">
-            <BuyCreditsTab currentPlan={plan} onPurchaseComplete={refresh} />
+            <BuyCreditsTab currentPlan={(userPlan as "spark" | "thoughtful" | "confident" | "gifting-pro" | undefined) ?? "spark"} onPurchaseComplete={refresh} />
           </TabsContent>
 
           <TabsContent value="history">

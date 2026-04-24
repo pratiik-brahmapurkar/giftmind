@@ -3,6 +3,8 @@ import { ArrowLeft, Check, MessageCircleHeart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import SoftPaywall from "@/components/credits/SoftPaywall";
+import { formatCreditsValue } from "@/lib/credits";
 import { CONTEXT_TAGS } from "@/lib/geoConfig";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +21,7 @@ interface StepContextProps {
   isSignalCheckEnabled?: boolean;
   signalCheckCost?: number;
   creditsBalance?: number;
+  giftGenerationUnits?: number;
 }
 
 export default function StepContext({
@@ -34,6 +37,7 @@ export default function StepContext({
   isSignalCheckEnabled = true,
   signalCheckCost = 0.5,
   creditsBalance = 0,
+  giftGenerationUnits = 2,
 }: StepContextProps) {
   const toggleTag = (id: string) => {
     if (contextTags.includes(id)) {
@@ -47,6 +51,7 @@ export default function StepContext({
   const signalCostLabel = Number.isInteger(signalCheckCost)
     ? `${signalCheckCost}`
     : signalCheckCost.toFixed(1).replace(/\.0$/, "");
+  const canAffordGiftGeneration = creditsBalance >= giftGenerationUnits;
 
   return (
     <div className="space-y-6">
@@ -158,11 +163,13 @@ export default function StepContext({
           <span>
             <strong>1 credit</strong> will be used when you continue.{" "}
             {creditsBalance > 0 && (
-              <span className="text-amber-700/80">You have {creditsBalance} remaining.</span>
+              <span className="text-amber-700/80">You have {formatCreditsValue(creditsBalance)} remaining.</span>
             )}
           </span>
         </p>
       </div>
+
+      {!canAffordGiftGeneration ? <SoftPaywall compact title="You need 1 credit to generate new recommendations." /> : null}
 
       {/* Buttons renamed (Item 11) */}
       <div className="flex flex-col gap-3">
@@ -172,6 +179,7 @@ export default function StepContext({
           size="lg"
           className="group relative min-h-12 overflow-hidden"
           onClick={onContinue}
+          disabled={!canAffordGiftGeneration}
         >
           {/* Subtle pulse glow */}
           <span className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

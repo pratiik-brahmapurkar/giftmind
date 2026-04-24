@@ -6,9 +6,10 @@ import type { PlanSlug } from "@/lib/geoConfig";
 import { trackEvent } from "@/lib/posthog";
 
 const CREDIT_USAGE = [
-  { action: "Gift session", cost: "1 credit" },
+  { action: "Gift recommendation", cost: "1 credit" },
   { action: "Signal Check", cost: "0.5 credits" },
-  { action: "Regeneration", cost: "Free" },
+  { action: "AI message draft", cost: "0.5 credits" },
+  { action: "Relationship insight", cost: "Free" },
   { action: "Save a person", cost: "Free" },
 ];
 

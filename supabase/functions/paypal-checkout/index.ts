@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseJsonBody, sanitizeString } from "../_shared/validate.ts";
+import { UNITS_PER_CREDIT } from "../_shared/credits.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -276,14 +277,15 @@ async function finalizeCredits(params: {
       .insert({
         user_id: params.userId,
         package_name: packageName,
-        credits_purchased: params.creditPackage.credits,
-        credits_remaining: params.creditPackage.credits,
+        credits_purchased: params.creditPackage.credits * UNITS_PER_CREDIT,
+        credits_remaining: params.creditPackage.credits * UNITS_PER_CREDIT,
         price_paid: params.priceUsd,
         currency: "USD",
         payment_provider: "paypal",
         payment_id: params.orderId,
         purchased_at: new Date().toISOString(),
         expires_at: expiresAt,
+        batch_type: "paid",
       })
       .select("*")
       .single();

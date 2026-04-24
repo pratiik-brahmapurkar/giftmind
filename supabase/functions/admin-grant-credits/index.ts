@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseJsonBody, sanitizeString } from "../_shared/validate.ts";
+import { UNITS_PER_CREDIT } from "../_shared/credits.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -110,6 +111,8 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "Amount must be a positive number" }, 400);
     }
 
+    const units = Math.floor(amount * UNITS_PER_CREDIT);
+
     const { data: targetUser, error: targetUserError } = await supabaseAdmin
       .from("users")
       .select("id, credits_balance")
@@ -120,7 +123,7 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "Target user not found" }, 404);
     }
 
-    const newBalance = (targetUser.credits_balance ?? 0) + amount;
+    const newBalance = (targetUser.credits_balance ?? 0) + units;
     const expiresAt = new Date(
       Date.now() + 3650 * 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -130,12 +133,13 @@ serve(async (req: Request): Promise<Response> => {
       .insert({
         user_id: targetUserId,
         package_name: "admin_grant",
-        credits_purchased: amount,
-        credits_remaining: amount,
+        credits_purchased: units,
+        credits_remaining: units,
         price_paid: 0,
         currency: "USD",
         payment_provider: "admin",
         expires_at: expiresAt,
+        batch_type: "admin_grant",
       })
       .select("id")
       .single();
@@ -151,13 +155,14 @@ serve(async (req: Request): Promise<Response> => {
         user_id: targetUserId,
         batch_id: batch.id,
         type: "admin_grant",
-        amount,
+        amount: units,
         payment_provider: "admin",
         metadata: {
           granted_by: user.id,
           reason,
           notes,
           balance_after: newBalance,
+          credits_granted: amount,
         },
       });
 

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useCredits";
@@ -43,7 +43,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 /* ── Sidebar nav items ── */
@@ -73,13 +72,14 @@ const bottomNavItems = [
 /* ── Credit Pill ── */
 interface CreditPillProps {
   credits: number;
+  creditsLabel: string;
   nearestExpiry: { credits: number; daysLeft: number } | null;
 }
 
-const CreditPill = ({ credits, nearestExpiry }: CreditPillProps) => {
+const CreditPill = ({ credits, creditsLabel, nearestExpiry }: CreditPillProps) => {
   const pillClass = credits === 0
     ? "bg-destructive/10 text-destructive"
-    : credits <= 3
+    : credits < 4
     ? "bg-warning/10 text-warning animate-pulse"
     : "bg-primary/10 text-primary";
 
@@ -87,7 +87,7 @@ const CreditPill = ({ credits, nearestExpiry }: CreditPillProps) => {
     <Popover>
       <PopoverTrigger asChild>
         <button className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer", pillClass)}>
-          <span>🪙 {credits}</span>
+          <span>🪙 {creditsLabel}</span>
           {nearestExpiry && (
             <span className="text-[10px] font-normal opacity-80">
               · {nearestExpiry.credits} expiring
@@ -100,7 +100,7 @@ const CreditPill = ({ credits, nearestExpiry }: CreditPillProps) => {
         {credits > 0 ? (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-2xl font-bold text-foreground">🪙 {credits}</span>
+              <span className="text-2xl font-bold text-foreground">🪙 {creditsLabel}</span>
               <span className="text-xs text-muted-foreground">available</span>
             </div>
             {nearestExpiry && (
@@ -133,12 +133,23 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const name = user?.user_metadata?.full_name || "User";
   const initials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   // Realtime credit balance (updates live without polling)
-  const { balance: credits, nearestExpiry } = useCredits();
+  const { balance: credits, balanceDisplay, nearestExpiry, userPlan, resetCountdownLabel, resetDate, isLow } = useCredits();
+
+  useEffect(() => {
+    const storageKey = "giftmind-credit-banner-dismissed";
+    setBannerDismissed(window.sessionStorage.getItem(storageKey) === "true");
+  }, []);
+
+  const dismissBanner = () => {
+    window.sessionStorage.setItem("giftmind-credit-banner-dismissed", "true");
+    setBannerDismissed(true);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -227,7 +238,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           {/* Right section */}
           <div className="flex items-center gap-3">
-            <CreditPill credits={credits} nearestExpiry={nearestExpiry} />
+            <CreditPill credits={credits} creditsLabel={balanceDisplay} nearestExpiry={nearestExpiry} />
             {credits === 0 && (
               <Link to="/credits" className="text-xs text-destructive font-medium hover:underline hidden sm:block">Top up</Link>
             )}
@@ -258,6 +269,26 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+          {userPlan === "spark" && !bannerDismissed ? (
+            <div className="mx-auto mb-6 max-w-5xl rounded-2xl border border-primary/15 bg-primary/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {balanceDisplay} left this month
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {resetCountdownLabel ?? "Resets monthly"}{resetDate ? ` on ${new Date(resetDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {isLow ? <Link to="/credits" className="text-sm font-medium text-primary hover:underline">Running low? Upgrade</Link> : null}
+                  <button type="button" onClick={dismissBanner} className="text-sm text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {children}
         </main>
       </div>

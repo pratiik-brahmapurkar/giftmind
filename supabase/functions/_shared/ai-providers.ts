@@ -409,10 +409,18 @@ export async function callAIWithFallback(
 
 export function getProviderChain(
   plan: string,
-  operation: "gift-generation" | "signal-check",
+  operation: "gift-generation" | "signal-check" | "message-draft" | "relationship-insight",
 ): Provider[] {
+  const freeTierChain: Provider[] = ["groq-llama", "gemini-flash", "claude-haiku"];
+
+  if (operation === "relationship-insight") {
+    return freeTierChain;
+  }
+
   if (operation === "signal-check") {
-    return ["claude-sonnet", "gemini-pro", "claude-haiku"];
+    if (plan === "gifting-pro") return ["claude-sonnet", "claude-haiku", "gemini-flash"];
+    if (plan === "confident") return ["claude-haiku", "gemini-flash", "groq-llama"];
+    return freeTierChain;
   }
 
   switch (plan) {
@@ -424,7 +432,7 @@ export function getProviderChain(
       return ["gemini-flash", "claude-haiku", "groq-llama"];
     case "spark":
     default:
-      return ["groq-llama", "gemini-flash", "claude-haiku"];
+      return freeTierChain;
   }
 }
 

@@ -37,9 +37,9 @@ function getClientIdentifier(req: Request, userId: string) {
 }
 
 // ── Referral signup bonus (credits on top of the trigger's default 3) ─────────
-const REFERRAL_SIGNUP_BONUS = 2;     // new user gets 3 + 2 = 5 credits
+const SIGNUP_CREDIT_UNITS = 6;       // 3 credits
+const REFERRAL_SIGNUP_BONUS_UNITS = 4; // 2 credits
 const REFERRAL_BONUS_DAYS = 14;      // bonus credits expire in 14 days
-const DEFAULT_SIGNUP_CREDITS = 3;    // what the DB trigger gives
 const MAX_REFERRALS_PER_USER = 10;   // cap to prevent abuse
 
 // ── Main handler ───────────────────────────────────────────────────────────────
@@ -211,12 +211,13 @@ serve(async (req: Request): Promise<Response> => {
       .insert({
         user_id: user.id,
         package_name: "referral_signup_bonus",
-        credits_purchased: REFERRAL_SIGNUP_BONUS,
-        credits_remaining: REFERRAL_SIGNUP_BONUS,
+        credits_purchased: REFERRAL_SIGNUP_BONUS_UNITS,
+        credits_remaining: REFERRAL_SIGNUP_BONUS_UNITS,
         price_paid: 0,
         currency: "USD",
         payment_provider: "referral",
         expires_at: expiresAt,
+        batch_type: "referral_bonus",
       });
 
     if (batchError) {
@@ -230,7 +231,7 @@ serve(async (req: Request): Promise<Response> => {
       .insert({
         user_id: user.id,
         type: "referral",
-        amount: REFERRAL_SIGNUP_BONUS,
+        amount: REFERRAL_SIGNUP_BONUS_UNITS,
         payment_provider: "referral",
         metadata: {
           referrer_id: referrer.id,
@@ -247,7 +248,7 @@ serve(async (req: Request): Promise<Response> => {
     const { error: updateError } = await supabaseAdmin
       .from("users")
       .update({
-        credits_balance: DEFAULT_SIGNUP_CREDITS + REFERRAL_SIGNUP_BONUS,
+        credits_balance: SIGNUP_CREDIT_UNITS + REFERRAL_SIGNUP_BONUS_UNITS,
         referred_by: referrer.id,
       })
       .eq("id", user.id);
@@ -261,8 +262,8 @@ serve(async (req: Request): Promise<Response> => {
 
     return json({
       success: true,
-      message: `Referral processed! You received ${REFERRAL_SIGNUP_BONUS} bonus credits.`,
-      total_credits: DEFAULT_SIGNUP_CREDITS + REFERRAL_SIGNUP_BONUS,
+      message: "Referral processed! You received 2 bonus credits.",
+      total_credits: 5,
       referrer_name: referrerName,
     });
   } catch (err) {

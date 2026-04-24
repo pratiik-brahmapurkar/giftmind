@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseJsonBody, sanitizeString } from "../_shared/validate.ts";
+import { DEFAULT_REFERRAL_REWARD_UNITS, parseNumberSetting } from "../_shared/credits.ts";
 
 // ── Environment ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -29,8 +30,22 @@ function json(body: unknown, status = 200) {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const REFERRER_REWARD_CREDITS = 3;   // referrer earns 3 credits per completed referral
 const REFERRAL_BONUS_DAYS = 14;      // reward credits expire in 14 days
+
+async function loadReferralRewardUnits() {
+  const { data, error } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "referral_reward_units")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to load referral_reward_units:", error.message);
+    return DEFAULT_REFERRAL_REWARD_UNITS;
+  }
+
+  return Math.max(0, Math.floor(parseNumberSetting(data?.value, DEFAULT_REFERRAL_REWARD_UNITS)));
+}
 
 // ── Main handler ───────────────────────────────────────────────────────────────
 serve(async (req: Request): Promise<Response> => {
@@ -103,7 +118,9 @@ serve(async (req: Request): Promise<Response> => {
       return json({ success: true, message: "Not first session" });
     }
 
-    // ── 5. Award 3 credits to the REFERRER ───────────────────────────────────
+    const referralRewardUnits = await loadReferralRewardUnits();
+
+    // ── 5. Award referral bonus to the REFERRER ──────────────────────────────
     const expiresAt = new Date(
       Date.now() + REFERRAL_BONUS_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -114,12 +131,13 @@ serve(async (req: Request): Promise<Response> => {
       .insert({
         user_id: referral.referrer_id,
         package_name: "referral_reward",
-        credits_purchased: REFERRER_REWARD_CREDITS,
-        credits_remaining: REFERRER_REWARD_CREDITS,
+        credits_purchased: referralRewardUnits,
+        credits_remaining: referralRewardUnits,
         price_paid: 0,
         currency: "USD",
         payment_provider: "referral",
         expires_at: expiresAt,
+        batch_type: "referral_bonus",
       });
 
     if (batchError) {
@@ -133,12 +151,13 @@ serve(async (req: Request): Promise<Response> => {
       .insert({
         user_id: referral.referrer_id,
         type: "referral",
-        amount: REFERRER_REWARD_CREDITS,
+        amount: referralRewardUnits,
         payment_provider: "referral",
         metadata: {
           referred_user_id: user.id,
           session_id,
           reason: "referral_reward",
+          reward_kind: "signal_check_bonus",
         },
       });
 
@@ -160,7 +179,7 @@ serve(async (req: Request): Promise<Response> => {
       const { error: balanceUpdateError } = await supabaseAdmin
         .from("users")
         .update({
-          credits_balance: (referrerData?.credits_balance ?? 0) + REFERRER_REWARD_CREDITS,
+          credits_balance: (referrerData?.credits_balance ?? 0) + referralRewardUnits,
         })
         .eq("id", referral.referrer_id);
 
@@ -189,7 +208,7 @@ serve(async (req: Request): Promise<Response> => {
       success: true,
       message: "Referral reward processed",
       referrer_credited: true,
-      credits_awarded: REFERRER_REWARD_CREDITS,
+      credits_awarded: referralRewardUnits,
     });
   } catch (err) {
     // ── Catch-all ─────────────────────────────────────────────────────────────
