@@ -128,10 +128,8 @@ function json(body: unknown, status = 200) {
 
 // ── Plan-based store limits ────────────────────────────────────────────────────
 const STORE_LIMITS: Record<string, number> = {
-  spark: 1,         // Amazon only (top-priority store)
-  thoughtful: 2,    // Amazon + 1 local store
-  confident: 99,    // All stores
-  "gifting-pro": 99, // All stores
+  spark: 99,
+  pro: 99,
 };
 
 // ── Build an affiliate search URL from store config ────────────────────────────
@@ -494,8 +492,8 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // ── 5. Apply plan-based store limit ────────────────────────────────────────
-    const maxStores = STORE_LIMITS[serverPlan] ?? 1;
-    const unlockPlan = maxStores <= 1 ? "thoughtful" : "confident";
+    const maxStores = STORE_LIMITS[serverPlan] ?? 99;
+    const unlockPlan = "pro";
 
     // ── 6. Build results per gift concept ──────────────────────────────────────
     const results: GiftResult[] = cleanGiftConcepts.map((concept): GiftResult => {

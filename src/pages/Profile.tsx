@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { PlanBadge } from "@/components/common/PlanBadge";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -193,7 +194,7 @@ const Profile = () => {
   
   const totalReferred = referrals.length;
   const completedReferrals = referrals.filter((r) => r.status === "completed").length;
-  const totalCreditsEarned = referrals.reduce((sum, r) => sum + (r.credits_awarded ? 3 : 0), 0);
+  const totalCreditsEarned = referrals.reduce((sum, r) => sum + (r.credits_awarded ? 1 : 0), 0);
   const remainingSlots = 10 - totalReferred;
 
   const handleCopy = () => {
@@ -204,12 +205,12 @@ const Profile = () => {
   };
 
   const whatsappMsg = encodeURIComponent(
-    `I found an amazing AI gifting tool! 🎁 Get 5 free credits: ${referralLink}`
+    `I found an AI gifting tool that gives thoughtful recommendations. Try it here: ${referralLink}`
   );
 
   const emailSubject = encodeURIComponent("Check out GiftMind — AI gift recommendations");
   const emailBody = encodeURIComponent(
-    `Hey! I've been using GiftMind to find perfect gifts. It gives you AI-powered recommendations with confidence scores and tells you where to buy. You'll get 5 free credits to try: ${referralLink}`
+    `Hey! I've been using GiftMind to find perfect gifts. It gives you AI-powered recommendations with confidence scores and tells you where to buy: ${referralLink}`
   );
 
   const initials = (fullName || user?.email || "U")
@@ -286,7 +287,10 @@ const Profile = () => {
                 />
               </div>
               <div>
-                <p className="font-medium text-foreground">{fullName || "Your Name"}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-foreground">{fullName || "Your Name"}</p>
+                  <PlanBadge plan={profile?.active_plan} />
+                </div>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
               </div>
             </div>
@@ -481,7 +485,7 @@ const Profile = () => {
             </div>
             {remainingSlots > 0 ? (
               <p className="text-sm text-muted-foreground">
-                Invite {remainingSlots} more friends to earn up to {remainingSlots * 3} credits.
+                Invite {remainingSlots} more friends to earn up to {remainingSlots} credits.
               </p>
             ) : (
               <p className="text-sm font-medium text-emerald-600">

@@ -58,7 +58,7 @@ function ProductLinks({
   const userCountry = detectUserCountry();
   const crossBorderCountry = recipientCountry && recipientCountry !== userCountry ? recipientCountry : null;
   const crossBorderMeta = SUPPORTED_COUNTRIES.find((country) => country.code === crossBorderCountry);
-  const currentPlan = lockedStores.some((store) => store.unlock_plan === "thoughtful") ? "spark" : "thoughtful";
+  const currentPlan = "spark";
   const upgradeText = getUpgradeText(currentPlan, "more_stores");
   const amazonDomain =
     recipientCountry === "IN"
@@ -293,14 +293,14 @@ function ProductLinks({
 
         {lockedStoreCountTotal > 0 ? (
           <p className="text-xs text-muted-foreground">
-            +{lockedStoreCountTotal} more stores available on Confident
+            +{lockedStoreCountTotal} more stores coming with Pro
           </p>
         ) : null}
 
         <AffiliateDisclaimer />
       </div>
 
-      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} reason={upgradeReason} highlightPlan="confident" />
+      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} reason={upgradeReason} highlightPlan="pro" />
     </>
   );
 }

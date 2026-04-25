@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PlanBadge } from "@/components/common/PlanBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,7 @@ const sidebarItems = [
   { label: "Find a Gift", path: "/gift-flow", icon: Gift, accent: true },
   { label: "Gift History", path: "/gift-history", icon: History },
   { label: "Credits", path: "/credits", icon: Coins },
+  { label: "Plans", path: "/plans", icon: ShoppingBag },
   { label: "Refer a Friend", path: "/settings", icon: Link2 },
 ];
 
@@ -114,8 +116,8 @@ const CreditPill = ({ credits, creditsLabel, nearestExpiry }: CreditPillProps) =
           <p className="text-sm text-muted-foreground">No credits remaining</p>
         )}
         <div className="border-t border-border mt-3 pt-3">
-          <Link to="/credits" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">
-            + Buy More Credits
+          <Link to="/plans" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">
+            Join Pro Waitlist
           </Link>
         </div>
       </PopoverContent>
@@ -177,6 +179,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         {/* Primary Nav */}
         <nav className="flex-1 p-2 space-y-1">
+          {sidebarOpen && (
+            <div className="mb-2 rounded-lg border border-border/60 bg-background p-3">
+              <PlanBadge plan={userPlan} />
+              <p className="mt-2 text-xs text-muted-foreground">
+                {balanceDisplay} credits · {resetCountdownLabel ?? "Resets monthly"}
+              </p>
+            </div>
+          )}
+
           {sidebarItems.map((item) => (
             <Link key={item.path + item.label} to={item.path}
               className={cn(
@@ -240,7 +251,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex items-center gap-3">
             <CreditPill credits={credits} creditsLabel={balanceDisplay} nearestExpiry={nearestExpiry} />
             {credits === 0 && (
-              <Link to="/credits" className="text-xs text-destructive font-medium hover:underline hidden sm:block">Top up</Link>
+              <Link to="/plans" className="text-xs text-destructive font-medium hover:underline hidden sm:block">Join waitlist</Link>
             )}
 
             <DropdownMenu>
@@ -281,7 +292,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {isLow ? <Link to="/credits" className="text-sm font-medium text-primary hover:underline">Running low? Upgrade</Link> : null}
+                  {isLow ? <Link to="/plans" className="text-sm font-medium text-primary hover:underline">See Pro</Link> : null}
                   <button type="button" onClick={dismissBanner} className="text-sm text-muted-foreground hover:text-foreground">
                     <X className="h-4 w-4" />
                   </button>
@@ -312,6 +323,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   <div className="space-y-1 py-4">
                     {[
                       { label: "Credits", path: "/credits", icon: Coins },
+                      { label: "Plans", path: "/plans", icon: ShoppingBag },
                       { label: "Refer a Friend", path: "/settings", icon: Link2 },
                       { label: "Settings", path: "/settings", icon: Settings },
                       { label: "Blog", path: "/blog", icon: FileText },

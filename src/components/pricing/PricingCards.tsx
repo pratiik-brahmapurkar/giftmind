@@ -1,64 +1,104 @@
+import { useState } from "react";
+import { Check, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PricingCard } from "@/components/ui/pricing-card";
-import { PLANS, PlanSlug } from "@/lib/geoConfig";
-import { Sparkles } from "lucide-react";
+import { PLAN_CONFIG, type PlanKey } from "@/lib/plans";
+import { WaitlistForm } from "@/components/pricing/WaitlistForm";
+import { WaitlistConfirmation } from "@/components/pricing/WaitlistConfirmation";
+import { cn } from "@/lib/utils";
 
 interface PricingCardsProps {
-  currentPlan?: PlanSlug;
-  highlightPlan?: PlanSlug;
-  onBuyClick: (slug: string) => void;
+  currentPlan?: PlanKey;
+  highlightPlan?: PlanKey;
+  onBuyClick?: (slug: string) => void;
   compact?: boolean;
+  source?: string;
 }
 
 export function PricingCards({
   currentPlan = "spark",
-  highlightPlan = "confident",
-  onBuyClick,
   compact = false,
+  onBuyClick,
+  source = "plans_page",
 }: PricingCardsProps) {
-  const planOrder: PlanSlug[] = compact
-    ? ["thoughtful", "confident", "gifting-pro"]
-    : ["spark", "thoughtful", "confident", "gifting-pro"];
+  const [joined, setJoined] = useState<{ position: number; email?: string; already_joined?: boolean } | null>(null);
+  const plans: PlanKey[] = ["spark", "pro"];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-      <div className={`grid items-stretch gap-6 ${compact ? "lg:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
-        {planOrder.map((slug) => {
-          const plan = PLANS[slug];
-          const priceLabel = slug === "spark" ? "Free" : `$${plan.price.toFixed(2)}`;
-          const contextLabel = slug === "spark" ? "to start" : `per ${plan.credits} sessions`;
+    <div className="mx-auto w-full max-w-5xl">
+      <div className={cn("grid items-stretch gap-6", compact ? "md:grid-cols-2" : "md:grid-cols-2")}>
+        {plans.map((slug) => {
+          const plan = PLAN_CONFIG[slug];
+          const isCurrent = currentPlan === slug;
+          const isPro = slug === "pro";
 
           return (
-            <PricingCard
+            <div
               key={slug}
-              plan={slug}
-              price={priceLabel}
-              priceContext={contextLabel}
-              features={plan.features}
-              disabledFeatures={plan.lockedFeatures.map((item) => item.text)}
-              isRecommended={highlightPlan === slug}
-              isCurrentPlan={currentPlan === slug}
-              onSelect={() => onBuyClick(slug)}
-            />
+              className={cn(
+                "flex h-full flex-col rounded-lg border bg-card p-6 shadow-sm",
+                isPro ? "border-amber-300 bg-amber-50/40" : "border-border",
+              )}
+            >
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-heading text-2xl font-bold text-foreground">
+                    {plan.name} {plan.emoji}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+                </div>
+                {plan.isComingSoon ? <Badge className="bg-amber-500 text-amber-950">Coming Soon</Badge> : null}
+              </div>
+
+              <div className="mb-6">
+                <span className="font-heading text-4xl font-bold text-foreground">
+                  {plan.price === 0 ? "Free" : `$${plan.price.toFixed(2)}`}
+                </span>
+                {plan.price > 0 ? <span className="text-sm text-muted-foreground">/month</span> : null}
+              </div>
+
+              <ul className="mb-6 flex-1 space-y-3">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {isCurrent ? (
+                <div className="rounded-md border border-border bg-background py-2.5 text-center text-sm font-medium text-muted-foreground">
+                  Current Plan
+                </div>
+              ) : !isPro ? (
+                <div className="rounded-md border border-border bg-background py-2.5 text-center text-sm font-medium text-muted-foreground">
+                  Free Plan
+                </div>
+              ) : joined ? (
+                <WaitlistConfirmation position={joined.position} email={joined.email} alreadyJoined={joined.already_joined} />
+              ) : onBuyClick ? (
+                <Button className="w-full" onClick={() => onBuyClick(slug)}>
+                  Join Pro Waitlist
+                </Button>
+              ) : (
+                <WaitlistForm source={source} compact onJoined={setJoined} />
+              )}
+            </div>
           );
         })}
       </div>
 
-      <div className="space-y-4 pb-8 pt-12 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-border/60 bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm">
+      <div className="space-y-3 pb-4 pt-8 text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm">
           <Sparkles className="h-4 w-4 text-[#D4A04A]" />
-          All plans include: AI recommendations · Confidence scores · Regional store links
+          All users get Signal Check, AI message drafts, confidence scores, and all store links.
         </div>
-        <p className="flex items-center justify-center gap-2 text-sm font-bold tracking-wide text-[#6F5326]">
-          <span className="inline-block text-xl drop-shadow-sm">🎁</span>
-          Start with 3 free credits on Spark — no card needed
+        <p className="text-sm font-medium text-muted-foreground">
+          Spark includes 15 free credits every month. Pro removes limits when it launches.
         </p>
-        <div className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200/50 bg-gray-50 px-4 py-1.5 text-xs font-medium text-gray-500">
-          <Badge variant="secondary" size="sm" className="rounded-full border-none bg-[#00457C]/10 text-[#00457C]">
-            PayPal
-          </Badge>
-          All prices in USD. PayPal accepts cards from 200+ countries.
-        </div>
+        <Button variant="link" className="text-primary" asChild>
+          <a href="/settings">Refer a friend to earn 1 free credit instantly</a>
+        </Button>
       </div>
     </div>
   );

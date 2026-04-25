@@ -154,9 +154,9 @@ describe("simulateMarketplacePreview", () => {
       userPlan: "spark",
     });
 
-    expect(result.rows).toHaveLength(1);
+    expect(result.rows).toHaveLength(2);
     expect(result.total_stores_available).toBe(2);
-    expect(result.locked_store_count_total).toBe(1);
+    expect(result.locked_store_count_total).toBe(0);
     expect(result.rows[0]?.store_id).toBe("amazon_in");
   });
 
@@ -173,7 +173,7 @@ describe("simulateMarketplacePreview", () => {
       targetCountry: "SG",
       budgetMin: 10,
       budgetMax: 40,
-      userPlan: "confident",
+      userPlan: "pro",
       isGlobalFallback: true,
     });
 

@@ -1853,9 +1853,7 @@ export default function AdminMarketplaces() {
                       onChange={(value) => setPreviewForm((prev) => ({ ...prev, plan: value }))}
                       options={[
                         { value: "spark", label: "Spark" },
-                        { value: "thoughtful", label: "Thoughtful" },
-                        { value: "confident", label: "Confident" },
-                        { value: "gifting-pro", label: "Gifting Pro" },
+                        { value: "pro", label: "Pro" },
                       ]}
                     />
                   </div>

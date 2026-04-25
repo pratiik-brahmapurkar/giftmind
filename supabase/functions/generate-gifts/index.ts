@@ -131,10 +131,8 @@ async function refundGiftGenerationCredits(params: {
 
 function regenerationLimit(plan: string): number {
   const limits: Record<string, number> = {
-    spark: 1,
-    thoughtful: 2,
-    confident: 3,
-    "gifting-pro": -1,
+    spark: 2,
+    pro: -1,
   };
 
   return limits[plan] ?? limits.spark;
@@ -502,7 +500,8 @@ serve(async (req) => {
           {
             error: "REGENERATION_LIMIT_REACHED",
             message: `Your plan allows ${maxRegenerations} regeneration${maxRegenerations === 1 ? "" : "s"} per session.`,
-            upgrade_to: plan === "spark" ? "thoughtful" : "confident",
+            upgrade_to: "pro",
+            upgrade_status: "coming_soon",
           },
           403,
         );
@@ -538,7 +537,8 @@ serve(async (req) => {
           errorType: "NO_CREDITS",
           next_reset: getNextResetIso(),
           show_upgrade: true,
-          upgrade_to: "thoughtful",
+          upgrade_to: "pro",
+          upgrade_status: "coming_soon",
         },
         402,
       );
@@ -566,7 +566,8 @@ serve(async (req) => {
           remaining: deductResult?.remaining_balance ?? 0,
           next_reset: getNextResetIso(),
           show_upgrade: true,
-          upgrade_to: "thoughtful",
+          upgrade_to: "pro",
+          upgrade_status: "coming_soon",
         },
         402,
       );

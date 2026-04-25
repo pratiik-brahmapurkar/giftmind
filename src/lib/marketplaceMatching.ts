@@ -22,10 +22,8 @@ export const CATEGORY_SUGGESTIONS = [
 ] as const;
 
 export const STORE_LIMITS: Record<string, number> = {
-  spark: 1,
-  thoughtful: 2,
-  confident: 99,
-  "gifting-pro": 99,
+  spark: 99,
+  pro: 99,
 };
 
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock" | "preorder" | "unknown";

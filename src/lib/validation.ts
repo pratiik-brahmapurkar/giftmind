@@ -66,7 +66,7 @@ export function validateRelationship(rel: string): boolean {
 }
 
 export function validatePlan(plan: string): boolean {
-  return ["spark", "thoughtful", "confident", "gifting-pro"].includes(plan);
+  return ["spark", "pro"].includes(plan);
 }
 
 export function validateCurrency(currency: string): boolean {

@@ -53,7 +53,7 @@ interface RecipientFormModalProps {
   loading?: boolean;
   reminderNote?: string;
   reminderQuota?: {
-    plan: "locked" | "confident" | "gifting-pro";
+    plan: "locked" | "pro";
     used: number;
     limit: number | null;
     remaining: number | null;
@@ -518,7 +518,7 @@ const RecipientFormModal = ({
                 </div>
               ) : null}
 
-              {reminderQuota?.plan === "confident" ? (
+              {reminderQuota?.plan === "pro" && reminderQuota.limit !== null ? (
                 <div className="rounded-xl border border-border/60 bg-background p-3 text-sm">
                   <p className="font-medium text-foreground">
                     {reminderQuota.used} upcoming reminder{reminderQuota.used === 1 ? "" : "s"} saved
@@ -526,12 +526,12 @@ const RecipientFormModal = ({
                     {reminderQuota.remaining ?? 0} remaining
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Confident includes up to {reminderQuota.limit} reminder slots. Upgrade to Gifting Pro for unlimited reminders.
+                    Spark includes up to {reminderQuota.limit} reminder slots. Join the Pro waitlist for unlimited reminders.
                   </p>
                 </div>
               ) : null}
 
-              {reminderQuota?.plan === "gifting-pro" ? (
+              {reminderQuota?.plan === "pro" && reminderQuota.limit === null ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
                   <p className="font-medium">
                     {reminderQuota.used} upcoming reminder{reminderQuota.used === 1 ? "" : "s"} saved · Unlimited plan

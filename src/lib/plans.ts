@@ -1,7 +1,14 @@
-export type PlanKey = "spark" | "thoughtful" | "confident" | "gifting-pro";
-export type StoresLevel = "basic" | "standard" | "all";
+export type PlanKey = "spark" | "pro";
+export type StoresLevel = "all";
 
-export interface PlanLimits {
+export interface PlanConfig {
+  slug: PlanKey;
+  name: string;
+  emoji: string;
+  tagline: string;
+  price: number;
+  isComingSoon: boolean;
+  credits: number | "unlimited";
   recipients: number;
   regenerations: number;
   reminders: number;
@@ -9,84 +16,113 @@ export interface PlanLimits {
   hasBatchMode: boolean;
   hasPriorityAi: boolean;
   hasHistoryExport: boolean;
-  storeAccess: string[];
+  storeAccess: "all";
+  aiProviderTier: "free" | "priority";
+  features: string[];
+  proOnlyFeatures: string[];
+  badgeVariant: "default" | "pro";
   label: string;
+  maxRecipients: number;
+  maxRegenerations: number;
+  maxReminders: number;
+  storesLevel: StoresLevel;
 }
 
-export const PLAN_CONFIG: Record<PlanKey, PlanLimits> = {
+export const PLAN_CONFIG: Record<PlanKey, PlanConfig> = {
   spark: {
-    recipients: 1,
-    regenerations: 1,
-    reminders: 0,
-    hasSignalCheck: false,
-    hasBatchMode: false,
-    hasPriorityAi: false,
-    hasHistoryExport: false,
-    storeAccess: ["amazon"],
-    label: "Spark ✨",
-  },
-  thoughtful: {
+    slug: "spark",
+    name: "Spark",
+    emoji: "✨",
+    tagline: "Everything you need to find the perfect gift",
+    price: 0,
+    isComingSoon: false,
+    credits: 15,
     recipients: 5,
     regenerations: 2,
-    reminders: 0,
-    hasSignalCheck: false,
+    reminders: 2,
+    hasSignalCheck: true,
     hasBatchMode: false,
     hasPriorityAi: false,
     hasHistoryExport: false,
-    storeAccess: ["amazon", "flipkart"],
-    label: "Thoughtful 💝",
+    storeAccess: "all",
+    aiProviderTier: "free",
+    features: [
+      "15 credits/month (auto-refresh)",
+      "5 saved profiles",
+      "2 redos per gift",
+      "Signal Check",
+      "AI message drafts",
+      "All stores",
+      "Confidence scores",
+    ],
+    proOnlyFeatures: [
+      "Unlimited credits",
+      "Batch mode",
+      "Priority AI",
+      "History export",
+    ],
+    badgeVariant: "default",
+    label: "Spark ✨",
+    maxRecipients: 5,
+    maxRegenerations: 2,
+    maxReminders: 2,
+    storesLevel: "all",
   },
-  confident: {
-    recipients: 15,
-    regenerations: 3,
-    reminders: 3,
-    hasSignalCheck: true,
-    hasBatchMode: true,
-    hasPriorityAi: false,
-    hasHistoryExport: false,
-    storeAccess: ["amazon", "flipkart", "myntra", "etsy", "others"],
-    label: "Confident 🎯",
-  },
-  "gifting-pro": {
-    recipients: Number.POSITIVE_INFINITY,
-    regenerations: Number.POSITIVE_INFINITY,
-    reminders: Number.POSITIVE_INFINITY,
+  pro: {
+    slug: "pro",
+    name: "Pro",
+    emoji: "🎯",
+    tagline: "Unlimited gifting for people who care deeply",
+    price: 5.99,
+    isComingSoon: true,
+    credits: "unlimited",
+    recipients: -1,
+    regenerations: -1,
+    reminders: -1,
     hasSignalCheck: true,
     hasBatchMode: true,
     hasPriorityAi: true,
     hasHistoryExport: true,
-    storeAccess: ["amazon", "flipkart", "myntra", "etsy", "others"],
-    label: "Gifting Pro 🚀",
+    storeAccess: "all",
+    aiProviderTier: "priority",
+    features: [
+      "Unlimited credits",
+      "Unlimited profiles",
+      "Unlimited redos",
+      "Signal Check",
+      "AI message drafts",
+      "Batch mode",
+      "Priority AI (Claude Sonnet)",
+      "Gift history export",
+      "All stores",
+    ],
+    proOnlyFeatures: [],
+    badgeVariant: "pro",
+    label: "Pro 🎯",
+    maxRecipients: -1,
+    maxRegenerations: -1,
+    maxReminders: -1,
+    storesLevel: "all",
   },
 };
 
 export function normalizePlan(plan?: string | null): PlanKey {
-  if (plan === "spark" || plan === "thoughtful" || plan === "confident" || plan === "gifting-pro") return plan;
+  if (plan === "pro") return "pro";
   return "spark";
 }
 
-export function getUpgradePlanForFeature(plan: PlanKey, feature: string): PlanKey {
-  const featureMap: Record<string, PlanKey> = {
-    signal_check: "confident",
-    batch_mode: "confident",
-    more_recipients: plan === "spark" ? "thoughtful" : "confident",
-    more_regenerations: plan === "spark" ? "thoughtful" : "confident",
-    more_stores: plan === "spark" ? "thoughtful" : "confident",
-    priority_ai: "gifting-pro",
-    history_export: "gifting-pro",
-  };
-
-  return featureMap[feature] ?? "confident";
+export function getPlanConfig(slug?: string | null) {
+  return PLAN_CONFIG[normalizePlan(slug)];
 }
 
-export function getNextPlan(plan: PlanKey): Exclude<PlanKey, "spark"> {
-  if (plan === "spark") return "thoughtful";
-  if (plan === "thoughtful") return "confident";
-  return "gifting-pro";
+export function getUpgradePlanForFeature(): PlanKey {
+  return "pro";
 }
 
-export function getStoresLevel(storeAccess: string[]): StoresLevel {
-  if (storeAccess.length <= 1) return "basic";
-  if (storeAccess.length <= 2) return "standard";
+export function getNextPlan(): PlanKey {
+  return "pro";
+}
+
+export function getStoresLevel(): StoresLevel {
   return "all";
 }

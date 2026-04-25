@@ -24,6 +24,7 @@ const MyPeople = lazy(() => import("./pages/MyPeople"));
 const GiftFlow = lazy(() => import("./pages/GiftFlow"));
 const GiftHistory = lazy(() => import("./pages/GiftHistory"));
 const Credits = lazy(() => import("./pages/Credits"));
+const Plans = lazy(() => import("./pages/Plans"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
 const BlogListing = lazy(() => import("./pages/BlogListing"));
@@ -77,6 +78,7 @@ const App = () => {
               <Route path="/gift-flow" element={routeWithLoader(<AuthGuard><GiftFlow /></AuthGuard>)} />
               <Route path="/gift-history" element={routeWithLoader(<AuthGuard><GiftHistory /></AuthGuard>)} />
               <Route path="/credits" element={routeWithLoader(<AuthGuard><Credits /></AuthGuard>)} />
+              <Route path="/plans" element={routeWithLoader(<AuthGuard><Plans /></AuthGuard>)} />
               <Route path="/profile" element={routeWithLoader(<AuthGuard><Profile /></AuthGuard>)} />
               <Route path="/settings" element={routeWithLoader(<AuthGuard><Settings /></AuthGuard>)} />
               <Route path="/blog" element={routeWithLoader(<BlogListing />)} />

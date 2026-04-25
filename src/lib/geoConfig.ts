@@ -1,147 +1,13 @@
 // src/lib/geoConfig.ts
 // Universal USD pricing — zero localization
 
+import { PLAN_CONFIG, getPlanConfig, type PlanKey } from "@/lib/plans";
+
 // ─── Plan Configuration ───
 
-export const PLANS = {
-  spark: {
-    name: 'Spark',
-    slug: 'spark',
-    emoji: '✨',
-    badge: null,
-    price: 0,
-    credits: 3,
-    validityDays: 7,
-    perSession: '$0',
-    savings: '',
-    maxRecipients: 1,
-    maxRegenerations: 1,
-    maxReminders: 0,
-    storesLevel: 'basic' as const,
-    hasSignalCheck: false,
-    hasBatchMode: false,
-    hasPriorityAi: false,
-    hasHistoryExport: false,
-    features: [
-      '3 Sessions',
-      '1 Saved Profile',
-      '1 Redo per gift',
-      'Amazon Store Access',
-      'Confidence Scores',
-    ],
-    lockedFeatures: [
-      { text: 'Signal Check', unlockPlan: 'confident' },
-      { text: 'Batch mode', unlockPlan: 'confident' },
-      { text: 'Priority AI', unlockPlan: 'gifting-pro' },
-    ],
-    buttonText: 'Current Plan',
-    buttonVariant: 'outline' as const,
-  },
-  thoughtful: {
-    name: 'Thoughtful',
-    slug: 'thoughtful',
-    emoji: '💝',
-    badge: '💝',
-    price: 2.99,
-    credits: 25,
-    validityDays: 30,
-    perSession: '$0.12',
-    savings: '',
-    maxRecipients: 5,
-    maxRegenerations: 2,
-    maxReminders: 0,
-    storesLevel: 'basic' as const,
-    hasSignalCheck: false,
-    hasBatchMode: false,
-    hasPriorityAi: false,
-    hasHistoryExport: false,
-    features: [
-      '25 Sessions',
-      '5 Saved Profiles',
-      '2 Redos per gift',
-      'Local Store Access',
-      'Confidence Scores',
-    ],
-    lockedFeatures: [
-      { text: 'Signal Check', unlockPlan: 'confident' },
-      { text: 'Batch mode', unlockPlan: 'confident' },
-    ],
-    buttonText: 'Get Thoughtful',
-    buttonVariant: 'outline' as const,
-  },
-  confident: {
-    name: 'Confident',
-    slug: 'confident',
-    emoji: '🎯',
-    badge: '🎯 Best Value',
-    price: 5.99,
-    credits: 75,
-    validityDays: 60,
-    perSession: '$0.08',
-    savings: 'Save 33%',
-    maxRecipients: 15,
-    maxRegenerations: 3,
-    maxReminders: 3,
-    storesLevel: 'all' as const,
-    hasSignalCheck: true,
-    hasBatchMode: true,
-    hasPriorityAi: false,
-    hasHistoryExport: false,
-    features: [
-      '75 Sessions',
-      '15 Saved Profiles',
-      '3 Redos per gift',
-      'Global Store Access',
-      'Signal Check',
-      'Batch Mode',
-    ],
-    lockedFeatures: [
-      { text: 'Priority AI', unlockPlan: 'gifting-pro' },
-      { text: 'Export history', unlockPlan: 'gifting-pro' },
-    ],
-    buttonText: 'Get Best Value',
-    buttonVariant: 'default' as const,
-    isRecommended: true,
-  },
-  'gifting-pro': {
-    name: 'Gifting Pro',
-    slug: 'gifting-pro',
-    emoji: '🚀',
-    badge: '🚀 Power Gifter',
-    price: 14.99,
-    credits: 200,
-    validityDays: 90,
-    perSession: '$0.07',
-    savings: 'Save 37%',
-    maxRecipients: -1,
-    maxRegenerations: -1,
-    maxReminders: -1,
-    storesLevel: 'all' as const,
-    hasSignalCheck: true,
-    hasBatchMode: true,
-    hasPriorityAi: true,
-    hasHistoryExport: true,
-    features: [
-      '200 Sessions',
-      'Unlimited Profiles',
-      'Unlimited Redos',
-      'Global Store Access',
-      'Signal Check',
-      'Batch Mode',
-      'Priority AI Access',
-    ],
-    lockedFeatures: [],
-    buttonText: 'Go Pro 🚀',
-    buttonVariant: 'default' as const,
-    isDark: true,
-  },
-} as const;
-
-export type PlanSlug = keyof typeof PLANS;
-
-export function getPlanConfig(slug: string) {
-  return PLANS[slug as PlanSlug] || PLANS.spark;
-}
+export const PLANS = PLAN_CONFIG;
+export type PlanSlug = PlanKey;
+export { getPlanConfig };
 
 // ─── Budget Chips (USD only, no alternatives) ───
 
@@ -156,23 +22,20 @@ export const BUDGET_CHIPS = [
 
 // ─── Upgrade Helpers ───
 
-export function getUpgradePlan(currentPlan: string, feature: string): PlanSlug {
-  const map: Record<string, PlanSlug> = {
-    'signal_check': 'confident',
-    'batch_mode': 'confident',
-    'more_recipients': currentPlan === 'spark' ? 'thoughtful' : 'confident',
-    'more_stores': currentPlan === 'spark' ? 'thoughtful' : 'confident',
-    'more_regenerations': currentPlan === 'spark' ? 'thoughtful' : 'confident',
-    'priority_ai': 'gifting-pro',
-    'history_export': 'gifting-pro',
-    'reminders': 'confident',
-  };
-  return map[feature] || 'confident';
+export function getUpgradePlan(_currentPlan: string, _feature: string): PlanSlug {
+  return "pro";
 }
 
 export function getUpgradeText(currentPlan: string, feature: string): string {
-  const plan = PLANS[getUpgradePlan(currentPlan, feature)];
-  return `Unlock with ${plan.name} ${plan.emoji}`;
+  const labels: Record<string, string> = {
+    batch_mode: "Batch mode is a Pro feature. Join the waitlist to unlock it when Pro launches.",
+    history_export: "History export is a Pro feature. Join the waitlist to unlock it when Pro launches.",
+    more_recipients: "Spark includes 5 saved people. Join the Pro waitlist for unlimited profiles.",
+    more_regenerations: "Spark includes 2 redos per gift. Join the Pro waitlist for unlimited redos.",
+    reminders: "Spark includes 2 active reminders. Join the Pro waitlist for unlimited reminders.",
+    signal_check: "Signal Check is available on Spark and costs 0.5 credits.",
+  };
+  return labels[feature] ?? `Pro is coming soon for ${getPlanConfig(currentPlan).name} users.`;
 }
 
 // ─── Countries (for store geo-targeting only, NOT for currency) ───

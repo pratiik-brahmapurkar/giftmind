@@ -1,24 +1,16 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import PricingCards from "@/components/pricing/PricingCards";
-import PaymentMethodModal from "@/components/pricing/PaymentMethodModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedPlanSlug, setSelectedPlanSlug] = useState<string | null>(null);
-
   const handleBuyClick = (slug: string) => {
     if (user) {
-      // User is already logged in, immediately ask for payment
-      setSelectedPlanSlug(slug);
-      setPaymentModalOpen(true);
+      navigate("/plans");
     } else {
-      // Not logged in, send them through the acquisition funnel
       navigate(`/signup?plan=${slug}`);
     }
   };
@@ -36,18 +28,12 @@ const Pricing = () => {
             Simple, honest pricing
           </h2>
           <p className="text-muted-foreground text-lg">
-            Pay per use. No subscriptions. No surprises.
+            Start free. Join the Pro waitlist when you want unlimited gifting.
           </p>
         </motion.div>
 
         <PricingCards onBuyClick={handleBuyClick} />
       </div>
-
-      <PaymentMethodModal
-        open={paymentModalOpen}
-        onOpenChange={setPaymentModalOpen}
-        planSlug={selectedPlanSlug}
-      />
     </section>
   );
 };

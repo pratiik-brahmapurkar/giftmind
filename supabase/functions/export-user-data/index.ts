@@ -71,8 +71,8 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const userPlan = userProfile.active_plan ?? "spark";
-    if (userPlan !== "gifting-pro") {
-      return json({ error: "Data export is available on Gifting Pro plan" }, 403);
+    if (userPlan !== "pro") {
+      return json({ error: "Data export is coming with Pro", upgrade_status: "coming_soon" }, 403);
     }
 
     const [

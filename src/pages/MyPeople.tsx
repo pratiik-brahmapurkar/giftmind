@@ -173,20 +173,20 @@ const MyPeople = () => {
       limit: null,
       remaining: null,
     }
-    : limits.reminders === Infinity
+    : limits.reminders === -1
       ? {
-        plan: "gifting-pro" as const,
+        plan: "pro" as const,
         used: reminderCount,
         limit: null,
         remaining: null,
       }
       : {
-        plan: "confident" as const,
+        plan: "pro" as const,
         used: reminderCount,
         limit: Math.min(5, editingReminderCount + Math.max(0, limits.reminders - Math.max(0, reminderCount - editingReminderCount))),
         remaining: Math.max(0, limits.reminders - reminderCount),
       };
-  const capacityPct = limits.recipients === Infinity ? 0 : recipients.length / limits.recipients;
+  const capacityPct = limits.recipients === -1 ? 0 : recipients.length / limits.recipients;
   const capacityColor = capacityPct >= 1 ? "text-destructive" : capacityPct >= 0.8 ? "text-warning" : "text-muted-foreground";
 
   const closeModal = (open: boolean) => {
@@ -255,7 +255,7 @@ const MyPeople = () => {
 
         {recipients.length > 0 && (
           <p className={cn("mb-4 text-xs", capacityColor)}>
-            {recipients.length}/{limits.recipients === Infinity ? "∞" : limits.recipients} people ({limits.label})
+            {recipients.length}/{limits.recipients === -1 ? "∞" : limits.recipients} people ({limits.label})
           </p>
         )}
 
@@ -424,10 +424,10 @@ const MyPeople = () => {
           setUpgradeOpen(true);
         }}
         reminderNote={
-          plan === "spark" || plan === "thoughtful"
-            ? "Date saved. Reminders are available on Confident and above."
-            : plan === "confident"
-              ? `${reminderCount}/${limits.reminders} reminders saved. Upgrade to Gifting Pro for unlimited reminders.`
+          plan === "spark"
+            ? "Date saved. Spark includes 2 reminders. Join the Pro waitlist for unlimited reminders."
+            : plan === "pro" && limits.reminders !== -1
+              ? `${reminderCount}/${limits.reminders} reminders saved. Join the Pro waitlist for unlimited reminders.`
               : undefined
         }
         stats={editingRecipient ? {

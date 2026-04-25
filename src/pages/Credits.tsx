@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import BuyCreditsTab from "@/components/credits/BuyCreditsTab";
 import CreditHistoryTab from "@/components/credits/CreditHistoryTab";
 import SoftPaywall from "@/components/credits/SoftPaywall";
 import { SEOHead } from "@/components/common/SEOHead";
 import { useCredits } from "@/hooks/useCredits";
+import { Button } from "@/components/ui/button";
 import { Coins } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Credits = () => {
   const {
@@ -19,22 +20,20 @@ const Credits = () => {
     isLoading,
     nearestExpiry,
     isEmpty,
-    refresh,
-    userPlan,
     isFreeTier,
     monthlyProgress,
     resetDate,
     resetCountdownLabel,
     halfCreditNotice,
   } = useCredits();
-  const [activeTab, setActiveTab] = useState("buy");
+  const [activeTab, setActiveTab] = useState("history");
 
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" });
 
   return (
     <DashboardLayout>
-      <SEOHead title="Plans & Pricing" description="GiftMind credit plans. Start with 3 free credits." />
+      <SEOHead title="Credits" description="View your GiftMind credits and usage history." />
       <div className="mx-auto max-w-5xl space-y-6">
         <h1 className="text-3xl font-heading font-bold text-foreground">Credits</h1>
 
@@ -91,19 +90,18 @@ const Credits = () => {
               {isEmpty && (
                 <SoftPaywall compact />
               )}
+
+              <Button asChild variant="outline">
+                <Link to="/plans">See Plans</Link>
+              </Button>
             </CardContent>
           </Card>
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
-            <TabsTrigger value="buy">Buy Credits</TabsTrigger>
             <TabsTrigger value="history">Credit History</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="buy">
-            <BuyCreditsTab currentPlan={(userPlan as "spark" | "thoughtful" | "confident" | "gifting-pro" | undefined) ?? "spark"} onPurchaseComplete={refresh} />
-          </TabsContent>
 
           <TabsContent value="history">
             <CreditHistoryTab transactions={transactions} isLoading={isLoading} />

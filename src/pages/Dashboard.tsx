@@ -356,7 +356,7 @@ const Dashboard = () => {
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">Batch Mode</p>
                 <p className="text-xs text-muted-foreground">
-                  Find gifts for your entire Diwali list in one session. Available on Confident and above.
+                  Find gifts for your entire list in one session. Coming soon with Pro.
                 </p>
               </div>
             </CardContent>
@@ -367,14 +367,14 @@ const Dashboard = () => {
       <UpgradeModal
         open={batchUpgradeOpen}
         onOpenChange={setBatchUpgradeOpen}
-        highlightPlan="confident"
-        reason="Batch mode is available on Confident and above. Find gifts for your entire Diwali list in one session."
+        highlightPlan="pro"
+        reason="Batch mode is a Pro feature. Find gifts for your entire list in one session."
       />
       <UpgradeModal
         open={reminderUpgradeOpen}
         onOpenChange={setReminderUpgradeOpen}
-        highlightPlan="confident"
-        reason="Occasion reminders are available on Confident and above."
+        highlightPlan="pro"
+        reason="Unlimited occasion reminders are coming with Pro."
       />
     </DashboardLayout>
   );

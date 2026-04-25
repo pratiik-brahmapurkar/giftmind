@@ -157,7 +157,7 @@ type AdminRpcName = "run_credit_expiry" | "recalculate_all_balances";
 
 const AI_MODEL_FIELDS: Array<{ key: AIModelFieldKey; label: string; note: string; cost: string }> = [
   { key: "ai_model_free", label: "Model for Spark/Thoughtful/Confident plans", note: "Cheaper model for standard users.", cost: "Cost: ~$0.003 per gift session." },
-  { key: "ai_model_pro", label: "Model for Gifting Pro plan", note: "Premium model for Gifting Pro users. Better quality.", cost: "Cost: ~$0.035 per gift session." },
+  { key: "ai_model_pro", label: "Model for Pro plan", note: "Premium model for Pro users. Better quality.", cost: "Cost: ~$0.035 per gift session." },
   { key: "ai_model_signal", label: "Model for Signal Check", note: "Always Sonnet — this is the premium differentiator.", cost: "Cost: ~$0.01 per signal check." },
 ];
 
@@ -973,7 +973,7 @@ const AdminSettings = () => {
                 <CardContent className="space-y-3 text-sm">
                   <div className="grid gap-2 md:grid-cols-2">
                     <div>Spark/Thoughtful/Confident sessions (80%): <strong>{Math.round(monthlySessionsCount * 0.8)}</strong> × $0.003 = <strong>{formatCurrencyAmount(monthlyFreeCost)}</strong></div>
-                    <div>Gifting Pro sessions (20%): <strong>{Math.round(monthlySessionsCount * 0.2)}</strong> × $0.035 = <strong>{formatCurrencyAmount(monthlyProCost)}</strong></div>
+                    <div>Pro sessions (20%): <strong>{Math.round(monthlySessionsCount * 0.2)}</strong> × $0.035 = <strong>{formatCurrencyAmount(monthlyProCost)}</strong></div>
                     <div>Signal Checks (15% of sessions): <strong>{Math.round(monthlySessionsCount * 0.15)}</strong> × $0.010 = <strong>{formatCurrencyAmount(monthlySignalCost)}</strong></div>
                     <div className="font-semibold text-foreground">Estimated total: {formatCurrencyAmount(monthlyTotalCost)}/month</div>
                   </div>

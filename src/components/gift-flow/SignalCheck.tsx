@@ -179,7 +179,7 @@ export default function SignalCheck({
       if (!canUseSignalCheck) {
         throw new SignalCheckRequestError(
           "PLAN_RESTRICTED",
-          "Signal Check is available on Confident and Gifting Pro plans.",
+          "Signal Check is available on Spark and costs 0.5 credits.",
         );
       }
 
@@ -402,7 +402,7 @@ export default function SignalCheck({
                 <Lock className="h-4 w-4" strokeWidth={1.5} />
                 See what this says about {recipient.name}
               </span>
-              <span className="text-xs text-muted-foreground">Confident 🎯</span>
+              <span className="text-xs text-muted-foreground">0.5 credits</span>
             </Button>
           </div>
         ) : null}
@@ -662,8 +662,8 @@ export default function SignalCheck({
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        highlightPlan="confident"
-        reason="Signal Check: see what your gift says about the relationship"
+        highlightPlan="pro"
+        reason="Signal Check is available on Spark and costs 0.5 credits. Pro will make it unlimited."
       />
     </>
   );

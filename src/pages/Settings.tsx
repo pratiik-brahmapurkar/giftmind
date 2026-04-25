@@ -67,8 +67,8 @@ const Settings = () => {
   const notifyCreditExpiry = notificationPrefs && "credit_expiry" in notificationPrefs ? notificationPrefs.credit_expiry !== false : true;
   const notifyTips = notificationPrefs && "tips" in notificationPrefs ? Boolean(notificationPrefs.tips) : false;
   const normalizedPlan = normalizePlan(profile?.active_plan);
-  const hasExportAccess = normalizedPlan === "gifting-pro";
-  const hasOccasionReminderAccess = normalizedPlan === "confident" || normalizedPlan === "gifting-pro";
+  const hasExportAccess = normalizedPlan === "pro";
+  const hasOccasionReminderAccess = true;
 
   const updateNotif = useMutation({
     mutationFn: async (updates: Record<string, boolean>) => {
@@ -120,8 +120,8 @@ const Settings = () => {
     },
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : "";
-      if (message.includes("Pro plan") || message.includes("Gifting Pro")) {
-        toast.error("Data export is available on Gifting Pro plan");
+      if (message.includes("Pro plan") || message.includes("coming with Pro")) {
+        toast.error("Data export is coming with Pro");
         return;
       }
       toast.error("Failed to download data. Please try again.");
@@ -180,7 +180,7 @@ const Settings = () => {
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Get emailed 14, 3, and 1 day before saved occasions.
-                  {!hasOccasionReminderAccess ? " Available on Confident and Gifting Pro." : ""}
+                  {!hasOccasionReminderAccess ? " Unlimited reminders are coming with Pro." : ""}
                 </p>
               </div>
               <Switch
@@ -287,7 +287,7 @@ const Settings = () => {
                 {!hasExportAccess && (
                   <p className="text-xs text-muted-foreground mt-1">
                     <Lock className="w-3 h-3 inline mr-1" />
-                    Data export is available on Gifting Pro plan
+                    Data export is coming with Pro
                   </p>
                 )}
               </div>

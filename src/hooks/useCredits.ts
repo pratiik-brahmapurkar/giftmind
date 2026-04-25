@@ -11,6 +11,7 @@ import {
   getResetCountdownLabel,
 } from "@/lib/credits";
 import { invokeAuthedFunction } from "@/hooks/giftSessionShared";
+import { normalizePlan } from "@/lib/plans";
 
 export interface CreditBatch {
   batch_type: string;
@@ -97,7 +98,7 @@ export function useCredits(): UseCreditsReturn {
         .eq("id", userId)
         .single();
 
-      if (profile?.active_plan === "spark" && ensuredMonthlyForRef.current !== userId) {
+      if (normalizePlan(profile?.active_plan) === "spark" && ensuredMonthlyForRef.current !== userId) {
         await invokeAuthedFunction<{
           issued?: boolean;
           new_balance?: number | null;
@@ -128,7 +129,7 @@ export function useCredits(): UseCreditsReturn {
       ]);
 
       setBalance(userData?.credits_balance ?? 0);
-      setUserPlan(userData?.active_plan ?? null);
+      setUserPlan(normalizePlan(userData?.active_plan));
       setBatches((batchData ?? []).map((batch) => ({
         ...batch,
         batch_type: batch.batch_type ?? "paid",

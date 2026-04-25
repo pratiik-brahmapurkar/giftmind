@@ -16,7 +16,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const PLANS_WITH_REMINDERS = new Set(["confident", "gifting-pro"]);
+const PLANS_WITH_REMINDERS = new Set(["spark", "pro"]);
 const REMINDER_WINDOWS = [14, 3, 1] as const;
 
 type ReminderWindow = typeof REMINDER_WINDOWS[number];

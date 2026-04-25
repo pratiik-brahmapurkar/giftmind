@@ -418,18 +418,13 @@ export function getProviderChain(
   }
 
   if (operation === "signal-check") {
-    if (plan === "gifting-pro") return ["claude-sonnet", "claude-haiku", "gemini-flash"];
-    if (plan === "confident") return ["claude-haiku", "gemini-flash", "groq-llama"];
+    if (plan === "pro") return ["claude-sonnet", "claude-haiku", "gemini-flash"];
     return freeTierChain;
   }
 
   switch (plan) {
-    case "gifting-pro":
+    case "pro":
       return ["claude-sonnet", "claude-haiku", "gemini-pro"];
-    case "confident":
-      return ["claude-haiku", "gemini-flash", "groq-llama"];
-    case "thoughtful":
-      return ["gemini-flash", "claude-haiku", "groq-llama"];
     case "spark":
     default:
       return freeTierChain;

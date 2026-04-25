@@ -23,24 +23,24 @@ export default function SoftPaywall({
     <div className={`rounded-2xl border border-amber-200 bg-amber-50/80 ${compact ? "p-4" : "p-5"}`}>
       <div className="space-y-2">
         <p className="text-sm font-semibold text-amber-900">
-          {title ?? (isSpark && resetLabel ? `You're out of credits until ${resetLabel}.` : "You're out of credits right now.")}
+          {title ?? (isSpark && resetLabel ? `You've used all your credits this month.` : "You're out of credits right now.")}
         </p>
         <p className="text-sm text-amber-800">
-          {detail ?? (resetCountdownLabel || "Buy more credits to keep generating recommendations.")}
+          {detail ?? (resetLabel ? `Your 15 free credits reset on ${resetLabel}${resetCountdownLabel ? ` (${resetCountdownLabel})` : ""}.` : "Your free credits reset monthly.")}
         </p>
         <p className="text-sm text-amber-700">Insights and saving memories are still free.</p>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button asChild size="sm">
-          <Link to="/credits">
-            Get unlimited sessions
+          <Link to="/plans">
+            Join Pro Waitlist
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
-        <Link to="/credits" className="inline-flex items-center gap-1 text-sm font-medium text-amber-900 hover:underline">
+        <Link to="/settings" className="inline-flex items-center gap-1 text-sm font-medium text-amber-900 hover:underline">
           <Sparkles className="h-4 w-4" />
-          View plans
+          Invite a friend (+1)
         </Link>
       </div>
     </div>

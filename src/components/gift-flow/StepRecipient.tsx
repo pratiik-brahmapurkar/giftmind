@@ -25,7 +25,7 @@ import {
   defaultFormData,
 } from "@/components/recipients/constants";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
-import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import type { Recipient } from "@/hooks/useGiftSession";
 import { RELATIONSHIP_COLORS } from "@/lib/geoConfig";
 import { canAddRecipientForPlan, getRecipientLimit, getRecipientLimitMessage } from "@/lib/planLimits";
@@ -117,7 +117,7 @@ export default function StepRecipient({
 }: StepRecipientProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const planLimits = usePlanLimits();
+  const planLimits = useUserPlan();
   const [showInlineForm, setShowInlineForm] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [showPrefilledBanner, setShowPrefilledBanner] = useState(isPreloaded);

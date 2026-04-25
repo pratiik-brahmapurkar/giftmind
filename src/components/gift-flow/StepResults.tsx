@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateFeedbackReminderAt, upsertFeedbackReminder } from "@/hooks/giftSessionShared";
-import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import type { Recipient, useGiftSession } from "@/hooks/useGiftSession";
 import { getOutboundProductUrl } from "@/lib/productLinks";
 import { trackEvent } from "@/lib/posthog";
@@ -419,7 +419,7 @@ export default function StepResults({
   onStartOver,
   viewOnly = false,
 }: StepResultsProps) {
-  const planLimits = usePlanLimits();
+  const planLimits = useUserPlan();
   const [messageIndex, setMessageIndex] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
