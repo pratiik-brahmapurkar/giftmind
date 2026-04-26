@@ -4,6 +4,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { logAdminAction } from "@/lib/adminAudit";
 
 interface DisableAccountDialogProps {
   userId: string | null;
@@ -20,6 +21,12 @@ const DisableAccountDialog = ({ userId, open, onClose, onSuccess }: DisableAccou
     setLoading(true);
     // Note: actual user disabling requires a Supabase edge function with service role key
     // For now we show a toast indicating this feature needs backend implementation
+    await logAdminAction({
+      action: "disable_account",
+      targetType: "user",
+      targetId: userId,
+      payload: { status: "requested", implemented: false },
+    });
     toast.info("Account disabling requires a backend function. This will be implemented with an edge function.");
     setLoading(false);
     onClose();

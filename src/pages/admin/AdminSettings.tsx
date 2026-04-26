@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/common/SEOHead";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { useMyAdminRole } from "@/hooks/useMyAdminRole";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -301,7 +301,7 @@ function FeatureFlagRow({
 }
 
 const AdminSettings = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { role, loading: roleLoading } = useMyAdminRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [roleChecked, setRoleChecked] = useState(false);
@@ -429,37 +429,13 @@ const AdminSettings = () => {
   }, [location.hash]);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      navigate("/login", { replace: true });
+    if (roleLoading) return;
+    if (role !== "superadmin") {
+      navigate(role ? "/admin" : "/dashboard", { replace: true });
       return;
     }
-
-    let cancelled = false;
-
-    const checkRole = async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (cancelled) return;
-
-      if (error || data?.role !== "superadmin") {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      setRoleChecked(true);
-    };
-
-    void checkRole();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, navigate, user]);
+    setRoleChecked(true);
+  }, [navigate, role, roleLoading]);
 
   useEffect(() => {
     if (!roleChecked || activeTab !== "security") return;
@@ -834,7 +810,7 @@ const AdminSettings = () => {
     });
   }
 
-  if (authLoading || !roleChecked || isLoading) {
+  if (roleLoading || !roleChecked || isLoading) {
     return (
       <div className="space-y-6">
         <SEOHead title="Admin Settings - GiftMind" description="Platform settings" noIndex={true} />

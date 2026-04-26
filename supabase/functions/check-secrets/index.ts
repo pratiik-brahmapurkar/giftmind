@@ -45,13 +45,14 @@ serve(async (req: Request): Promise<Response> => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const { data: userRow, error: userError } = await supabaseAdmin
-      .from("users")
+    const { data: roleRow, error: roleError } = await supabaseAdmin
+      .from("user_roles")
       .select("role")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .eq("role", "superadmin")
+      .maybeSingle();
 
-    if (userError || userRow?.role !== "superadmin") {
+    if (roleError || !roleRow) {
       return json({ error: "Forbidden" }, 403);
     }
 

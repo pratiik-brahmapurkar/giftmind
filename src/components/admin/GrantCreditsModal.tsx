@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { captureError } from "@/lib/sentry";
+import { logAdminAction } from "@/lib/adminAudit";
 
 interface GrantCreditsModalProps {
   userId: string | null;
@@ -48,6 +49,12 @@ const GrantCreditsModal = ({ userId, open, onClose, onSuccess }: GrantCreditsMod
         throw new Error(response.error?.message || response.data?.error || "Failed to grant credits");
       }
 
+      await logAdminAction({
+        action: "grant_credits",
+        targetType: "user",
+        targetId: userId,
+        payload: { amount: Number(amount), reason, notes: customReason },
+      });
       toast.success(`Granted ${amount} credits`);
       setAmount(""); setReason(""); setCustomReason("");
       onSuccess();

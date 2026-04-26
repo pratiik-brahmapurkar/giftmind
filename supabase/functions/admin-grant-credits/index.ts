@@ -26,16 +26,6 @@ function json(body: unknown, status = 200) {
 }
 
 async function hasAdminAccess(userId: string) {
-  const { data: userRow } = await supabaseAdmin
-    .from("users")
-    .select("role")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (userRow?.role === "admin" || userRow?.role === "superadmin") {
-    return true;
-  }
-
   const { data: roleRow } = await supabaseAdmin
     .from("user_roles")
     .select("role")

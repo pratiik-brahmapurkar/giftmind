@@ -214,18 +214,20 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // ── 2. Verify admin role ───────────────────────────────────────────────────
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from("users")
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from("user_roles")
       .select("role")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .in("role", ["admin", "superadmin"])
+      .limit(1)
+      .maybeSingle();
 
-    if (userError || !userData) {
-      console.error("Failed to fetch user data:", userError?.message);
-      return json({ error: "Failed to retrieve user profile" }, 500);
+    if (roleError) {
+      console.error("Failed to fetch user role:", roleError.message);
+      return json({ error: "Failed to retrieve user role" }, 500);
     }
 
-    if (!["admin", "superadmin"].includes(userData.role)) {
+    if (!roleData) {
       return json({ error: "Forbidden" }, 403);
     }
 

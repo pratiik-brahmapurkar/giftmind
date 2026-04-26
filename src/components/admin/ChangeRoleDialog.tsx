@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -10,9 +10,17 @@ import {
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { captureError } from "@/lib/sentry";
-import type { Database } from "@/integrations/supabase/types";
+import { useMyAdminRole } from "@/hooks/useMyAdminRole";
+import { canDo } from "@/lib/adminPermissions";
+import { logAdminAction } from "@/lib/adminAudit";
+import { useAuth } from "@/contexts/AuthContext";
 
-type AppRole = Database["public"]["Enums"]["app_role"];
+type UserRolesMutationBuilder = {
+  delete: () => {
+    eq: (column: string, value: string) => Promise<{ error: Error | null }>;
+  };
+  insert: (value: Record<string, unknown>) => Promise<{ error: Error | null }>;
+};
 
 interface ChangeRoleDialogProps {
   userId: string | null;
@@ -25,23 +33,42 @@ interface ChangeRoleDialogProps {
 const ChangeRoleDialog = ({ userId, currentRole, open, onClose, onSuccess }: ChangeRoleDialogProps) => {
   const [newRole, setNewRole] = useState<string>(currentRole);
   const [loading, setLoading] = useState(false);
+  const { role: callerRole } = useMyAdminRole();
+  const { user } = useAuth();
+  const canChangeRole = canDo(callerRole, "users.change_role");
+
+  useEffect(() => {
+    if (open) setNewRole(currentRole);
+  }, [currentRole, open]);
 
   const handleChange = async () => {
     if (!userId || newRole === currentRole) { onClose(); return; }
+    if (!canChangeRole) {
+      toast.error("Requires SuperAdmin access");
+      return;
+    }
     setLoading(true);
     try {
+      const userRoles = supabase.from("user_roles" as never) as unknown as UserRolesMutationBuilder;
       // Delete existing role
-      await supabase.from("user_roles").delete().eq("user_id", userId);
+      await userRoles.delete().eq("user_id", userId);
 
       // Insert new role if not plain user
       if (newRole !== "user") {
-        const { error } = await supabase.from("user_roles").insert({
+        const { error } = await userRoles.insert({
           user_id: userId,
-          role: newRole as AppRole,
+          role: newRole,
+          granted_by: user?.id,
         });
         if (error) throw error;
       }
 
+      await logAdminAction({
+        action: "change_role",
+        targetType: "user",
+        targetId: userId,
+        payload: { before: currentRole, after: newRole },
+      });
       toast.success(`Role changed to ${newRole}`);
       onSuccess();
     } catch (err: unknown) {
@@ -72,14 +99,15 @@ const ChangeRoleDialog = ({ userId, currentRole, open, onClose, onSuccess }: Cha
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="user">User</SelectItem>
+              <SelectItem value="viewer">Viewer</SelectItem>
               <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="superadmin">SuperAdmin</SelectItem>
+              {callerRole === "superadmin" && <SelectItem value="superadmin">SuperAdmin</SelectItem>}
             </SelectContent>
           </Select>
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleChange} disabled={loading}>
+          <AlertDialogAction onClick={handleChange} disabled={loading || !canChangeRole}>
             {loading ? "Saving..." : "Confirm Change"}
           </AlertDialogAction>
         </AlertDialogFooter>

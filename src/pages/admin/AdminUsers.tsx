@@ -24,6 +24,10 @@ import GrantCreditsModal from "@/components/admin/GrantCreditsModal";
 import ChangeRoleDialog from "@/components/admin/ChangeRoleDialog";
 import DisableAccountDialog from "@/components/admin/DisableAccountDialog";
 import { sanitizeString } from "@/lib/validation";
+import { useMyAdminRole } from "@/hooks/useMyAdminRole";
+import { canDo, formatAdminRole } from "@/lib/adminPermissions";
+import { logAdminAction } from "@/lib/adminAudit";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type SortField = "full_name" | "created_at" | "credits_balance" | "updated_at";
 type SortDir = "asc" | "desc";
@@ -46,6 +50,11 @@ const PAGE_SIZE = 25;
 
 const AdminUsers = () => {
   const queryClient = useQueryClient();
+  const { role: currentRole } = useMyAdminRole();
+  const canGrantCredits = canDo(currentRole, "users.grant_credits");
+  const canChangeRole = canDo(currentRole, "users.change_role");
+  const canDisable = canDo(currentRole, "users.disable");
+  const canExportCSV = canDo(currentRole, "users.export_csv");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [sortField, setSortField] = useState<SortField>("created_at");
@@ -113,7 +122,7 @@ const AdminUsers = () => {
     const roleMap: Record<string, string> = {};
     roles.forEach((r) => {
       // highest role wins
-      const priority: Record<string, number> = { superadmin: 3, admin: 2, user: 1 };
+      const priority: Record<string, number> = { superadmin: 4, admin: 3, viewer: 2, user: 1 };
       if (!roleMap[r.user_id] || (priority[r.role] || 0) > (priority[roleMap[r.user_id]] || 0)) {
         roleMap[r.user_id] = r.role;
       }
@@ -160,6 +169,7 @@ const AdminUsers = () => {
   };
 
   const handleExportCSV = () => {
+    if (!canExportCSV) return;
     const headers = ["Name", "User ID", "Role", "Credits", "Sessions", "Referrals", "Signup Date"];
     const rows = filtered.map((u) => [
       u.full_name || "", u.id, u.role, u.credits_balance, u.sessions_count, u.referrals_count,
@@ -172,12 +182,18 @@ const AdminUsers = () => {
     a.href = url; a.download = "users.csv"; a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exported");
+    void logAdminAction({
+      action: "export_users_csv",
+      targetType: "user",
+      payload: { row_count: filtered.length, role_filter: roleFilter, search_applied: Boolean(search) },
+    });
   };
 
   const roleBadgeVariant = (role: string) => {
     switch (role) {
       case "superadmin": return "default";
       case "admin": return "secondary";
+      case "viewer": return "outline";
       default: return "outline";
     }
   };
@@ -186,6 +202,7 @@ const AdminUsers = () => {
     switch (role) {
       case "superadmin": return "bg-purple-600 text-white hover:bg-purple-700";
       case "admin": return "bg-blue-600 text-white hover:bg-blue-700";
+      case "viewer": return "bg-muted text-muted-foreground";
       default: return "";
     }
   };
@@ -218,13 +235,21 @@ const AdminUsers = () => {
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
             <SelectItem value="user">User</SelectItem>
+            <SelectItem value="viewer">Viewer</SelectItem>
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="superadmin">SuperAdmin</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={handleExportCSV}>
-          <Download className="w-4 h-4 mr-1.5" /> Export CSV
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!canExportCSV}>
+                <Download className="w-4 h-4 mr-1.5" /> Export CSV
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {!canExportCSV && <TooltipContent>Requires Admin access</TooltipContent>}
+        </Tooltip>
         <span className="text-sm text-muted-foreground ml-auto">
           Showing {filtered.length} user{filtered.length !== 1 ? "s" : ""}
         </span>
@@ -239,8 +264,8 @@ const AdminUsers = () => {
                 User {sortField === "full_name" && (sortDir === "asc" ? "↑" : "↓")}
               </TableHead>
               <TableHead>Role</TableHead>
-              <TableHead className="cursor-pointer select-none text-right" onClick={() => toggleSort("credits")}>
-                Credits {sortField === "credits" && (sortDir === "asc" ? "↑" : "↓")}
+              <TableHead className="cursor-pointer select-none text-right" onClick={() => toggleSort("credits_balance")}>
+                Credits {sortField === "credits_balance" && (sortDir === "asc" ? "↑" : "↓")}
               </TableHead>
               <TableHead className="text-right hidden md:table-cell">Sessions</TableHead>
               <TableHead className="text-right hidden lg:table-cell">Referrals</TableHead>
@@ -286,7 +311,7 @@ const AdminUsers = () => {
                 </TableCell>
                 <TableCell>
                   <Badge variant={roleBadgeVariant(u.role)} className={roleBadgeClass(u.role)}>
-                    {u.role === "superadmin" ? "SuperAdmin" : u.role === "admin" ? "Admin" : "User"}
+                    {formatAdminRole(u.role)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">{u.credits_balance}</TableCell>
@@ -309,19 +334,27 @@ const AdminUsers = () => {
                       <DropdownMenuItem onClick={() => setSelectedUserId(u.id)}>
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setGrantCreditsUserId(u.id)}>
-                        Grant Credits
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setChangeRoleUser({ userId: u.id, currentRole: u.role })}>
-                        Change Role
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => setDisableUserId(u.id)}
-                      >
-                        Disable Account
-                      </DropdownMenuItem>
+                      {canGrantCredits && (
+                        <DropdownMenuItem onClick={() => setGrantCreditsUserId(u.id)}>
+                          Grant Credits
+                        </DropdownMenuItem>
+                      )}
+                      {canChangeRole && (
+                        <DropdownMenuItem onClick={() => setChangeRoleUser({ userId: u.id, currentRole: u.role })}>
+                          Change Role
+                        </DropdownMenuItem>
+                      )}
+                      {canDisable && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDisableUserId(u.id)}
+                          >
+                            Disable Account
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -354,9 +387,12 @@ const AdminUsers = () => {
         user={selectedUser || null}
         open={!!selectedUserId}
         onClose={() => setSelectedUserId(null)}
-        onGrantCredits={(id) => { setSelectedUserId(null); setGrantCreditsUserId(id); }}
-        onChangeRole={(id, role) => { setSelectedUserId(null); setChangeRoleUser({ userId: id, currentRole: role }); }}
-        onDisable={(id) => { setSelectedUserId(null); setDisableUserId(id); }}
+        onGrantCredits={(id) => { if (canGrantCredits) { setSelectedUserId(null); setGrantCreditsUserId(id); } }}
+        onChangeRole={(id, role) => { if (canChangeRole) { setSelectedUserId(null); setChangeRoleUser({ userId: id, currentRole: role }); } }}
+        onDisable={(id) => { if (canDisable) { setSelectedUserId(null); setDisableUserId(id); } }}
+        canGrantCredits={canGrantCredits}
+        canChangeRole={canChangeRole}
+        canDisable={canDisable}
       />
 
       {/* Grant Credits Modal */}

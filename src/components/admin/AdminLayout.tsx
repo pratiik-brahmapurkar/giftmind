@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Store,
   Settings,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -20,34 +21,46 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMyAdminRole } from "@/hooks/useMyAdminRole";
+import { canAccessRole, formatAdminRole, type AdminRole } from "@/lib/adminPermissions";
+import { Badge } from "@/components/ui/badge";
 
 const navSections = [
   {
     items: [
-      { label: "Overview", path: "/admin", icon: BarChart3 },
-      { label: "Users", path: "/admin/users", icon: Users },
-      { label: "Credits & Revenue", path: "/admin/credits", icon: CreditCard },
-      { label: "Gift Analytics", path: "/admin/gifts", icon: Gift },
+      { label: "Overview", path: "/admin", icon: BarChart3, requiredRole: "viewer" },
+      { label: "Users", path: "/admin/users", icon: Users, requiredRole: "viewer" },
+      { label: "Credits & Revenue", path: "/admin/credits", icon: CreditCard, requiredRole: "viewer" },
+      { label: "Gift Analytics", path: "/admin/gifts", icon: Gift, requiredRole: "viewer" },
     ],
   },
   {
     title: "Blog",
     items: [
-      { label: "All Posts", path: "/admin/blog", icon: FileText },
-      { label: "New Post", path: "/admin/blog/new", icon: PenSquare },
-      { label: "Categories", path: "/admin/blog/categories", icon: FolderOpen },
-      { label: "Media Library", path: "/admin/media", icon: Image },
-      { label: "Blog Analytics", path: "/admin/blog/analytics", icon: TrendingUp },
+      { label: "All Posts", path: "/admin/blog", icon: FileText, requiredRole: "admin" },
+      { label: "New Post", path: "/admin/blog/new", icon: PenSquare, requiredRole: "admin" },
+      { label: "Categories", path: "/admin/blog/categories", icon: FolderOpen, requiredRole: "admin" },
+      { label: "Media Library", path: "/admin/media", icon: Image, requiredRole: "admin" },
+      { label: "Blog Analytics", path: "/admin/blog/analytics", icon: TrendingUp, requiredRole: "viewer" },
+    ],
+  },
+  {
+    title: "Security",
+    items: [
+      { label: "Audit Log", path: "/admin/audit-log", icon: ShieldCheck, requiredRole: "viewer" },
     ],
   },
   {
     title: "Config",
     items: [
-      { label: "Marketplaces", path: "/admin/marketplaces", icon: Store },
-      { label: "Settings", path: "/admin/settings", icon: Settings },
+      { label: "Marketplaces", path: "/admin/marketplaces", icon: Store, requiredRole: "admin" },
+      { label: "Settings", path: "/admin/settings", icon: Settings, requiredRole: "superadmin" },
     ],
   },
-];
+] satisfies {
+  title?: string;
+  items: { label: string; path: string; icon: typeof BarChart3; requiredRole: AdminRole }[];
+}[];
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -55,12 +68,26 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const { user } = useAuth();
+  const { role } = useMyAdminRole();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const name = user?.user_metadata?.full_name || "Admin";
   const isActive = (path: string) => location.pathname === path;
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => canAccessRole(role, item.requiredRole)),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  const roleBadgeClass =
+    role === "superadmin"
+      ? "bg-purple-600 text-white hover:bg-purple-700"
+      : role === "admin"
+        ? "bg-blue-600 text-white hover:bg-blue-700"
+        : "bg-muted text-muted-foreground";
 
   const sidebarContent = (
     <>
@@ -78,7 +105,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-4">
-        {navSections.map((section, si) => (
+        {visibleSections.map((section, si) => (
           <div key={si}>
             {section.title && !collapsed && (
               <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
@@ -163,6 +190,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             <span className="text-sm text-muted-foreground">
               Hi, <span className="font-medium text-foreground">{name}</span>
             </span>
+            <Badge variant="secondary" className={cn("h-6", roleBadgeClass)}>
+              {formatAdminRole(role)}
+            </Badge>
           </div>
           <a
             href="/"

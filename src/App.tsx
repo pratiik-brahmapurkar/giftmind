@@ -46,6 +46,7 @@ const AdminMediaLibrary = lazy(() => import("@/pages/admin/AdminMediaLibrary"));
 const AdminBlogAnalytics = lazy(() => import("@/pages/admin/AdminBlogAnalytics"));
 const AdminBlogEditor = lazy(() => import("@/pages/admin/AdminBlogEditor"));
 const AdminMarketplaces = lazy(() => import("@/pages/admin/AdminMarketplaces"));
+const AdminAuditLog = lazy(() => import("@/pages/admin/AdminAuditLog"));
 
 const queryClient = new QueryClient();
 
@@ -105,23 +106,23 @@ const App = () => {
               />
               <Route
                 path="/admin/blog"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminBlogPosts /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminBlogPosts /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
                 path="/admin/blog/new"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminBlogEditor /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminBlogEditor /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
                 path="/admin/blog/edit/:id"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminBlogEditor /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminBlogEditor /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
                 path="/admin/blog/categories"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminBlogCategories /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminBlogCategories /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
                 path="/admin/media"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminMediaLibrary /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminMediaLibrary /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
                 path="/admin/blog/analytics"
@@ -129,11 +130,15 @@ const App = () => {
               />
               <Route
                 path="/admin/marketplaces"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminMarketplaces /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminMarketplaces /></AdminLayout></AdminGuard></AuthGuard>)}
+              />
+              <Route
+                path="/admin/audit-log"
+                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminAuditLog /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
                 path="/admin/settings"
-                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminSettings /></AdminLayout></AdminGuard></AuthGuard>)}
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="superadmin"><AdminLayout><AdminSettings /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route path="*" element={<NotFound />} />
             </Routes>

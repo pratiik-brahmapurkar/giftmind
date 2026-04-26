@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { BLOG_STATUS_META, getBlogPostDisplayDate, getBlogPostStatusTitle } from "@/lib/blog";
 import { cn } from "@/lib/utils";
+import { useCanDo } from "@/hooks/useCanDo";
+import { logAdminAction } from "@/lib/adminAudit";
 
 const PER_PAGE = 20;
 
@@ -66,6 +68,7 @@ export default function AdminBlogPosts() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const canDeletePosts = useCanDo("blog.delete");
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
   const [deletePost, setDeletePost] = useState<AdminBlogPostRow | null>(null);
@@ -220,9 +223,17 @@ export default function AdminBlogPosts() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (post: AdminBlogPostRow) => {
+      const id = post.id;
       const { error } = await supabase.from("blog_posts").delete().eq("id", id);
       if (error) throw error;
+      await logAdminAction({
+        action: "delete_blog_post",
+        targetType: "blog_post",
+        targetId: id,
+        targetLabel: post.title,
+        payload: { slug: post.slug, status: post.status },
+      });
     },
     onSuccess: () => {
       toast.success("Post deleted");
@@ -463,11 +474,15 @@ export default function AdminBlogPosts() {
                                 View Analytics
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeletePost(post)}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
+                            {canDeletePosts && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeletePost(post)}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -518,7 +533,7 @@ export default function AdminBlogPosts() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
-              onClick={() => deletePost && deleteMutation.mutate(deletePost.id)}
+              onClick={() => deletePost && deleteMutation.mutate(deletePost)}
             >
               Delete
             </AlertDialogAction>

@@ -13,11 +13,11 @@ import { format, formatDistanceToNow } from "date-fns";
 interface UserDetailSheetProps {
   userId: string | null;
   user: {
-    user_id: string;
+    id: string;
     full_name: string | null;
     avatar_url: string | null;
     country: string | null;
-    credits: number;
+    credits_balance: number;
     created_at: string;
     updated_at: string;
     role: string;
@@ -29,9 +29,23 @@ interface UserDetailSheetProps {
   onGrantCredits: (userId: string) => void;
   onChangeRole: (userId: string, role: string) => void;
   onDisable: (userId: string) => void;
+  canGrantCredits?: boolean;
+  canChangeRole?: boolean;
+  canDisable?: boolean;
 }
 
-const UserDetailSheet = ({ userId, user, open, onClose, onGrantCredits, onChangeRole, onDisable }: UserDetailSheetProps) => {
+const UserDetailSheet = ({
+  userId,
+  user,
+  open,
+  onClose,
+  onGrantCredits,
+  onChangeRole,
+  onDisable,
+  canGrantCredits = true,
+  canChangeRole = true,
+  canDisable = true,
+}: UserDetailSheetProps) => {
   // Fetch credit transactions for this user
   const { data: transactions = [] } = useQuery({
     queryKey: ["admin-user-transactions", userId],
@@ -107,7 +121,7 @@ const UserDetailSheet = ({ userId, user, open, onClose, onGrantCredits, onChange
             </Avatar>
             <div className="flex-1 min-w-0">
               <h3 className="font-heading font-bold text-lg truncate">{user.full_name || "Unnamed"}</h3>
-              <p className="text-sm text-muted-foreground truncate">{user.user_id}</p>
+              <p className="text-sm text-muted-foreground truncate">{user.id}</p>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant={user.role === "superadmin" ? "default" : user.role === "admin" ? "secondary" : "outline"}
                   className={user.role === "superadmin" ? "bg-purple-600 text-white" : user.role === "admin" ? "bg-blue-600 text-white" : ""}>
@@ -128,8 +142,8 @@ const UserDetailSheet = ({ userId, user, open, onClose, onGrantCredits, onChange
           <div>
             <h4 className="font-semibold text-sm mb-3">Credits</h4>
             <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Balance", value: user.credits },
+                {[
+                { label: "Balance", value: user.credits_balance },
                 { label: "Purchased", value: totalPurchased },
                 { label: "Used", value: totalUsed },
               ].map((s) => (
@@ -212,9 +226,9 @@ const UserDetailSheet = ({ userId, user, open, onClose, onGrantCredits, onChange
 
           {/* Admin actions */}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => onGrantCredits(user.user_id)}>Grant Credits</Button>
-            <Button size="sm" variant="outline" onClick={() => onChangeRole(user.user_id, user.role)}>Change Role</Button>
-            <Button size="sm" variant="destructive" onClick={() => onDisable(user.user_id)}>Disable Account</Button>
+            {canGrantCredits && <Button size="sm" onClick={() => onGrantCredits(user.id)}>Grant Credits</Button>}
+            {canChangeRole && <Button size="sm" variant="outline" onClick={() => onChangeRole(user.id, user.role)}>Change Role</Button>}
+            {canDisable && <Button size="sm" variant="destructive" onClick={() => onDisable(user.id)}>Disable Account</Button>}
           </div>
         </div>
       </SheetContent>

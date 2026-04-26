@@ -1,18 +1,26 @@
-import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useEffect, useRef } from "react";
+import { useMyAdminRole } from "@/hooks/useMyAdminRole";
+import { canAccessRole, type AdminRole } from "@/lib/adminPermissions";
 
-const AdminGuard = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin, loading } = useAdminCheck();
+const AdminGuard = ({
+  children,
+  requiredRole = "viewer",
+}: {
+  children: React.ReactNode;
+  requiredRole?: AdminRole;
+}) => {
+  const { role, loading } = useMyAdminRole();
   const toasted = useRef(false);
+  const hasAccess = canAccessRole(role, requiredRole);
 
   useEffect(() => {
-    if (!loading && !isAdmin && !toasted.current) {
+    if (!loading && !hasAccess && !toasted.current) {
       toasted.current = true;
-      toast.error("You don't have admin access.");
+      toast.error("You don't have permission to access this section.");
     }
-  }, [loading, isAdmin]);
+  }, [loading, hasAccess]);
 
   if (loading) {
     return (
@@ -22,8 +30,8 @@ const AdminGuard = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+  if (!hasAccess) {
+    return <Navigate to={role ? "/admin" : "/dashboard"} replace />;
   }
 
   return <>{children}</>;
