@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCredits } from "@/hooks/useCredits";
 import { formatResetDate } from "@/lib/credits";
@@ -38,10 +38,6 @@ export default function SoftPaywall({
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
-        <Link to="/settings" className="inline-flex items-center gap-1 text-sm font-medium text-amber-900 hover:underline">
-          <Sparkles className="h-4 w-4" />
-          Invite a friend (+1)
-        </Link>
       </div>
     </div>
   );

@@ -87,7 +87,6 @@ export default function GiftFlow() {
   const [pendingStep, setPendingStep] = useState<number | null>(null);
 
   const hasGeneratedRef = useRef(false);
-  const previousSnapshotRef = useRef("");
   const featureSignalCheck = parseBooleanSetting(publicSettings.feature_signal_check, true);
   const signalCheckUnits = parseNumberSetting(publicSettings.signal_check_units, 1);
   const giftGenerationUnits = parseNumberSetting(publicSettings.gift_generation_units, 2);
@@ -285,37 +284,6 @@ export default function GiftFlow() {
     userCountry,
     userPlan,
   ]);
-
-  const inputSnapshot = useMemo(
-    () =>
-      JSON.stringify({
-        selectedRecipientId: selectedRecipient?.id ?? null,
-        recipientCountry,
-        selectedOccasion,
-        occasionDate,
-        budgetMin,
-        budgetMax,
-        currency,
-        specialContext,
-        contextTags,
-      }),
-    [budgetMax, budgetMin, contextTags, currency, occasionDate, recipientCountry, selectedOccasion, selectedRecipient?.id, specialContext],
-  );
-
-  // Session reset with warning (Item 16)
-  useEffect(() => {
-    if (!previousSnapshotRef.current) {
-      previousSnapshotRef.current = inputSnapshot;
-      return;
-    }
-
-    if (previousSnapshotRef.current !== inputSnapshot && hasGeneratedRef.current) {
-      // Don't silently reset — show warning instead
-      // Reset only happens through confirmReset
-    }
-
-    previousSnapshotRef.current = inputSnapshot;
-  }, [inputSnapshot]);
 
   useEffect(() => {
     if (currentStep !== 5 || !generationParams || hasGeneratedRef.current) return;
@@ -546,11 +514,17 @@ export default function GiftFlow() {
 
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground">
                 <Coins className="h-4 w-4 text-primary" />
-                🪙 {formatCreditsValue(creditsBalance)}
+                {formatCreditsValue(creditsBalance)}
               </div>
             </div>
 
             <StepProgress currentStep={currentStep} />
+
+            {currentStep < 5 && creditsBalance < giftGenerationUnits ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                You need {formatCreditsValue(giftGenerationUnits)} credit{giftGenerationUnits === 2 ? "" : "s"} to generate recommendations. You can still plan the details, but generation will require credits.
+              </div>
+            ) : null}
 
             <AnimatePresence initial={false} mode="wait">
               <motion.div

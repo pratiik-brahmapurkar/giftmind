@@ -277,7 +277,7 @@ function SuccessState({
         return "In about a week, we’ll ask how the gift landed.";
       }
 
-      return `Two days after ${humanizeOccasionLabel(occasion)}, on ${date.toLocaleDateString("en-IN", {
+      return `Two days after ${humanizeOccasionLabel(occasion)}, on ${date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
       })}, we’ll ask how ${recipientName} liked it.`;

@@ -70,9 +70,7 @@ const GiftDetailPanel = ({ session, onClose }: Props) => {
             </div>
             {session.budget_min != null && session.budget_max != null && (
               <p className="text-sm text-muted-foreground">
-                Budget: $
-                {session.budget_min.toLocaleString()} – $
-                {session.budget_max.toLocaleString()}
+                Budget: ${session.budget_min.toLocaleString()} – ${session.budget_max.toLocaleString()}
               </p>
             )}
             {session.context_tags && session.context_tags.length > 0 && (

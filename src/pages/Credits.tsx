@@ -1,8 +1,6 @@
-import { useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import CreditHistoryTab from "@/components/credits/CreditHistoryTab";
 import SoftPaywall from "@/components/credits/SoftPaywall";
@@ -26,10 +24,9 @@ const Credits = () => {
     resetCountdownLabel,
     halfCreditNotice,
   } = useCredits();
-  const [activeTab, setActiveTab] = useState("history");
 
   const formatDate = (value: string) =>
-    new Date(value).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" });
+    new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
   return (
     <DashboardLayout>
@@ -49,7 +46,8 @@ const Credits = () => {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <div className="text-[40px] font-bold leading-none text-primary">🪙 {balanceLabel} available</div>
+                <div className="text-[40px] font-bold leading-none text-primary">{balanceLabel}</div>
+                <p className="text-sm text-muted-foreground">credits available</p>
                 {halfCreditNotice ? <p className="text-sm text-muted-foreground">{halfCreditNotice}</p> : null}
               </div>
 
@@ -98,15 +96,10 @@ const Credits = () => {
           </Card>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="history">Credit History</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="history">
-            <CreditHistoryTab transactions={transactions} isLoading={isLoading} />
-          </TabsContent>
-        </Tabs>
+        <section className="space-y-4">
+          <h2 className="text-xl font-heading font-semibold text-foreground">Credit History</h2>
+          <CreditHistoryTab transactions={transactions} isLoading={isLoading} />
+        </section>
       </div>
     </DashboardLayout>
   );

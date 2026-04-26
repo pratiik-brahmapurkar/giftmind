@@ -147,6 +147,13 @@ function getConfidenceTone(score: number) {
   return "border-orange-200 bg-orange-50 text-orange-700";
 }
 
+function buildGiftFlowUrl(session: GiftSessionRecord, source: string) {
+  const params = new URLSearchParams({ source });
+  if (session.recipient_id) params.set("recipient", session.recipient_id);
+  if (session.occasion) params.set("occasion", session.occasion);
+  return `/gift-flow?${params.toString()}`;
+}
+
 function buildSearchUrl(store: MarketplaceRow, keyword: string) {
   const encoded = encodeURIComponent(keyword);
   if (store.search_url.includes("{keyword}")) {
@@ -474,7 +481,7 @@ export default function GiftHistory() {
   const handleShopAgain = (session: GiftSessionRecord) => {
     const selected = getSelectedRecommendation(session);
     if (!selected) {
-      navigate(`/gift-flow?recipient=${session.recipient_id}&occasion=${session.occasion}`);
+      navigate(buildGiftFlowUrl(session, "shop_again"));
       return;
     }
 
@@ -485,23 +492,14 @@ export default function GiftHistory() {
         window.open(url, "_blank", "noopener,noreferrer");
         return;
       }
-      return;
+      toast.info("Store link unavailable. Opening a fresh gift flow instead.");
     }
 
-    navigate(`/gift-flow?recipient=${session.recipient_id}&occasion=${session.occasion}`);
+    navigate(buildGiftFlowUrl(session, "shop_again"));
   };
 
   const handleGiftAgain = (session: GiftSessionRecord) => {
-    const params = new URLSearchParams({
-      recipient: session.recipient_id ?? "",
-      source: "gift_again",
-    });
-
-    if (session.occasion) {
-      params.set("occasion", session.occasion);
-    }
-
-    navigate(`/gift-flow?${params.toString()}`);
+    navigate(buildGiftFlowUrl(session, "gift_again"));
   };
 
   return (
@@ -656,8 +654,7 @@ export default function GiftHistory() {
                             <div className="space-y-2 text-sm text-muted-foreground">
                               <p>{meta.description}</p>
                               <p>
-                                Budget: $
-                                {(session.budget_min || 0).toLocaleString()} – ${(session.budget_max || 0).toLocaleString()}
+                                Budget: ${(session.budget_min || 0).toLocaleString()} – ${(session.budget_max || 0).toLocaleString()}
                               </p>
                             </div>
                           )}
@@ -672,8 +669,7 @@ export default function GiftHistory() {
                             <div className="space-y-2 text-sm text-muted-foreground">
                               <p>{meta.description}</p>
                               <p>
-                                Budget: $
-                                {(session.budget_min || 0).toLocaleString()} – ${(session.budget_max || 0).toLocaleString()}
+                                Budget: ${(session.budget_min || 0).toLocaleString()} – ${(session.budget_max || 0).toLocaleString()}
                               </p>
                             </div>
                           )}
@@ -706,7 +702,7 @@ export default function GiftHistory() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => navigate(`/gift-flow?recipient=${session.recipient_id}&occasion=${session.occasion}`)}
+                                onClick={() => navigate(buildGiftFlowUrl(session, "try_again"))}
                               >
                                 Try Again
                               </Button>
@@ -716,7 +712,7 @@ export default function GiftHistory() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => navigate(`/gift-flow?recipient=${session.recipient_id}&occasion=${session.occasion}`)}
+                                onClick={() => navigate(buildGiftFlowUrl(session, "resume_session"))}
                               >
                                 Resume Session
                               </Button>
@@ -724,7 +720,7 @@ export default function GiftHistory() {
 
                             {feedback ? (
                               <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                                ✅ Feedback: {REACTION_META[feedback.recipient_reaction || ""] || feedback.recipient_reaction}
+                                ✅ Feedback: {REACTION_META[feedback.recipient_reaction || ""] || "Feedback given"}
                               </span>
                             ) : status === "completed" ? (
                               <Button variant="ghost" size="sm" onClick={() => setFeedbackSession(session)}>
@@ -781,8 +777,7 @@ export default function GiftHistory() {
                                         </span>
                                       </div>
                                       <span className="text-sm text-muted-foreground">
-                                        $
-                                        {recommendation.price_anchor.toLocaleString()}
+                                        ~${recommendation.price_anchor.toLocaleString()}
                                       </span>
                                     </div>
 

@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
 import AdminGuard from "@/components/admin/AdminGuard";
 import CookieConsent from "@/components/CookieConsent";
+import AppErrorBoundary from "@/components/common/AppErrorBoundary";
 import { InstallPrompt } from "@/components/common/InstallPrompt";
 import PageLoader from "@/components/common/PageLoader";
 import { initPosthog } from "@/lib/posthog";
@@ -66,8 +67,9 @@ const App = () => {
         <Sonner />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
+            <AppErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -140,8 +142,9 @@ const App = () => {
                 path="/admin/settings"
                 element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="superadmin"><AdminLayout><AdminSettings /></AdminLayout></AdminGuard></AuthGuard>)}
               />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AppErrorBoundary>
             <InstallPrompt />
             <CookieConsent />
           </AuthProvider>

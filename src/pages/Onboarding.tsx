@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AnimatePresence, motion, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import { ArrowLeft, ArrowRight, Coins, Gift, Loader2, Sparkles, ShoppingBag, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -77,7 +77,9 @@ const dayOptions = Array.from({ length: 31 }, (_, index) => ({
 }));
 
 const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({ length: 108 }, (_, index) => String(currentYear - 13 - index));
+const commonBirthYears = Array.from({ length: 16 }, (_, index) => String(currentYear - 25 - index));
+const allBirthYears = Array.from({ length: 108 }, (_, index) => String(currentYear - 13 - index));
+const yearOptions = Array.from(new Set([...commonBirthYears, ...allBirthYears]));
 
 const onboardingBonusEnabled = import.meta.env.VITE_ONBOARDING_BONUS_ENABLED === "true";
 
@@ -568,6 +570,7 @@ export default function Onboarding() {
           trackEvent("onboarding_resumed", { resumed_from_step: parsedState.current_step });
         } else {
           setResumeStep(parsedState.current_step);
+          setStep(parsedState.current_step);
           setShowResumeDialog(true);
         }
       }
@@ -609,7 +612,7 @@ export default function Onboarding() {
           setAutoSkipMessage("");
         }
       })();
-    }, 1500);
+    }, 3000);
 
     return () => window.clearTimeout(timeoutId);
   }, [createdRecipient, goToStep, loading, markStepComplete, recipientCount, step]);
@@ -618,12 +621,6 @@ export default function Onboarding() {
     if (step !== 5 || loading) return;
     void completeOnboarding();
   }, [completeOnboarding, loading, step]);
-
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (info.offset.x > 80 && step > 1 && step < 5) {
-      void handleBack();
-    }
-  };
 
   if (loading) {
     return (
@@ -667,10 +664,6 @@ export default function Onboarding() {
             animate="center"
             exit="exit"
             transition={{ type: "spring", stiffness: 280, damping: 30 }}
-            drag={step < 5 ? "x" : false}
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.12}
-            onDragEnd={handleDragEnd}
           >
             <Card className="overflow-hidden border-border/70 shadow-xl">
               <CardContent className="p-8 md:p-10">
@@ -932,7 +925,7 @@ export default function Onboarding() {
                               onClick={() => toggleGiftStyle(option.value)}
                               className={`rounded-xl border px-4 py-4 text-left transition-colors ${
                                 active
-                                  ? "border-indigo-300 bg-indigo-50 text-indigo-900"
+                                  ? "border-amber-300 bg-amber-50 text-amber-900"
                                   : "border-border bg-card text-foreground hover:bg-muted/40"
                               }`}
                             >
@@ -991,7 +984,7 @@ export default function Onboarding() {
                       {onboardingBonusEnabled ? (
                         <div className="flex items-center gap-3 text-sm text-foreground">
                           <span>🎁</span>
-                          <span>Onboarding bonus available when enabled</span>
+                          <span>Onboarding bonus applied</span>
                         </div>
                       ) : null}
                     </div>

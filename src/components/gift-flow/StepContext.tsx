@@ -52,6 +52,7 @@ export default function StepContext({
     ? `${signalCheckCost}`
     : signalCheckCost.toFixed(1).replace(/\.0$/, "");
   const canAffordGiftGeneration = creditsBalance >= giftGenerationUnits;
+  const hasContext = specialContext.trim().length > 0 || contextTags.length > 0;
 
   return (
     <div className="space-y-6">
@@ -171,8 +172,17 @@ export default function StepContext({
 
       {!canAffordGiftGeneration ? <SoftPaywall compact title="You need 1 credit to generate new recommendations." /> : null}
 
-      {/* Buttons renamed (Item 11) */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Button type="button" variant="ghost" className="min-h-12" onClick={onBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {!hasContext ? (
+            <Button type="button" variant="outline" className="min-h-12" onClick={onSkip}>
+              Skip context
+            </Button>
+          ) : null}
         <Button
           type="button"
           variant="hero"
@@ -184,15 +194,9 @@ export default function StepContext({
           {/* Subtle pulse glow */}
           <span className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <Sparkles className="mr-2 h-4 w-4" />
-          Add context → better results
+            {hasContext ? "Continue with context" : "Continue"}
         </Button>
-        <Button type="button" variant="outline" className="min-h-12" onClick={onSkip}>
-          Skip (use defaults)
-        </Button>
-        <Button type="button" variant="ghost" className="min-h-12" onClick={onBack}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+        </div>
       </div>
     </div>
   );

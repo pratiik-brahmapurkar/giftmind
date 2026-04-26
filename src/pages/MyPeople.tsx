@@ -235,6 +235,11 @@ const MyPeople = () => {
     navigate(`/gift-flow?recipient=${id}`);
   };
 
+  const searchLooksLikeName = (value: string) => {
+    const trimmed = value.trim();
+    return /^[A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*)?$/.test(trimmed);
+  };
+
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-5xl pb-20 md:pb-0">
@@ -255,7 +260,9 @@ const MyPeople = () => {
 
         {recipients.length > 0 && (
           <p className={cn("mb-4 text-xs", capacityColor)}>
-            {recipients.length}/{limits.recipients === -1 ? "∞" : limits.recipients} people ({limits.label})
+            {limits.recipients === -1
+              ? `${recipients.length} people saved (${limits.label} - unlimited)`
+              : `${recipients.length}/${limits.recipients} people (${limits.label})`}
           </p>
         )}
 
@@ -327,7 +334,7 @@ const MyPeople = () => {
             </div>
 
             {filtered.length === 0 ? (
-              deferredSearch.trim() ? (
+              deferredSearch.trim() && searchLooksLikeName(deferredSearch) ? (
                 <div className="py-6">
                   <EmptyState
                     title={`No one named "${deferredSearch.trim()}"`}
@@ -464,7 +471,7 @@ const MyPeople = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this person?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete their profile and all associated data. Gift history sessions will remain, but the recipient link will be cleared.
+              This will permanently delete their profile and all associated data. Gift history sessions will remain, but they won't be linked to this person anymore.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

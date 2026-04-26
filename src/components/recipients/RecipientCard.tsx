@@ -219,7 +219,7 @@ const RecipientCard = ({
           {giftCount > 0 ? `${giftCount} gift${giftCount === 1 ? "" : "s"} chosen` : "No gifts yet"}
           {recipient.last_gift_name ? ` · ${recipient.last_gift_name}` : ""}
           {recipient.last_gift_date
-            ? ` · Last gift: ${new Date(recipient.last_gift_date).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`
+            ? ` · Last gift: ${new Date(recipient.last_gift_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
             : ""}
         </p>
 

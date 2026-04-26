@@ -14,9 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Link2,
   FileText,
-  HelpCircle,
   MoreHorizontal,
   Home,
   ShoppingBag,
@@ -54,11 +52,10 @@ const sidebarItems = [
   { label: "Gift History", path: "/gift-history", icon: History },
   { label: "Credits", path: "/credits", icon: Coins },
   { label: "Plans", path: "/plans", icon: ShoppingBag },
-  { label: "Refer a Friend", path: "/settings", icon: Link2 },
 ];
 
 const sidebarSecondary = [
-  { label: "Blog", path: "/blog", icon: FileText, external: true },
+  { label: "Blog", path: "/blog", icon: FileText },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 
@@ -206,13 +203,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="border-t border-border my-2" />
 
           {sidebarSecondary.map((item) => (
-            item.external ? (
-              <a key={item.label} href={item.path} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                <item.icon className="w-5 h-5 shrink-0" />
-                {sidebarOpen && <span>{item.label}</span>}
-              </a>
-            ) : (
               <Link key={item.path} to={item.path}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-l-lg rounded-r-none text-sm font-medium transition-colors border-r-2",
@@ -223,7 +213,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <item.icon className="w-5 h-5 shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}
               </Link>
-            )
           ))}
         </nav>
 
@@ -288,7 +277,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     {balanceDisplay} left this month
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {resetCountdownLabel ?? "Resets monthly"}{resetDate ? ` on ${new Date(resetDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}` : ""}
+                    {resetCountdownLabel ?? "Resets monthly"}{resetDate ? ` on ${new Date(resetDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -324,10 +313,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     {[
                       { label: "Credits", path: "/credits", icon: Coins },
                       { label: "Plans", path: "/plans", icon: ShoppingBag },
-                      { label: "Refer a Friend", path: "/settings", icon: Link2 },
                       { label: "Settings", path: "/settings", icon: Settings },
                       { label: "Blog", path: "/blog", icon: FileText },
-                      { label: "Help", path: "/settings", icon: HelpCircle },
                     ].map((m) => (
                       <Link key={m.label} to={m.path} onClick={() => setMoreOpen(false)}
                         className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors">
