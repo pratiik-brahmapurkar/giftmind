@@ -60,6 +60,9 @@ export default function GiftFlow() {
   const [searchParams, setSearchParams] = useSearchParams();
   const giftSession = useGiftSession();
   const hydrateSession = giftSession.hydrateSession;
+  const generateGifts = giftSession.generateGifts;
+  const sessionId = giftSession.sessionId;
+  const isGenerating = giftSession.isGenerating;
   const publicSettingKeys = useMemo(() => ["feature_signal_check", "signal_check_units", "gift_generation_units"], []);
   const { settings: publicSettings } = usePublicPlatformSettings(publicSettingKeys);
 
@@ -87,6 +90,9 @@ export default function GiftFlow() {
   const [pendingStep, setPendingStep] = useState<number | null>(null);
 
   const hasGeneratedRef = useRef(false);
+  const activeSessionIdRef = useRef<string | null>(null);
+  const hydratedSessionParamRef = useRef<string | null>(null);
+  const startTrackedRef = useRef(false);
   const featureSignalCheck = parseBooleanSetting(publicSettings.feature_signal_check, true);
   const signalCheckUnits = parseNumberSetting(publicSettings.signal_check_units, 1);
   const giftGenerationUnits = parseNumberSetting(publicSettings.gift_generation_units, 2);
@@ -121,6 +127,10 @@ export default function GiftFlow() {
     void refreshProfile();
   }, [authLoading, refreshProfile]);
 
+  useEffect(() => {
+    activeSessionIdRef.current = sessionId;
+  }, [sessionId]);
+
   // First-time detection (Item 3)
   useEffect(() => {
     if (!user || authLoading) return;
@@ -140,6 +150,9 @@ export default function GiftFlow() {
 
   useEffect(() => {
     if (!user || authLoading) return;
+    if (startTrackedRef.current) return;
+
+    startTrackedRef.current = true;
 
     const source = searchParams.get("source");
     trackEvent("gift_flow_started", {
@@ -212,6 +225,8 @@ export default function GiftFlow() {
     }
 
     async function resumeSession(session: GiftSessionRecord) {
+      hydratedSessionParamRef.current = session.id;
+
       if (session.recipient_id) {
         await preloadRecipient(session.recipient_id);
       }
@@ -234,6 +249,14 @@ export default function GiftFlow() {
 
     async function preload() {
       if (sessionParam) {
+        if (
+          sessionParam === activeSessionIdRef.current ||
+          sessionParam === hydratedSessionParamRef.current ||
+          isGenerating
+        ) {
+          return;
+        }
+
         const { data: session } = await supabase
           .from("gift_sessions")
           .select("*")
@@ -253,7 +276,7 @@ export default function GiftFlow() {
     }
 
     void preload();
-  }, [authLoading, hydrateSession, searchParams, user]);
+  }, [authLoading, hydrateSession, isGenerating, searchParams, user]);
 
   const generationParams = useMemo(() => {
     if (!selectedRecipient || !selectedOccasion || budgetMin == null || budgetMax == null) return null;
@@ -289,22 +312,21 @@ export default function GiftFlow() {
     if (currentStep !== 5 || !generationParams || hasGeneratedRef.current) return;
 
     hasGeneratedRef.current = true;
-
     void (async () => {
-      await giftSession.generateGifts(generationParams);
+      await generateGifts(generationParams);
       await refreshProfile();
     })();
-  }, [currentStep, generationParams, giftSession, refreshProfile]);
+  }, [currentStep, generationParams, generateGifts, refreshProfile]);
 
   useEffect(() => {
-    if (!giftSession.sessionId) return;
+    if (!sessionId) return;
 
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      next.set("session", giftSession.sessionId!);
+      next.set("session", sessionId);
       return next;
     }, { replace: true });
-  }, [giftSession.sessionId, setSearchParams]);
+  }, [sessionId, setSearchParams]);
 
   const goToStep = (nextStep: number) => {
     if (nextStep > currentStep) {

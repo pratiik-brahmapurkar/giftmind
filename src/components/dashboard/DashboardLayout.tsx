@@ -192,7 +192,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 isActive(item.path)
                   ? "bg-[#D4A04A]/10 text-[#6F5326] border-[#D4A04A]"
                   : item.accent
-                  ? "bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 rounded-r-lg font-semibold"
+                  ? "bg-[#D4A04A] text-[#231f1a] shadow-sm hover:bg-[#C59035] border-[#B7822F] rounded-r-lg font-semibold"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground border-transparent rounded-r-lg"
               )}>
               <item.icon className="w-5 h-5 shrink-0" />
