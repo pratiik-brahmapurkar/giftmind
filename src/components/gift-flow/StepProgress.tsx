@@ -5,9 +5,10 @@ const labels = ["Person", "Occasion", "Budget", "Context", "Results"];
 
 interface StepProgressProps {
   currentStep: number;
+  onStepClick?: (step: number) => void;
 }
 
-export default function StepProgress({ currentStep }: StepProgressProps) {
+export default function StepProgress({ currentStep, onStepClick }: StepProgressProps) {
   return (
     <div className="sticky top-0 z-10 space-y-2 bg-background py-2">
       {/* Mobile step indicator — visible < 400px */}
@@ -25,13 +26,16 @@ export default function StepProgress({ currentStep }: StepProgressProps) {
             <div key={label} className="flex flex-1 items-center last:flex-initial" role="listitem">
               <div className="flex flex-col items-center gap-2">
                 <div
-                  role="status"
+                  role={isCompleted && onStepClick ? "button" : "status"}
                   tabIndex={0}
                   aria-current={isCurrent ? "step" : undefined}
-                  aria-label={`${label}: ${isCompleted ? "completed" : isCurrent ? "current step" : "upcoming"}`}
+                  aria-label={`${label}: ${isCompleted ? "completed – click to go back" : isCurrent ? "current step" : "upcoming"}`}
+                  onClick={isCompleted && onStepClick ? () => onStepClick(step) : undefined}
+                  onKeyDown={isCompleted && onStepClick ? (e) => { if (e.key === "Enter" || e.key === " ") onStepClick(step); } : undefined}
                   className={cn(
                     "flex items-center justify-center rounded-full border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     isCompleted && "h-9 w-9 border-primary bg-primary text-primary-foreground",
+                    isCompleted && onStepClick && "cursor-pointer hover:opacity-75",
                     isCurrent && "h-10 w-10 border-primary bg-primary text-primary-foreground shadow-md",
                     !isCompleted && !isCurrent && "h-9 w-9 border-muted-foreground/30 bg-background text-muted-foreground",
                   )}

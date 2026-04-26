@@ -503,7 +503,7 @@ export default function GiftFlow() {
         ) : (
           <div className="space-y-6">
             <div className="flex items-center justify-between gap-3">
-              {currentStep > 1 ? (
+              {currentStep === 5 ? (
                 <Button type="button" variant="ghost" className="px-0 text-muted-foreground hover:text-foreground" onClick={goBack}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back
@@ -518,7 +518,28 @@ export default function GiftFlow() {
               </div>
             </div>
 
-            <StepProgress currentStep={currentStep} />
+            <StepProgress currentStep={currentStep} onStepClick={goToStep} />
+
+            {/* Context summary strip — shows what's been confirmed so far */}
+            {currentStep >= 2 && (selectedRecipient || selectedOccasion || (budgetMin != null && budgetMax != null)) && (
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                {selectedRecipient && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                    {selectedRecipient.name}
+                  </span>
+                )}
+                {selectedOccasion && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                    {selectedOccasion.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </span>
+                )}
+                {budgetMin != null && budgetMax != null && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                    ${budgetMin}–${budgetMax}
+                  </span>
+                )}
+              </div>
+            )}
 
             {currentStep < 5 && creditsBalance < giftGenerationUnits ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

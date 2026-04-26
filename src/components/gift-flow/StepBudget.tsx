@@ -90,7 +90,7 @@ export default function StepBudget({
         </p>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {BUDGET_CHIPS.map((chip) => {
           const isSelected = budgetMin === chip.min && budgetMax === chip.max;
           return (
@@ -98,7 +98,7 @@ export default function StepBudget({
               key={chip.label}
               type="button"
               className={cn(
-                "whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-all duration-150",
+                "rounded-full border px-4 py-2.5 text-sm font-medium transition-all duration-150 text-center",
                 isSelected
                   ? "border-primary bg-primary text-primary-foreground shadow-sm"
                   : "border-border bg-background text-foreground hover:border-primary/30",

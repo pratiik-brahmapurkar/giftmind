@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -119,6 +120,7 @@ function HowItWorksList() {
 
 export default function Onboarding() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resumeRequested = searchParams.get("resume") === "true";
@@ -149,6 +151,7 @@ export default function Onboarding() {
   const mountedRef = useRef(false);
   const startedEventRef = useRef(false);
   const completedRef = useRef(false);
+  const completedBeforeResumeRef = useRef(false);
   const stepStartedAtRef = useRef(Date.now());
   const totalStartedAtRef = useRef(Date.now());
   const autoSkippedExistingRecipientRef = useRef(false);
@@ -175,6 +178,22 @@ export default function Onboarding() {
       }),
     [birthday, country, createdRecipient, fullName, giftStyle, recipientCount, selectedAudience],
   );
+
+  const getResumeStepForMissingProfile = useCallback((profile: UserRow | null, parsedState: OnboardingState, count: number) => {
+    const profileCompletion = calculateProfileCompletion({
+      fullName: profile?.full_name || "",
+      country: profile?.country || "",
+      recipientCount: count,
+      birthday: profile?.birthday || null,
+      audience: parsedState.audience,
+      giftStyle: parsedState.gift_style,
+    });
+
+    if (profileCompletion >= 100) return null;
+    if (parsedState.audience.length === 0) return 2;
+    if (count < 1) return 3;
+    return 4;
+  }, []);
 
   const persistUserState = useCallback(async (
     userPatch: TablesUpdate<"users"> = {},
@@ -460,7 +479,7 @@ export default function Onboarding() {
 
     let newBalance = creditsBalance;
 
-    if (onboardingBonusEnabled) {
+    if (onboardingBonusEnabled && !completedBeforeResumeRef.current) {
       const response = await supabase.functions.invoke("complete-onboarding", { body: {} });
       if (!response.error && response.data?.success) {
         newBalance = response.data.new_balance ?? creditsBalance;
@@ -487,6 +506,11 @@ export default function Onboarding() {
     }
 
     setOnboardingState(completionState);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard-profile", user.id] }),
+      queryClient.invalidateQueries({ queryKey: ["profile", user.id] }),
+      queryClient.invalidateQueries({ queryKey: ["auth-guard-onboarding", user.id] }),
+    ]);
     confetti({
       particleCount: 120,
       spread: 70,
@@ -509,7 +533,7 @@ export default function Onboarding() {
         giftStyle,
       }),
     });
-  }, [birthday, country, createdRecipient, creditsBalance, fullName, giftStyle, onboardingState, recipientCount, selectedAudience, user]);
+  }, [birthday, country, createdRecipient, creditsBalance, fullName, giftStyle, onboardingState, queryClient, recipientCount, selectedAudience, user]);
 
   useEffect(() => {
     if (!user || mountedRef.current) return;
@@ -529,12 +553,14 @@ export default function Onboarding() {
       ]);
 
       const profile = userRow as UserRow | null;
-      if (profile?.has_completed_onboarding) {
+      const parsedState = parseOnboardingState(profile?.onboarding_state);
+      const countValue = count ?? 0;
+
+      if (profile?.has_completed_onboarding && !resumeRequested) {
         navigate("/dashboard", { replace: true });
         return;
       }
 
-      const parsedState = parseOnboardingState(profile?.onboarding_state);
       const initialFullName = sanitizeString(
         profile?.full_name || String(user.user_metadata?.full_name || user.user_metadata?.name || ""),
         100,
@@ -548,7 +574,26 @@ export default function Onboarding() {
       setCountry(validateCountryCode(initialCountry) ? initialCountry : "US");
       setBirthday(parseBirthdayString(profile?.birthday));
       setCreditsBalance(profile?.credits_balance ?? 3);
-      setRecipientCount(count ?? 0);
+      setRecipientCount(countValue);
+
+      if (profile?.has_completed_onboarding && resumeRequested) {
+        const resumeProfileStep = getResumeStepForMissingProfile(profile, parsedState, countValue);
+        if (!resumeProfileStep) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
+        completedBeforeResumeRef.current = true;
+        setResumeStep(resumeProfileStep);
+        setStep(resumeProfileStep);
+        stepStartedAtRef.current = Date.now();
+        trackEvent("profile_finish_setup_started", {
+          resumed_from_step: resumeProfileStep,
+          completion_percentage: profile.profile_completion_percentage,
+        });
+        setLoading(false);
+        return;
+      }
 
       const startedAt = parsedState.started_at ? new Date(parsedState.started_at).getTime() : Date.now();
       totalStartedAtRef.current = startedAt;
@@ -579,7 +624,7 @@ export default function Onboarding() {
     }
 
     void load();
-  }, [navigate, referralCode, resumeRequested, user]);
+  }, [getResumeStepForMissingProfile, navigate, referralCode, resumeRequested, user]);
 
   useEffect(() => {
     if (loading) return;

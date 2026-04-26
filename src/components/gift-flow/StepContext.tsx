@@ -162,7 +162,7 @@ export default function StepContext({
         <p className="flex items-center gap-2 text-sm text-amber-800">
           <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
           <span>
-            <strong>1 credit</strong> will be used when you continue.{" "}
+            <strong>{formatCreditsValue(giftGenerationUnits)} credit{giftGenerationUnits !== 1 ? "s" : ""}</strong> will be used when you continue.{" "}
             {creditsBalance > 0 && (
               <span className="text-amber-700/80">You have {formatCreditsValue(creditsBalance)} remaining.</span>
             )}
