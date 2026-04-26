@@ -613,23 +613,32 @@ export default function StepResults({
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="rounded-3xl border border-[#EADCC6] bg-[#FBF6EC] p-5 shadow-[0_14px_40px_rgba(55,42,22,0.06)] md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#7A5520]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Results
-              </div>
-              <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="space-y-8"
+      >
+        <div className="space-y-3">
+          <motion.p
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-sm font-semibold uppercase tracking-wider text-primary flex items-center gap-2"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">5</span>
+            Results
+          </motion.p>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-3">
+              <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-5xl text-balance">
                 Gifts worth choosing
               </h1>
-              <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+              <p className="text-base text-muted-foreground md:text-lg text-balance max-w-xl">
                 Ranked options for {selectedRecipient.name}, tuned for {humanizeOccasionLabel(selectedOccasion)} and your budget.
               </p>
             </div>
             {viewOnly ? (
-              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-white px-3 py-1 text-xs font-medium text-muted-foreground">
+              <div className="inline-flex w-fit items-center rounded-full border border-border/60 bg-background px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
                 View Only
               </div>
             ) : null}
@@ -788,12 +797,12 @@ export default function StepResults({
             </Button>
           </div>
         ) : null}
-      </div>
+      </motion.div>
 
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        highlightPlan={planLimits.getUpgradePlan("more_regenerations")}
+        highlightPlan={planLimits.getUpgradePlan()}
         reason={planLimits.getUpgradeText("more_regenerations")}
       />
     </>

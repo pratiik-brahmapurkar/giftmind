@@ -166,7 +166,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       )}>
         {/* Logo */}
         <div className="p-4 flex items-center gap-2 border-b border-border h-14">
-          <Link to="/dashboard" className="flex items-center gap-2 min-w-0">
+          <Link to="/" className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center shrink-0">
               <Gift className="w-4 h-4 text-primary-foreground" />
             </div>
@@ -228,7 +228,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Top navbar */}
         <header className="h-14 border-b border-border bg-card px-4 flex items-center justify-between shrink-0">
           {/* Mobile logo */}
-          <Link to="/dashboard" className="md:hidden flex items-center gap-2">
+          <Link to="/" className="md:hidden flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
               <Gift className="w-3.5 h-3.5 text-primary-foreground" />
             </div>

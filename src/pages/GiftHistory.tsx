@@ -199,12 +199,14 @@ function resolveStoreLinks(
 
 function StatCard({ emoji, value, label }: { emoji: string; value: string | number; label: string }) {
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="text-xl">{emoji}</div>
-        <div>
-          <div className="text-lg font-semibold text-foreground">{value}</div>
-          <div className="text-xs text-muted-foreground">{label}</div>
+    <Card className="border-border shadow-sm overflow-hidden rounded-2xl group transition-all hover:shadow-md hover:border-primary/30">
+      <CardContent className="flex items-center gap-4 p-5 bg-gradient-to-br from-background to-muted/20">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-2xl group-hover:bg-primary/20 transition-colors shadow-inner shrink-0">
+          {emoji}
+        </div>
+        <div className="min-w-0">
+          <div className="text-2xl font-bold font-heading tracking-tight text-foreground truncate">{value}</div>
+          <div className="text-sm font-medium text-muted-foreground truncate">{label}</div>
         </div>
       </CardContent>
     </Card>
@@ -504,21 +506,29 @@ export default function GiftHistory() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-[720px] space-y-6 px-4 pb-24 pt-2 md:px-0">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">Gift History</h1>
-          <p className="text-sm text-muted-foreground">Your past gift sessions and recommendations.</p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto max-w-5xl space-y-8 px-4 pb-24 pt-4 md:px-6"
+      >
+        <div className="space-y-3">
+          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-5xl text-balance">
+            Gift History
+          </h1>
+          <p className="text-base text-muted-foreground md:text-lg text-balance max-w-xl">
+            Your past gift sessions and recommendations. Access your AI curation anytime.
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard emoji="🎯" value={stats.total} label="Sessions" />
           <StatCard emoji="✅" value={stats.completed} label="Gifts Chosen" />
           <StatCard emoji="⭐" value={`${stats.avgConfidence}%`} label="Avg Confidence" />
           <StatCard emoji="🛒" value={stats.totalClicks} label="Clicks" />
         </div>
 
-        <Card className="border-border/60">
-          <CardContent className="grid gap-3 p-4 md:grid-cols-4">
+        <Card className="border-border/80 shadow-sm overflow-hidden rounded-2xl">
+          <CardContent className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4 bg-muted/10">
             <Select value={filters.status} onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))}>
               <SelectTrigger><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
@@ -615,8 +625,8 @@ export default function GiftHistory() {
                 const avatarColor = recipient?.relationship ? RELATIONSHIP_COLORS[recipient.relationship] : "#94A3B8";
 
                 return (
-                  <Card key={session.id} className={cn("border-border/60 shadow-sm", meta.opacity)}>
-                    <CardContent className="space-y-5 p-5 md:p-6">
+                  <Card key={session.id} className={cn("border-border/80 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow", meta.opacity)}>
+                    <CardContent className="space-y-5 p-5 md:p-6 bg-gradient-to-br from-background to-muted/5">
                       <div className="flex items-start gap-4">
                         <div
                           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
@@ -742,7 +752,7 @@ export default function GiftHistory() {
                             className="overflow-hidden"
                           >
                             <div className="space-y-4 border-t border-border/60 pt-5">
-                              <div className="text-sm font-semibold text-foreground">Your Recommendations</div>
+                              <div className="text-sm font-semibold text-foreground uppercase tracking-wider">Your Recommendations</div>
 
                               {aiResponse.recommendations.map((recommendation, index) => {
                                 const links = resolveStoreLinks(recommendation, session, stores);
@@ -758,42 +768,42 @@ export default function GiftHistory() {
                                   <div
                                     key={`${session.id}-${recommendation.name}-detail`}
                                     className={cn(
-                                      "rounded-2xl border p-4",
-                                      isSelected ? "border-emerald-300 bg-emerald-50" : "border-border bg-background",
+                                      "rounded-2xl border-2 p-5 transition-colors shadow-sm",
+                                      isSelected ? "border-emerald-400 bg-emerald-50/50" : "border-border/60 bg-background hover:border-primary/20",
                                     )}
                                   >
                                     <div className="flex flex-wrap items-center justify-between gap-3">
-                                      <div className="space-y-1">
+                                      <div className="space-y-1.5">
                                         <div className="flex items-center gap-2">
-                                          <span className="font-semibold text-foreground">{recommendation.name}</span>
+                                          <span className="font-semibold text-lg text-foreground tracking-tight">{recommendation.name}</span>
                                           {isSelected && (
-                                            <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white">
-                                              Selected ✓
+                                            <span className="rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-bold text-white shadow-sm uppercase tracking-wider">
+                                              Selected 
                                             </span>
                                           )}
                                         </div>
-                                        <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-medium", getConfidenceTone(recommendation.confidence_score))}>
+                                        <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-semibold", getConfidenceTone(recommendation.confidence_score))}>
                                           🎯 {recommendation.confidence_score}% confidence
                                         </span>
                                       </div>
-                                      <span className="text-sm text-muted-foreground">
+                                      <span className="text-lg font-semibold text-muted-foreground">
                                         ~${recommendation.price_anchor.toLocaleString()}
                                       </span>
                                     </div>
 
-                                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                                    <p className="mt-4 text-sm leading-relaxed text-muted-foreground border-l-2 border-primary/20 pl-4 py-1">
                                       {recommendation.why_it_works}
                                     </p>
 
                                     {latestSignalCheck && (
-                                      <div className="mt-4 space-y-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                      <div className="mt-5 space-y-3 rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-inner">
                                         <div className="flex flex-wrap items-center gap-2">
-                                          <span className="text-sm font-semibold text-foreground">Signal Check</span>
-                                          <span className="rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                                          <span className="text-sm font-bold text-primary flex items-center gap-1.5"><Target className="w-4 h-4"/> Signal Check</span>
+                                          <span className="rounded-full border border-border/80 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
                                             Revision {latestSignalCheck.revision_number}
                                           </span>
                                           {signalHistory.length > 1 ? (
-                                            <span className="rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                                            <span className="rounded-full border border-border/80 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
                                               {signalHistory.length} saved reads
                                             </span>
                                           ) : null}
@@ -900,10 +910,11 @@ export default function GiftHistory() {
             </Button>
           </div>
         )}
-      </div>
+      </motion.div>
 
       <FeedbackModal
-        session={feedbackSession}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        session={feedbackSession as any}
         existingFeedback={feedbackSession ? feedbackBySession.get(feedbackSession.id) ?? null : null}
         onClose={() => {
           setFeedbackSession(null);
