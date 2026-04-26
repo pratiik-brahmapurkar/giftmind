@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, Sparkles, Trophy } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ExternalLink,
+  Gift,
+  Heart,
+  Palette,
+  Shirt,
+  ShoppingBag,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,6 +71,19 @@ interface GiftCardProps {
   viewOnly?: boolean;
 }
 
+function formatMoney(value: number | null | undefined) {
+  if (value == null) return null;
+  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+}
+
+function visualIconForCategory(category: string) {
+  const normalized = category.toLowerCase();
+  if (normalized.includes("book") || normalized.includes("journal")) return BookOpen;
+  if (normalized.includes("fashion") || normalized.includes("wear") || normalized.includes("apparel")) return Shirt;
+  if (normalized.includes("art") || normalized.includes("decor")) return Palette;
+  return Gift;
+}
+
 export default function GiftCard({
   gift,
   index,
@@ -82,6 +113,19 @@ export default function GiftCard({
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionNote, setSelectionNote] = useState("");
   const [createReminder, setCreateReminder] = useState(Boolean(occasionDate));
+  const [savedForLater, setSavedForLater] = useState(false);
+  const topProduct = products?.products?.[0] ?? null;
+  const visibleStoreLinks = products?.products?.slice(0, 3) ?? [];
+  const VisualIcon = visualIconForCategory(gift.product_category);
+
+  const handleSaveForLater = () => {
+    setSavedForLater((current) => !current);
+    trackEvent("gift_save_for_later_clicked", {
+      rec_index: index,
+      saved: !savedForLater,
+      gift_name: gift.name,
+    });
+  };
 
   return (
     <>
@@ -94,67 +138,98 @@ export default function GiftCard({
           variant={isBestMatch ? "elevated" : "default"}
           padding="none"
           className={cn(
-            "overflow-hidden border-border/80 bg-background",
-            isBestMatch ? "border-amber-300 shadow-glow-amber motion-safe:animate-gift-reveal" : "shadow-sm",
+            "overflow-hidden rounded-3xl border-[#EADCC6] bg-white shadow-[0_16px_45px_rgba(55,42,22,0.08)]",
+            isBestMatch ? "border-amber-300 shadow-glow-amber motion-safe:animate-gift-reveal" : "",
           )}
         >
-          <CardContent className="space-y-5 p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary" className="font-sans">
-                    <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    Recommendation {index + 1}
-                  </Badge>
-                  {isBestMatch ? (
-                    <Badge variant="primary" className="font-sans">
-                      <Trophy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      Best Match
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-heading text-2xl font-semibold text-foreground">{gift.name}</h3>
-                </div>
+          <CardContent className="space-y-5 p-4 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="relative flex min-h-[190px] items-center justify-center overflow-hidden rounded-2xl border border-[#EFE3D1] bg-[#FBF6EC] lg:w-56 lg:shrink-0">
+                {topProduct?.image_url ? (
+                  <img
+                    src={topProduct.image_url}
+                    alt={topProduct.product_title || gift.name}
+                    className="h-full min-h-[190px] w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-[#D4A04A]/15 text-[#7A5520]">
+                    <VisualIcon className="h-11 w-11" strokeWidth={1.7} />
+                  </div>
+                )}
+                {isBestMatch ? (
+                  <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#7A5520] shadow-sm">
+                    <Trophy className="h-3.5 w-3.5" />
+                    Best match
+                  </div>
+                ) : null}
               </div>
 
-              <ConfidenceBadge score={gift.confidence_score} size="md" animate />
+              <div className="min-w-0 flex-1 space-y-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary" className="font-sans">
+                        <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Recommendation {index + 1}
+                      </Badge>
+                      <Badge variant="outline" className="border-[#E6D5BA] bg-[#FBF6EC] font-sans text-[#7A5520]">
+                        {gift.product_category}
+                      </Badge>
+                      <Badge variant="secondary" className="font-sans text-xs">
+                        {planConfig.name} plan
+                      </Badge>
+                    </div>
+                    <h3 className="font-heading text-2xl font-semibold leading-tight text-foreground">
+                      {gift.name}
+                    </h3>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end">
+                    <ConfidenceBadge score={gift.confidence_score} size="md" animate />
+                    <div className="rounded-full border border-[#E6D5BA] bg-[#FBF6EC] px-3 py-1 text-sm font-semibold text-[#5C4524]">
+                      ~{formatMoney(gift.price_anchor)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Why it works
+                  </p>
+                  <p className="text-base leading-relaxed text-neutral-700">
+                    {gift.why_it_works}
+                  </p>
+                  <PersonalizationWarning score={gift.personalization_score} />
+                </div>
+
+                <Accordion type="single" collapsible className="rounded-2xl border border-[#EFE3D1] bg-[#FCFAF6] px-4">
+                  <AccordionItem value="insights" className="border-0">
+                    <AccordionTrigger className="py-3 text-sm font-semibold text-foreground hover:no-underline">
+                      What to avoid and deeper AI notes
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 pb-4">
+                      {gift.what_not_to_do?.trim() ? (
+                        <AvoidCallout text={gift.what_not_to_do.trim()} />
+                      ) : (
+                        <p className="rounded-xl border border-border/60 bg-white p-3 text-sm text-muted-foreground">
+                          No specific avoid note was flagged for this recommendation.
+                        </p>
+                      )}
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {gift.signal_interpretation || gift.description}
+                      </p>
+                      <BudgetBadge
+                        priceAnchor={gift.price_anchor}
+                        budgetMin={budgetMin}
+                        budgetMax={budgetMax}
+                        currency={currency}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
             </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <Badge variant="default" className="font-sans text-xs">
-              <span className="font-mono font-medium">${gift.price_anchor.toLocaleString()}</span>
-            </Badge>
-            <Badge variant="default" className="font-sans text-xs">
-              {gift.product_category}
-            </Badge>
-            <Badge variant="secondary" className="font-sans text-xs">
-              {planConfig.name} plan
-            </Badge>
-          </div>
-
-          <div className="space-y-3">
-            <div className="border-b border-border/60 pb-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Why it works
-              </p>
-            </div>
-            <p className="max-w-2xl text-base leading-relaxed text-neutral-600">
-              {gift.why_it_works}
-            </p>
-            <PersonalizationWarning score={gift.personalization_score} />
-          </div>
-
-          {gift.what_not_to_do?.trim() ? (
-            <AvoidCallout text={gift.what_not_to_do.trim()} />
-          ) : null}
-
-          <BudgetBadge
-            priceAnchor={gift.price_anchor}
-            budgetMin={budgetMin}
-            budgetMax={budgetMax}
-            currency={currency}
-          />
 
           <SignalCheck
             gift={gift}
@@ -170,24 +245,75 @@ export default function GiftCard({
             viewOnly={viewOnly}
           />
 
-          <ProductLinks
-            products={products?.products ?? []}
-            lockedStores={products?.locked_stores ?? []}
-            lockedStoreCountTotal={products?.locked_store_count_total ?? products?.locked_stores?.length ?? 0}
-            isLoading={isSearchingProducts}
-            recipientCountry={recipientCountry}
-            isGlobalFallback={Boolean(products?.is_global_fallback)}
-            giftName={gift.name}
-            fallbackSearchTerm={gift.search_keywords[0] || gift.name}
-            onTrackClick={onTrackClick}
-            onLockedStoreClick={(store) => onLockedStoreClick?.(store.store_name, store.unlock_plan)}
-          />
+          <div className="flex flex-col gap-3 border-t border-[#EFE3D1] pt-5 lg:flex-row lg:items-center lg:justify-between">
+            {!viewOnly ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button type="button" variant="hero" className="min-h-12 px-6" onClick={() => setSelectionOpen(true)}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                  I&apos;ll Pick This One
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "min-h-12 px-4",
+                    savedForLater && "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+                  )}
+                  onClick={handleSaveForLater}
+                  aria-pressed={savedForLater}
+                >
+                  <Heart className={cn("mr-2 h-4 w-4", savedForLater && "fill-current")} strokeWidth={1.6} />
+                  {savedForLater ? "Saved" : "Save for Later"}
+                </Button>
+              </div>
+            ) : null}
 
-          {!viewOnly ? (
-            <Button type="button" variant="hero" className="w-full" onClick={() => setSelectionOpen(true)}>
-              <CheckCircle2 className="mr-2 h-4 w-4" strokeWidth={1.5} />
-              I&apos;ll Pick This One
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {visibleStoreLinks.map((product) => (
+                <Button
+                  key={`${product.store_id}-${product.gift_name}`}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="border border-border/60 bg-white"
+                  onClick={() => onTrackClick(product)}
+                >
+                  <ShoppingBag className="mr-1.5 h-3.5 w-3.5" />
+                  {product.is_search_link ? "Browse" : "View"} {product.store_name}
+                  <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              ))}
+              {isSearchingProducts && visibleStoreLinks.length === 0 ? (
+                <span className="text-xs text-muted-foreground">Finding store links...</span>
+              ) : null}
+            </div>
+          </div>
+
+          {(products?.products?.length || products?.locked_stores?.length || isSearchingProducts) ? (
+            <Accordion type="single" collapsible>
+              <AccordionItem value="stores" className="rounded-2xl border border-border/60 px-4">
+                <AccordionTrigger className="py-3 text-sm font-semibold hover:no-underline">
+                  <span className="inline-flex items-center gap-2">
+                    More store details
+                    <ChevronDown className="hidden h-4 w-4" />
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="pb-4">
+                  <ProductLinks
+                    products={products?.products ?? []}
+                    lockedStores={products?.locked_stores ?? []}
+                    lockedStoreCountTotal={products?.locked_store_count_total ?? products?.locked_stores?.length ?? 0}
+                    isLoading={isSearchingProducts}
+                    recipientCountry={recipientCountry}
+                    isGlobalFallback={Boolean(products?.is_global_fallback)}
+                    giftName={gift.name}
+                    fallbackSearchTerm={gift.search_keywords[0] || gift.name}
+                    onTrackClick={onTrackClick}
+                    onLockedStoreClick={(store) => onLockedStoreClick?.(store.store_name, store.unlock_plan)}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           ) : null}
         </CardContent>
       </Card>

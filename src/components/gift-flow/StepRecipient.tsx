@@ -276,7 +276,8 @@ export default function StepRecipient({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Who is this for?</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Step 1</p>
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">Who is this for?</h1>
         <p className="text-sm text-muted-foreground md:text-base">
           Pick someone you already know in GiftMind or add a new person.
         </p>
@@ -308,8 +309,8 @@ export default function StepRecipient({
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.25 }}
           >
-            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-              <CardContent className="relative p-5">
+            <Card className="overflow-hidden rounded-3xl border-amber-200 bg-[#FBF6EC] shadow-sm">
+              <CardContent className="relative p-5 md:p-6">
                 <button
                   type="button"
                   onClick={dismissHowItWorks}
@@ -319,27 +320,27 @@ export default function StepRecipient({
                   <X className="h-4 w-4" />
                 </button>
 
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#5C4524]">
                   <Sparkles className="h-4 w-4 text-primary" />
                   How it works
                 </div>
 
-                <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">1</span>
-                    Pick who the gift is for
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">2</span>
-                    Tell us the occasion &amp; budget
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">3</span>
-                    Get 3 AI-curated gift recommendations
-                  </li>
+                <ol className="mt-4 grid gap-3 md:grid-cols-3">
+                  {[
+                    "Pick who the gift is for",
+                    "Tell us the occasion & budget",
+                    "Get 3 AI-curated gift recommendations",
+                  ].map((item, index) => (
+                    <li key={item} className="rounded-2xl border border-amber-200 bg-white/70 p-4">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                        {index + 1}
+                      </span>
+                      <p className="mt-3 text-sm font-medium leading-snug text-foreground">{item}</p>
+                    </li>
+                  ))}
                 </ol>
 
-                <p className="mt-3 text-xs text-muted-foreground">
+                <p className="mt-4 rounded-2xl border border-amber-200 bg-white/70 px-4 py-3 text-sm text-[#6F5326]">
                   Each session uses 1 credit. Spark gives you <span className="font-semibold text-primary">3 free credits</span>!
                 </p>
               </CardContent>
@@ -688,16 +689,18 @@ export default function StepRecipient({
         />
       )}
 
-      <Button
-        type="button"
-        variant="hero"
-        size="lg"
-        className="min-h-12 w-full"
-        disabled={!selectedRecipient || !selectedRecipientIsActive}
-        onClick={onContinue}
-      >
-        Continue
-      </Button>
+      <div className="sticky bottom-0 z-10 -mx-4 border-t border-border/60 bg-background/95 px-4 py-4 backdrop-blur md:-mx-6 md:px-6">
+        <Button
+          type="button"
+          variant="hero"
+          size="lg"
+          className="min-h-12 w-full"
+          disabled={!selectedRecipient || !selectedRecipientIsActive}
+          onClick={onContinue}
+        >
+          Continue
+        </Button>
+      </div>
 
       <UpgradeModal
         open={upgradeOpen}

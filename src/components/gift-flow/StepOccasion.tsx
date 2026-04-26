@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Clock, Zap } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, Clock, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -58,15 +58,28 @@ export default function StepOccasion({
         key={occasion.id}
         type="button"
         className={cn(
-          "rounded-2xl border px-4 py-5 text-left transition-all duration-150",
+          "group relative min-h-[126px] overflow-hidden rounded-3xl border p-4 text-left transition-all duration-150",
           isSelected
-            ? "scale-[1.01] border-primary bg-primary text-primary-foreground shadow-sm"
-            : "border-border bg-card hover:border-primary/30 hover:bg-primary/5",
+            ? "scale-[1.01] border-primary bg-primary text-primary-foreground shadow-[0_14px_35px_rgba(197,144,53,0.24)]"
+            : "border-border/70 bg-white hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md",
         )}
         onClick={() => onSelectOccasion(occasion.id)}
       >
-        <div className="text-2xl">{occasion.emoji}</div>
-        <div className="mt-3 text-sm font-medium">{occasion.label}</div>
+        <div className={cn(
+          "flex h-11 w-11 items-center justify-center rounded-2xl text-2xl transition-colors",
+          isSelected ? "bg-white/18" : "bg-[#FBF6EC]",
+        )}>
+          {occasion.emoji}
+        </div>
+        <div className="mt-4 text-sm font-semibold leading-tight">{occasion.label}</div>
+        <p className={cn("mt-1 text-xs", isSelected ? "text-primary-foreground/75" : "text-muted-foreground")}>
+          Tune the tone and gift signal
+        </p>
+        {isSelected ? (
+          <span className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary">
+            <Check className="h-4 w-4" />
+          </span>
+        ) : null}
       </button>
     );
   };
@@ -74,36 +87,48 @@ export default function StepOccasion({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">What&apos;s the occasion?</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Step 2</p>
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">What&apos;s the occasion?</h1>
         <p className="text-sm text-muted-foreground md:text-base">
           Choose the moment you&apos;re buying for. This shapes tone, budget, and store matching.
         </p>
       </div>
 
-      {/* Common occasions — always visible (Item 7) */}
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Common</p>
+      <section className="rounded-3xl border border-border/60 bg-card p-4 shadow-sm md:p-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Common occasions</p>
+            <p className="mt-1 text-sm text-muted-foreground">Most gift searches start here.</p>
+          </div>
+          <div className="hidden h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary sm:flex">
+            <Sparkles className="h-5 w-5" />
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {COMMON_OCCASIONS.map(renderOccasionButton)}
         </div>
-      </div>
+      </section>
 
       {/* Seasonal occasions — always visible */}
       {SEASONAL_OCCASIONS.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seasonal / Professional</p>
+        <section className="rounded-3xl border border-border/60 bg-card p-4 shadow-sm md:p-5">
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seasonal / Professional</p>
+            <p className="mt-1 text-sm text-muted-foreground">Good for work, holidays, and social moments.</p>
+          </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             {SEASONAL_OCCASIONS.map(renderOccasionButton)}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Regional occasions — auto-expanded if recipient's country has them (Item 7) */}
       {regionalOccasions.length > 0 && country && (
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-foreground">
+        <section className="rounded-3xl border border-sky-200 bg-sky-50/70 p-4 md:p-5">
+          <p className="text-sm font-semibold text-sky-950">
             {country.flag} Common in {country.name}
           </p>
+          <p className="mt-1 text-sm text-sky-800/80">Regional occasions help the AI keep cultural context in mind.</p>
           <div className="flex flex-wrap gap-2">
             {regionalOccasions.map((occasion) => {
               const isSelected = selectedOccasion === occasion.id;
@@ -112,10 +137,10 @@ export default function StepOccasion({
                   key={occasion.id}
                   type="button"
                   className={cn(
-                    "rounded-full border px-4 py-2 text-sm transition-colors duration-150",
+                    "mt-3 rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150",
                     isSelected
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background text-foreground hover:border-primary/30",
+                      : "border-sky-200 bg-white text-sky-950 hover:border-primary/30",
                   )}
                   onClick={() => onSelectOccasion(occasion.id)}
                 >
@@ -124,31 +149,36 @@ export default function StepOccasion({
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Date picker with microcopy (Item 8) */}
-      <Card className="border-border/60">
+      <Card className="rounded-3xl border-border/60 bg-card shadow-sm">
         <CardContent className="space-y-4 p-5">
-          <div className="space-y-2">
-            <Label htmlFor="occasion-date" className="text-sm font-medium">
-              When is it?
-            </Label>
-            <input
-              id="occasion-date"
-              type="date"
-              value={occasionDate ?? ""}
-              onChange={(event) => onOccasionDateChange(event.target.value || null)}
-              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
-            />
-            {/* Microcopy explaining WHY (Item 8) */}
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              Helps us prioritize items that can arrive in time
-            </p>
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <CalendarDays className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <Label htmlFor="occasion-date" className="text-sm font-semibold">
+                When is it?
+              </Label>
+              <input
+                id="occasion-date"
+                type="date"
+                value={occasionDate ?? ""}
+                onChange={(event) => onOccasionDateChange(event.target.value || null)}
+                className="h-12 w-full rounded-2xl border border-input bg-background px-3 text-sm"
+              />
+              {/* Microcopy explaining WHY (Item 8) */}
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                Helps us prioritize items that can arrive in time
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/30 px-3 py-2">
             <Checkbox
               id="occasion-date-unknown"
               checked={!occasionDate}
@@ -181,7 +211,7 @@ export default function StepOccasion({
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-3 border-t border-border/60 bg-background/95 px-4 py-4 backdrop-blur sm:flex-row md:-mx-6 md:px-6">
         <Button type="button" variant="outline" className="min-h-12 sm:w-auto" onClick={onBack}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back

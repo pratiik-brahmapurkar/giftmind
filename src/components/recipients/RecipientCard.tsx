@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Gift, MoreVertical, Pencil, Trash2, ArrowRight, Lock } from "lucide-react";
+import { CalendarDays, Gift, MoreVertical, Pencil, Trash2, ArrowRight, Lock, Sparkles } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,45 +97,50 @@ const RecipientCard = ({
     <Card
       onClick={onCardClick}
       className={cn(
-        "group relative cursor-pointer border-border/50 transition-all duration-200",
+        "group relative cursor-pointer overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm transition-all duration-200",
         isLocked
           ? "bg-muted/30 opacity-60"
-          : "hover:shadow-lg hover:-translate-y-0.5",
+          : "hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-[0_18px_45px_rgba(55,42,22,0.08)]",
       )}
     >
-      <CardContent className="p-5">
+      <CardContent className="flex h-full flex-col p-5">
         {isLocked && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[inherit] bg-background/55 backdrop-blur-[1px]">
             <div className="mx-4 rounded-xl border border-border bg-card/95 px-4 py-3 text-center text-sm text-muted-foreground shadow-sm">
               <Lock className="mx-auto mb-1 h-4 w-4" />
-              🔒 Upgrade to use this person in gift sessions
+              Upgrade to use this person in gift sessions
             </div>
           </div>
         )}
-        {/* Top row */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-start gap-3 min-w-0">
-            {/* Avatar */}
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold text-white shrink-0"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
               style={{ backgroundColor: avatarColor }}
             >
               {initial}
             </div>
             <div className="min-w-0">
-              <h3 className="font-heading font-semibold text-lg text-foreground truncate leading-tight">
+              <h3 className="truncate font-heading text-xl font-semibold leading-tight text-foreground">
                 {recipient.name}
                 {recipient.country && recipient.country !== "" && recipient.country !== userCountry && (
                   <span className="ml-1 text-[13px]">{COUNTRY_OPTIONS.find((c) => c.value === recipient.country)?.flag}</span>
                 )}
               </h3>
-              <Badge variant="outline" className={cn("text-[10px] mt-1 border", badgeClass)}>
-                {relLabel}
-              </Badge>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className={cn("border text-[10px]", badgeClass)}>
+                  {relLabel}
+                </Badge>
+                {giftCount > 0 ? (
+                  <Badge variant="secondary" className="gap-1 text-[10px]">
+                    <Gift className="h-3 w-3" />
+                    {giftCount}
+                  </Badge>
+                ) : null}
+              </div>
             </div>
           </div>
 
-          {/* Three-dot menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -162,16 +167,15 @@ const RecipientCard = ({
           </DropdownMenu>
         </div>
 
-        {/* Interests */}
         {recipient.interests.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
+          <div className="mb-4 flex flex-wrap gap-1.5">
             {shownInterests.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-[10px] font-normal bg-muted text-muted-foreground">
+              <Badge key={tag} variant="secondary" className="bg-muted text-[10px] font-normal text-muted-foreground">
                 {tag}
               </Badge>
             ))}
             {overflow > 0 && (
-              <Badge variant="secondary" className="text-[10px] font-normal bg-muted text-muted-foreground">
+              <Badge variant="secondary" className="bg-muted text-[10px] font-normal text-muted-foreground">
                 +{overflow} more
               </Badge>
             )}
@@ -179,7 +183,7 @@ const RecipientCard = ({
         )}
 
         {emphasizeUpcoming && (
-          <div className="mb-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2">
             {shouldShowUpcoming ? (
               <div className={cn("flex items-center justify-between gap-3 text-xs font-medium", upcomingTone)}>
                 <span className="truncate">
@@ -197,13 +201,12 @@ const RecipientCard = ({
           </div>
         )}
 
-        {/* Important dates */}
         {!emphasizeUpcoming && dates.length > 0 && (
-          <div className="space-y-1 mb-3">
+          <div className="mb-4 space-y-2 rounded-2xl border border-border/60 bg-background p-3">
             {dates.slice(0, 2).map((d, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span>{getOccasionEmoji(d.label)}</span>
-                <span>{d.label}: {formatImportantDate(d.date)}</span>
+              <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                <span className="truncate">{getOccasionEmoji(d.label)} {d.label}: {formatImportantDate(d.date)}</span>
                 {recipient.next_important_date?.label === d.label && recipient.next_important_date?.date === d.date && nextDateDays != null && nextDateDays <= 14 && (
                   <Badge className="text-[9px] px-1.5 py-0 bg-warning/10 text-warning border-warning/20 ml-1" variant="outline">
                     {formatCountdown(nextDateDays)}
@@ -214,20 +217,24 @@ const RecipientCard = ({
           </div>
         )}
 
-        {/* Last gift */}
-        <p className="text-[11px] text-muted-foreground">
-          {giftCount > 0 ? `${giftCount} gift${giftCount === 1 ? "" : "s"} chosen` : "No gifts yet"}
-          {recipient.last_gift_name ? ` · ${recipient.last_gift_name}` : ""}
-          {recipient.last_gift_date
-            ? ` · Last gift: ${new Date(recipient.last_gift_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
-            : ""}
-        </p>
+        <div className="mt-auto rounded-2xl bg-muted/35 p-3">
+          <div className="flex items-start gap-2">
+            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+            <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
+              {giftCount > 0 ? `${giftCount} gift${giftCount === 1 ? "" : "s"} chosen` : "No gifts yet"}
+              {recipient.last_gift_name ? ` · ${recipient.last_gift_name}` : ""}
+              {recipient.last_gift_date
+                ? ` · Last gift: ${new Date(recipient.last_gift_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                : ""}
+            </p>
+          </div>
+        </div>
 
-        <div className="mt-3">
+        <div className="mt-4">
           <Button
             variant="hero"
             size="sm"
-            className="h-8 w-full text-xs"
+            className="h-10 w-full text-sm"
             onClick={(event) => {
               event.stopPropagation();
               onFindGift();

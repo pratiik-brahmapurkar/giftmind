@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, ArrowRight, Gift, Coins, Users, Clock, Lock } from "lucide-react";
+import { Sparkles, ArrowRight, Gift, Coins, Users, Clock, Lock, CalendarDays, CheckCircle2 } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import UpgradeModal from "@/components/pricing/UpgradeModal";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -40,6 +40,9 @@ const confidenceColor = (score: number) => {
   if (score >= 65) return "bg-warning/10 text-warning border-warning/20";
   return "bg-muted text-muted-foreground border-border";
 };
+
+const formatOccasion = (value: string) =>
+  value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -193,7 +196,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
-      <div className="max-w-5xl mx-auto space-y-6 pb-20 md:pb-0">
+      <div className="mx-auto max-w-6xl space-y-6 pb-20 md:pb-0">
         <ProfileCompletionBanner
           completionPercentage={profileCompletion}
           sessionCount={sessionCount}
@@ -201,167 +204,237 @@ const Dashboard = () => {
           onClick={() => navigate("/onboarding?resume=true")}
         />
 
-        {/* Welcome */}
-        <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
-          Hi {firstName}, who are we finding a gift for today?
-        </h1>
-
-        {/* Primary CTA */}
-        <motion.div whileHover={{ scale: 1.01 }} transition={{ type: "spring", stiffness: 400 }}>
-          <Card className="gradient-primary cursor-pointer group overflow-hidden border-0 shadow-lg" onClick={() => navigate("/gift-flow")}>
-            <CardContent className="flex items-center justify-between p-6 md:p-8">
-              <div className="space-y-2">
-                <h2 className="text-xl md:text-2xl font-heading font-bold text-primary-foreground">Find the Perfect Gift</h2>
-                <p className="text-primary-foreground/80 text-sm">AI-powered recommendations with confidence scores</p>
-              </div>
-              <div className="relative">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-primary-foreground/20 flex items-center justify-center group-hover:bg-primary-foreground/30 transition-colors">
-                  <Sparkles className="w-7 h-7 md:w-8 md:h-8 text-primary-foreground group-hover:animate-wiggle" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {upcomingOccasions.length > 0 && (
-          <UpcomingOccasionsWidget
-            occasions={upcomingOccasions}
-            isLocked={!hasReminderAccess}
-            onManage={() => navigate("/my-people")}
-            onUpgrade={() => setReminderUpgradeOpen(true)}
-            onFindGift={(occasion) => {
-              trackEvent("upcoming_occasions_gift_clicked", {
-                recipient_id: occasion.recipientId,
-                label: occasion.label,
-                days_until: occasion.daysUntil,
-              });
-
-              const params = new URLSearchParams({
-                recipient: occasion.recipientId,
-                source: "dashboard_upcoming",
-              });
-              const occasionSlug = getOccasionSlugFromLabel(occasion.label);
-              if (occasionSlug) {
-                params.set("occasion", occasionSlug);
-              }
-
-              navigate(`/gift-flow?${params.toString()}`);
-            }}
-          />
-        )}
-
-        {/* Quick stats — horizontal scroll on mobile */}
-        <div className="flex gap-3 md:gap-4 overflow-x-auto snap-x snap-mandatory pb-1 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-3">
-          {[
-            { label: "Gifts Found", value: sessionCount, icon: Gift, note: null },
-            { label: "People Saved", value: recipientCount, icon: Users, note: null },
-            { label: "Credits Left", value: credits, icon: Coins, note: credits <= 3 ? "Running low" : null },
-          ].map((stat) => (
-            <Card key={stat.label} className="border-border/50 snap-center shrink-0 w-40 md:w-auto">
-              <CardContent className="p-4 flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <stat.icon className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <span className="text-2xl font-heading font-bold text-foreground block leading-none">{stat.value}</span>
-                  <span className="text-xs text-muted-foreground">{stat.label}</span>
-                  {stat.note && <span className="text-[10px] text-warning block">{stat.note}</span>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <p className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+              <Sparkles className="h-3.5 w-3.5" />
+              GiftMind Dashboard
+            </p>
+            <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+              Hi {firstName}, ready for the next thoughtful pick?
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+              Start a new recommendation, check upcoming dates, or revisit recent gift sessions.
+            </p>
+          </div>
+          <Button type="button" variant="hero" className="h-11 w-full md:w-auto" onClick={() => navigate("/gift-flow")}>
+            Find a Gift
+            <ArrowRight className="h-4 w-4" />
+          </Button>
         </div>
 
-        {/* Recent Sessions */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-heading font-semibold text-foreground">Recent Gift Sessions</h2>
-            <button onClick={() => navigate("/gift-history")} className="text-xs text-primary font-medium hover:underline">
-              View all →
-            </button>
+        <div className="grid gap-5 lg:grid-cols-[1.45fr_0.9fr]">
+          <div className="space-y-5">
+            <motion.div whileHover={{ scale: 1.008 }} transition={{ type: "spring", stiffness: 400 }}>
+              <Card
+                className="group cursor-pointer overflow-hidden rounded-3xl border-0 bg-[#C79235] shadow-[0_20px_60px_rgba(104,70,24,0.18)]"
+                onClick={() => navigate("/gift-flow")}
+              >
+                <CardContent className="relative min-h-[210px] p-6 md:p-8">
+                  <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_70%_35%,rgba(255,255,255,0.22),transparent_35%)]" />
+                  <div className="relative flex h-full flex-col justify-between gap-10">
+                    <div className="space-y-3">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-white/18 px-3 py-1 text-xs font-semibold text-white">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        AI recommendations with confidence scores
+                      </div>
+                      <div className="space-y-2">
+                        <h2 className="font-heading text-3xl font-bold leading-tight text-white md:text-4xl">
+                          Find the perfect gift
+                        </h2>
+                        <p className="max-w-md text-sm leading-relaxed text-white/82 md:text-base">
+                          Choose a person, occasion, and budget. GiftMind returns ranked ideas with buy links and reasoning.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm font-semibold text-white">
+                      Start recommendation
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 transition-colors group-hover:bg-white/28">
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-6 right-6 hidden h-20 w-20 items-center justify-center rounded-3xl bg-black/10 text-white md:flex">
+                    <Sparkles className="h-10 w-10 group-hover:animate-wiggle" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <section className="rounded-3xl border border-border/60 bg-card p-4 shadow-sm md:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-heading text-xl font-semibold text-foreground">Recent gift sessions</h2>
+                  <p className="text-sm text-muted-foreground">Pick up where you left off or review previous choices.</p>
+                </div>
+                <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/gift-history")}>
+                  View all
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid gap-3">
+                {sessions.slice(0, 5).map((session) => {
+                  const recipientName = recipientMap[session.recipient_id] || "Unknown";
+                  const initial = recipientName[0]?.toUpperCase() || "?";
+                  const isCompleted = session.status === "completed";
+                  const recommendations = session.ai_response && typeof session.ai_response === "object"
+                    ? (session.ai_response.recommendations || [])
+                    : [];
+                  const chosenGiftName = session.selected_gift_name ||
+                    (typeof session.selected_gift_index === "number" && Array.isArray(recommendations)
+                      ? recommendations[session.selected_gift_index]?.name || null
+                      : null);
+
+                  let confidence: number | null = null;
+                  if (Array.isArray(recommendations) && recommendations.length > 0) {
+                    if (typeof session.selected_gift_index === "number" && recommendations[session.selected_gift_index]) {
+                      confidence = recommendations[session.selected_gift_index]?.confidence_score ?? null;
+                    } else {
+                      confidence = recommendations[0]?.confidence_score ?? null;
+                    }
+                  }
+
+                  return (
+                    <Card
+                      key={session.id}
+                      className="cursor-pointer border-border/50 bg-background transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      onClick={() => navigate("/gift-history")}
+                    >
+                      <CardContent className="flex items-center gap-4 p-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary">
+                          {initial}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">{recipientName}</p>
+                            {session.occasion && (
+                              <Badge variant="secondary" className="px-2 py-0 text-[10px]">
+                                {formatOccasion(session.occasion)}
+                              </Badge>
+                            )}
+                          </div>
+                          {isCompleted && chosenGiftName ? (
+                            <p className="mt-1 truncate text-sm text-muted-foreground">{chosenGiftName}</p>
+                          ) : (
+                            <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-warning">
+                              <Clock className="h-3.5 w-3.5" />
+                              In progress
+                            </p>
+                          )}
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {new Date(session.created_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+
+                        {confidence !== null ? (
+                          <Badge variant="default" className={cn("shrink-0", confidenceColor(confidence))}>
+                            {confidence}%
+                          </Badge>
+                        ) : (
+                          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
           </div>
 
-          <div className="grid gap-3">
-            {sessions.slice(0, 5).map((session) => {
-              const recipientName = recipientMap[session.recipient_id] || "Unknown";
-              const initial = recipientName[0]?.toUpperCase() || "?";
-              const isCompleted = session.status === "completed";
-              const recommendations = session.ai_response && typeof session.ai_response === "object"
-                ? (session.ai_response.recommendations || [])
-                : [];
-              const chosenGiftName = session.selected_gift_name ||
-                (typeof session.selected_gift_index === "number" && Array.isArray(recommendations)
-                  ? recommendations[session.selected_gift_index]?.name || null
-                  : null);
-
-              // Extract confidence from results if available
-              let confidence: number | null = null;
-              if (Array.isArray(recommendations) && recommendations.length > 0) {
-                if (typeof session.selected_gift_index === "number" && recommendations[session.selected_gift_index]) {
-                  confidence = recommendations[session.selected_gift_index]?.confidence_score ?? null;
-                } else {
-                  confidence = recommendations[0]?.confidence_score ?? null;
-                }
-              }
-
-              return (
-                <Card key={session.id} className="border-border/50 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => navigate("/gift-history")}>
-                  <CardContent className="flex items-center gap-3 p-4">
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-sm font-bold text-primary">
-                      {initial}
+          <aside className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              {[
+                { label: "Gifts found", value: sessionCount, icon: Gift, note: "Total sessions" },
+                { label: "People saved", value: recipientCount, icon: Users, note: "Gift profiles" },
+                { label: "Credits left", value: credits, icon: Coins, note: credits <= 3 ? "Running low" : "Available now" },
+              ].map((stat) => (
+                <Card key={stat.label} className="border-border/60 bg-card shadow-sm">
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                      <stat.icon className="h-5 w-5 text-primary" />
                     </div>
-
-                    {/* Middle */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{recipientName}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {session.occasion && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{session.occasion}</Badge>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(session.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {isCompleted && chosenGiftName ? (
-                        <p className="text-xs text-muted-foreground mt-1 truncate">🎁 {chosenGiftName}</p>
-                      ) : (
-                        <p className="text-xs text-warning mt-1">In progress</p>
-                      )}
+                    <div className="min-w-0">
+                      <span className="block font-heading text-3xl font-bold leading-none text-foreground">{stat.value}</span>
+                      <span className="mt-1 block text-sm font-medium text-foreground">{stat.label}</span>
+                      <span className={cn("text-xs text-muted-foreground", stat.label === "Credits left" && credits <= 3 && "text-warning")}>
+                        {stat.note}
+                      </span>
                     </div>
-
-                    {confidence !== null && (
-                      <Badge variant="default" className={cn("shrink-0", confidenceColor(confidence))}>
-                        {confidence}%
-                      </Badge>
-                    )}
                   </CardContent>
                 </Card>
-              );
-            })}
-          </div>
-        </div>
+              ))}
+            </div>
 
-        {/* Batch mode card */}
-        {!limits.hasBatchMode && (
-          <Card
-            className="border-border/50 border-dashed cursor-pointer hover:bg-muted/30 transition-colors"
-            onClick={() => setBatchUpgradeOpen(true)}
-          >
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                <Lock className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">Batch Mode</p>
-                <p className="text-xs text-muted-foreground">
-                  Find gifts for your entire list in one session. Coming soon with Pro.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            {upcomingOccasions.length > 0 ? (
+              <UpcomingOccasionsWidget
+                occasions={upcomingOccasions}
+                isLocked={!hasReminderAccess}
+                onManage={() => navigate("/my-people")}
+                onUpgrade={() => setReminderUpgradeOpen(true)}
+                onFindGift={(occasion) => {
+                  trackEvent("upcoming_occasions_gift_clicked", {
+                    recipient_id: occasion.recipientId,
+                    label: occasion.label,
+                    days_until: occasion.daysUntil,
+                  });
+
+                  const params = new URLSearchParams({
+                    recipient: occasion.recipientId,
+                    source: "dashboard_upcoming",
+                  });
+                  const occasionSlug = getOccasionSlugFromLabel(occasion.label);
+                  if (occasionSlug) {
+                    params.set("occasion", occasionSlug);
+                  }
+
+                  navigate(`/gift-flow?${params.toString()}`);
+                }}
+              />
+            ) : (
+              <Card className="border-border/60 bg-card shadow-sm">
+                <CardContent className="space-y-3 p-5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">No upcoming dates yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Add birthdays and anniversaries to people profiles to plan ahead.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => navigate("/my-people")}>
+                    Manage people
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {!limits.hasBatchMode && (
+              <Card
+                className="cursor-pointer border-border/60 border-dashed bg-muted/20 transition-colors hover:bg-muted/40"
+                onClick={() => setBatchUpgradeOpen(true)}
+              >
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                    <Lock className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-foreground">Batch Mode</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Find gifts for your entire list in one session. Coming soon with Pro.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </aside>
+        </div>
       </div>
 
       <UpgradeModal

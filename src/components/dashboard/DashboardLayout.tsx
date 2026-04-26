@@ -158,10 +158,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* ── Desktop Sidebar ── */}
       <aside className={cn(
-        "hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 relative shrink-0",
+        "sticky top-0 hidden h-screen md:flex flex-col border-r border-border bg-card transition-all duration-300 relative shrink-0",
         sidebarOpen ? "w-60" : "w-16"
       )}>
         {/* Logo */}
@@ -175,7 +175,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
 
         {/* Primary Nav */}
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
           {sidebarOpen && (
             <div className="mb-2 rounded-lg border border-border/60 bg-background p-3">
               <PlanBadge plan={userPlan} />
@@ -224,7 +224,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </aside>
 
       {/* ── Main area ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-h-0 flex-1 flex-col min-w-0">
         {/* Top navbar */}
         <header className="h-14 border-b border-border bg-card px-4 flex items-center justify-between shrink-0">
           {/* Mobile logo */}
@@ -268,7 +268,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-6 lg:p-8">
           {userPlan === "spark" && !bannerDismissed ? (
             <div className="mx-auto mb-6 max-w-5xl rounded-2xl border border-primary/15 bg-primary/5 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">

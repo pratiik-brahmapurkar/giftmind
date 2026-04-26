@@ -514,7 +514,7 @@ export default function GiftFlow() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto w-full max-w-[720px] px-4 py-6 md:px-6 md:py-8">
+      <div className={`mx-auto w-full px-4 py-6 md:px-6 md:py-8 ${currentStep === 5 ? "max-w-[980px]" : "max-w-[720px]"}`}>
         {isCheckingCredits || authLoading ? (
           <Card className="border-border/60">
             <CardContent className="flex min-h-[300px] items-center justify-center gap-3 p-6 text-muted-foreground">
@@ -544,21 +544,33 @@ export default function GiftFlow() {
 
             {/* Context summary strip — shows what's been confirmed so far */}
             {currentStep >= 2 && (selectedRecipient || selectedOccasion || (budgetMin != null && budgetMax != null)) && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
                 {selectedRecipient && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-medium text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100"
+                    onClick={() => goToStep(1)}
+                  >
                     {selectedRecipient.name}
-                  </span>
+                  </button>
                 )}
                 {selectedOccasion && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-medium text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100"
+                    onClick={() => goToStep(2)}
+                  >
                     {selectedOccasion.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </span>
+                  </button>
                 )}
                 {budgetMin != null && budgetMax != null && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-medium text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100"
+                    onClick={() => goToStep(3)}
+                  >
                     ${budgetMin}–${budgetMax}
-                  </span>
+                  </button>
                 )}
               </div>
             )}

@@ -15,11 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -229,18 +230,18 @@ const RecipientFormModal = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-xl gap-0 overflow-hidden p-0">
-        <DialogHeader className="sticky top-0 z-10 border-b border-border/50 bg-background px-6 pb-3 pt-5">
-          <DialogTitle className="font-heading text-lg">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+        <SheetHeader className="border-b border-border/50 bg-background px-6 pb-3 pt-5 pr-12">
+          <SheetTitle className="font-heading text-lg">
             {isEdit ? `Edit ${initialData?.name || "Person"} ✨` : "Add a Person ✨"}
-          </DialogTitle>
-          <p className="text-xs text-muted-foreground">
+          </SheetTitle>
+          <SheetDescription className="text-xs">
             The more you share, the better the gift recommendations.
-          </p>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <ScrollArea className="max-h-[calc(90vh-80px)] px-6 pb-6">
+        <ScrollArea className="flex-1 px-6 pb-6">
           <form onSubmit={handleSubmit} className="space-y-6 pr-2">
             {error && <p className="pt-4 text-sm text-destructive">{error}</p>}
 
@@ -631,8 +632,8 @@ const RecipientFormModal = ({
             </div>
           </form>
         </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 

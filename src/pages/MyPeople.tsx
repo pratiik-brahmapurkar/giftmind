@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Lock, Plus, Search } from "lucide-react";
+import { CalendarDays, Gift, Lock, Plus, Search, Sparkles, Users } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/posthog";
@@ -242,29 +242,85 @@ const MyPeople = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-5xl pb-20 md:pb-0">
-        <div className="mb-2 flex items-center justify-between">
-          <h1 className="font-heading text-2xl font-bold text-foreground md:text-3xl">My People</h1>
+      <div className="mx-auto max-w-6xl space-y-6 pb-20 md:pb-0">
+        <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-3">
+              <p className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                <Users className="h-3.5 w-3.5" />
+                People Directory
+              </p>
+              <div className="space-y-2">
+                <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-4xl">My People</h1>
+                <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+                  Keep recipient details, interests, important dates, and gift history in one place.
+                </p>
+              </div>
+            </div>
+
+            {recipients.length > 0 && (
+              atLimit ? (
+                <Button variant="outline" onClick={() => setUpgradeOpen(true)} className="h-11 w-full text-muted-foreground sm:w-auto">
+                  <Lock className="mr-2 h-4 w-4" /> Upgrade to add more
+                </Button>
+              ) : (
+                <Button variant="hero" onClick={() => openCreate()} className="h-11 w-full sm:w-auto">
+                  <Plus className="mr-2 h-4 w-4" /> Add Person
+                </Button>
+              )
+            )}
+          </div>
+
           {recipients.length > 0 && (
-            atLimit ? (
-              <Button variant="outline" size="sm" onClick={() => setUpgradeOpen(true)} className="text-muted-foreground">
-                <Lock className="mr-1 h-3.5 w-3.5" /> Upgrade to add more
-              </Button>
-            ) : (
-              <Button variant="hero" size="sm" onClick={() => openCreate()}>
-                <Plus className="mr-1 h-4 w-4" /> Add Person
-              </Button>
-            )
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-border/60 bg-background p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-heading text-2xl font-bold leading-none text-foreground">{recipients.length}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {limits.recipients === -1 ? `${limits.label} - unlimited` : `${limits.recipients} allowed on ${limits.label}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-background p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                    <Gift className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-heading text-2xl font-bold leading-none text-foreground">
+                      {recipientsWithIntelligence.reduce((total, recipient) => total + (recipient.gift_count || 0), 0)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Gifts chosen</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-background p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                    <CalendarDays className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-heading text-2xl font-bold leading-none text-foreground">{reminderCount}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Upcoming reminders</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {recipients.length > 0 && (
+            <p className={cn("mt-3 text-xs", capacityColor)}>
+              {limits.recipients === -1
+                ? `${recipients.length} people saved (${limits.label} - unlimited)`
+                : `${recipients.length}/${limits.recipients} people (${limits.label})`}
+            </p>
           )}
         </div>
-
-        {recipients.length > 0 && (
-          <p className={cn("mb-4 text-xs", capacityColor)}>
-            {limits.recipients === -1
-              ? `${recipients.length} people saved (${limits.label} - unlimited)`
-              : `${recipients.length}/${limits.recipients} people (${limits.label})`}
-          </p>
-        )}
 
         {query.isLoading ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -284,7 +340,7 @@ const MyPeople = () => {
             ))}
           </div>
         ) : recipients.length === 0 ? (
-          <div className="py-8">
+          <div className="rounded-3xl border border-border/60 bg-card py-8 shadow-sm">
             <EmptyState
               title="No recipients yet"
               description="Add the people you gift. GiftMind learns their preferences over time."
@@ -294,19 +350,19 @@ const MyPeople = () => {
           </div>
         ) : (
           <>
-            <div className="mb-6 space-y-3">
-              <div className="flex gap-3">
+            <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-sm md:p-5">
+              <div className="flex flex-col gap-3 lg:flex-row">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search by name, interest, or notes..."
                     value={search}
                     onChange={(event) => setSearch(sanitizeString(event.target.value, 100))}
-                    className="h-9 pl-9"
+                    className="h-11 rounded-xl pl-9"
                   />
                 </div>
                 <Select value={sort} onValueChange={(value) => setSort(value as SortOption)}>
-                  <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-11 w-full rounded-xl lg:w-48"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="recent">Recently added</SelectItem>
                     <SelectItem value="upcoming">Upcoming dates</SelectItem>
@@ -315,16 +371,16 @@ const MyPeople = () => {
                 </Select>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {FILTER_GROUPS.map((group, index) => (
                   <button
                     key={group.label}
                     onClick={() => setFilterIdx(index)}
                     className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                       index === filterIdx
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80",
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
                     )}
                   >
                     {group.label}
@@ -360,7 +416,17 @@ const MyPeople = () => {
                 </div>
               )
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">
+                    {filtered.length} {filtered.length === 1 ? "person" : "people"}
+                  </p>
+                  <p className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    Click a card to view details
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((recipient) => {
                   const isLocked = !activeRecipientIds.has(recipient.id);
                   return (
@@ -377,6 +443,7 @@ const MyPeople = () => {
                     />
                   );
                 })}
+                </div>
               </div>
             )}
           </>
