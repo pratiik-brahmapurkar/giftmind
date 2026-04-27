@@ -60,7 +60,7 @@ const HowItWorks = () => {
                 <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-100 text-amber-800 transition-transform duration-300 group-hover:scale-105">
                   <step.icon className="h-7 w-7" strokeWidth={1.5} />
                 </div>
-                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
+                <h3 className="mb-3 text-xl font-semibold transition-colors group-hover:text-amber-800">{step.title}</h3>
                 <p className="text-muted-foreground leading-relaxed">{step.description}</p>
               </motion.div>
             ))}

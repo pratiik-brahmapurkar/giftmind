@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { PLAN_CONFIG, type PlanKey } from "@/lib/plans";
 import { WaitlistForm } from "@/components/pricing/WaitlistForm";
 import { WaitlistConfirmation } from "@/components/pricing/WaitlistConfirmation";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface PricingCardsProps {
@@ -25,6 +26,7 @@ export function PricingCards({
   const plans: PlanKey[] = ["spark", "pro"];
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="mx-auto w-full max-w-5xl">
       <div className={cn("grid items-stretch gap-6", compact ? "md:grid-cols-2" : "md:grid-cols-2")}>
         {plans.map((slug) => {
@@ -36,8 +38,8 @@ export function PricingCards({
             <div
               key={slug}
               className={cn(
-                "flex h-full flex-col rounded-lg border bg-card p-6 shadow-sm",
-                isPro ? "border-amber-300 bg-amber-50/40" : "border-border",
+                "flex h-full flex-col rounded-lg border bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
+                isPro ? "border-amber-300 bg-amber-50/40 hover:border-amber-400" : "border-border hover:border-amber-200",
               )}
             >
               <div className="mb-5 flex items-start justify-between gap-4">
@@ -47,7 +49,14 @@ export function PricingCards({
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
                 </div>
-                {plan.isComingSoon ? <Badge className="bg-amber-500 text-amber-950">Coming Soon</Badge> : null}
+                {plan.isComingSoon ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge className="cursor-help bg-amber-500 text-amber-950 hover:bg-amber-400">Coming Soon</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Join the waitlist and we will notify you before Pro launches.</TooltipContent>
+                  </Tooltip>
+                ) : null}
               </div>
 
               <div className="mb-6">
@@ -59,8 +68,8 @@ export function PricingCards({
 
               <ul className="mb-6 flex-1 space-y-3">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  <li key={feature} className="group flex items-start gap-3 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success transition-transform group-hover:scale-110" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -101,6 +110,7 @@ export function PricingCards({
         </Button>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 

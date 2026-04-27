@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { ConfidenceBadge } from "@/components/ui/confidence-badge";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ProductPreview = () => {
   return (
@@ -28,7 +29,7 @@ const ProductPreview = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.15 }}
         >
-          <div className="rounded-2xl border border-amber-200 bg-background p-6 shadow-lg md:p-8">
+          <div className="rounded-2xl border border-amber-200 bg-background p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl md:p-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <Badge variant="primary" className="mb-3 w-fit font-sans">
@@ -38,7 +39,18 @@ const ProductPreview = () => {
                   Personalized star map of your first date night
                 </h3>
               </div>
-              <ConfidenceBadge score={92} size="sm" animate={false} />
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="w-fit cursor-help rounded-full">
+                      <ConfidenceBadge score={92} size="sm" animate={false} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-56">
+                    Confidence reflects recipient fit, occasion relevance, budget match, and clarity of reasoning.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             <p className="mt-4 text-sm leading-6 text-neutral-600">

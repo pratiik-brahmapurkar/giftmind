@@ -41,7 +41,7 @@ const OccasionsGrid = () => {
           {occasions.map((o, i) => (
             <motion.div
               key={o.name}
-              className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card cursor-default select-none transition-all duration-200 hover:shadow-md hover:scale-[1.03]"
+              className="flex cursor-default select-none items-center gap-2 rounded-lg border border-transparent bg-card px-4 py-3 transition-all duration-200 hover:scale-[1.03] hover:border-amber-200 hover:bg-amber-50/60 hover:shadow-md"
               style={{ "--tw-shadow-color": "hsl(var(--primary) / 0.08)" } as React.CSSProperties}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}

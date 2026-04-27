@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Star, Shield, Bot, Lock, Globe } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const testimonials = [
   {
@@ -89,6 +90,7 @@ const SocialProof = () => {
   }, []);
 
   return (
+    <TooltipProvider delayDuration={150}>
     <section className="bg-card py-20 md:py-24">
       <div className="container mx-auto px-4">
         <motion.div
@@ -116,7 +118,7 @@ const SocialProof = () => {
             <motion.div
               key={t.name}
               data-idx={i}
-              className="w-[300px] flex-shrink-0 snap-center rounded-xl border border-border/60 bg-background p-6 shadow-sm md:w-[340px]"
+              className="w-[300px] flex-shrink-0 snap-center rounded-xl border border-border/60 bg-background p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-lg md:w-[340px]"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -155,17 +157,28 @@ const SocialProof = () => {
           transition={{ delay: 0.3 }}
         >
           {badges.map((b) => (
-            <div
-              key={b.label}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-muted text-muted-foreground text-sm font-medium"
-            >
-              <b.icon className="w-4 h-4" />
-              {b.label}
-            </div>
+            <Tooltip key={b.label}>
+              <TooltipTrigger asChild>
+                <div className="flex cursor-help items-center gap-2 rounded-full bg-muted px-5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-900">
+                  <b.icon className="w-4 h-4" />
+                  {b.label}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {b.label === "Data stays private"
+                  ? "Recipient details stay in your account and can be deleted from Settings."
+                  : b.label === "Works in 50+ countries"
+                    ? "GiftMind can adapt recommendations and store links by recipient country."
+                    : b.label === "No spam"
+                      ? "We use email for product and account updates, not noisy promotions."
+                      : "AI helps rank and explain options; you still choose the final gift."}
+              </TooltipContent>
+            </Tooltip>
           ))}
         </motion.div>
       </div>
     </section>
+    </TooltipProvider>
   );
 };
 

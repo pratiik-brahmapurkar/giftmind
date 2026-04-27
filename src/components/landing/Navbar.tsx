@@ -11,15 +11,15 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 rounded-md transition-transform duration-200 hover:scale-[1.03] focus-visible:scale-[1.03]">
           <img src="/brand/giftmind-lockup.png" alt="GiftMind" className="h-9 w-auto object-contain" />
         </Link>
 
         {/* Desktop */}
         <div className="hidden md:flex items-center gap-9">
-          <a href="#how" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
-          <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link>
+          <a href="#how" className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">How It Works</a>
+          <a href="#pricing" className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Pricing</a>
+          <Link to="/blog" className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Blog</Link>
           
           {user ? (
             <Link to="/dashboard">
@@ -29,7 +29,7 @@ const Navbar = () => {
             </Link>
           ) : (
             <>
-              <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Log In</Link>
+              <Link to="/login" className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Log In</Link>
               <Link to="/signup">
                 <Button variant="hero" size="sm" className="rounded-lg">
                   Get Started Free

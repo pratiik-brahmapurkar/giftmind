@@ -44,13 +44,13 @@ const ValueProps = () => {
           {props.map((prop, i) => (
             <motion.div
               key={prop.title}
-              className="rounded-xl border border-border/60 bg-card p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+              className="group rounded-xl border border-border/60 bg-card p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-lg"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.15 }}
             >
-              <div className={`w-14 h-14 rounded-2xl ${prop.color} flex items-center justify-center mx-auto mb-6`}>
+              <div className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl ${prop.color} transition-transform duration-300 group-hover:scale-110`}>
                 <prop.icon className="w-7 h-7" />
               </div>
               <h3 className="text-xl font-semibold mb-3">{prop.title}</h3>

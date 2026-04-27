@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Gift, Heart, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const giftMatches = [
   {
@@ -25,11 +26,12 @@ const giftMatches = [
 ];
 
 const HeroPreview = () => (
-  <div className="relative w-full max-w-[440px]">
+  <TooltipProvider delayDuration={150}>
+    <div className="relative w-full max-w-[440px]">
     <div className="absolute inset-8 rounded-full bg-amber-200/35 blur-3xl" />
 
     <motion.div
-      className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-card p-5 shadow-xl"
+      className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-card p-5 shadow-xl transition-shadow duration-300 hover:shadow-2xl"
       animate={{ y: [0, -10, 0] }}
       transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
     >
@@ -45,9 +47,16 @@ const HeroPreview = () => (
           <p className="mt-1 text-sm font-medium text-foreground">Mother-in-law · Diwali · India</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {["Warm", "Traditional", "Under ₹5k"].map((chip) => (
-              <span key={chip} className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
-                {chip}
-              </span>
+              <Tooltip key={chip}>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800">
+                    {chip}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Context GiftMind uses to avoid generic recommendations.
+                </TooltipContent>
+              </Tooltip>
             ))}
           </div>
         </div>
@@ -77,7 +86,7 @@ const HeroPreview = () => (
         {giftMatches.map((match, index) => (
           <motion.div
             key={match.title}
-            className="rounded-xl border border-border/70 bg-background p-4 shadow-sm"
+            className="rounded-xl border border-border/70 bg-background p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-amber-300 hover:shadow-md"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.45, delay: 0.35 + index * 0.18 }}
@@ -92,10 +101,17 @@ const HeroPreview = () => (
                 </div>
                 <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{match.reason}</p>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="font-mono text-lg font-bold text-success">{match.score}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">score</p>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="shrink-0 cursor-help text-right">
+                    <p className="font-mono text-lg font-bold text-success">{match.score}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">score</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-56">
+                  Confidence combines fit, occasion relevance, budget, cultural context, and availability.
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-3 text-xs">
@@ -107,7 +123,16 @@ const HeroPreview = () => (
                   transition={{ duration: 0.65, delay: 0.55 + index * 0.18 }}
                 />
               </div>
-              <span className="whitespace-nowrap text-muted-foreground">{match.store}</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help whitespace-nowrap text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                    {match.store}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Store links are localized by recipient country where available.
+                </TooltipContent>
+              </Tooltip>
             </div>
           </motion.div>
         ))}
@@ -141,6 +166,7 @@ const HeroPreview = () => (
       </motion.div>
     ))}
   </div>
+  </TooltipProvider>
 );
 
 const Hero = () => {
@@ -189,18 +215,23 @@ const Hero = () => {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-neutral-700 lg:justify-start">
-              <span className="flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
-                Free monthly credits
-              </span>
-              <span className="flex items-center gap-1">
-                <Search className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
-                Store links included
-              </span>
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
-                No credit card
-              </span>
+              <TooltipProvider delayDuration={150}>
+                {[
+                  { icon: CheckCircle2, label: "Free monthly credits", tip: "Spark includes free credits every month to try recommendations." },
+                  { icon: Search, label: "Store links included", tip: "GiftMind prefers stores relevant to the recipient country." },
+                  { icon: ShieldCheck, label: "No credit card", tip: "Create an account and start without entering payment details." },
+                ].map((item) => (
+                  <Tooltip key={item.label}>
+                    <TooltipTrigger asChild>
+                      <span className="flex cursor-help items-center gap-1 rounded-full px-2 py-1 transition-colors hover:bg-amber-50 hover:text-amber-900">
+                        <item.icon className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
+                        {item.label}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{item.tip}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
             </div>
           </motion.div>
 
