@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Gift, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -12,10 +12,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-            <Gift className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <span className="font-heading font-bold text-xl">GiftMind</span>
+          <img src="/brand/giftmind-lockup.png" alt="GiftMind" className="h-9 w-auto object-contain" />
         </Link>
 
         {/* Desktop */}

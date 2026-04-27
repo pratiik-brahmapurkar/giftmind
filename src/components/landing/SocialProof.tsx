@@ -36,7 +36,7 @@ const testimonials = [
 ];
 
 const badges = [
-  { icon: Bot, label: "AI by Claude" },
+  { icon: Bot, label: "AI-assisted picks" },
   { icon: Lock, label: "Data stays private" },
   { icon: Globe, label: "Works in 50+ countries" },
   { icon: Shield, label: "No spam" },
@@ -89,7 +89,7 @@ const SocialProof = () => {
   }, []);
 
   return (
-    <section className="py-24 bg-card">
+    <section className="bg-card py-20 md:py-24">
       <div className="container mx-auto px-4">
         <motion.div
           className="text-center mb-16"
@@ -97,11 +97,11 @@ const SocialProof = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <p className="text-primary font-semibold mb-2">Social Proof</p>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Join <span className="text-primary">200+</span> early gifters
+          <p className="mb-2 font-semibold text-primary">Early users</p>
+          <h2 className="mb-4 text-3xl font-bold md:text-4xl">
+            Less second-guessing, better gifting
           </h2>
-          <p className="text-muted-foreground text-lg">finding the perfect gift with confidence</p>
+          <p className="text-lg text-muted-foreground">A few ways GiftMind is already helping people choose faster.</p>
         </motion.div>
 
         {/* Horizontal scroll carousel */}
@@ -116,7 +116,7 @@ const SocialProof = () => {
             <motion.div
               key={t.name}
               data-idx={i}
-              className="flex-shrink-0 w-[300px] md:w-[340px] snap-center p-6 rounded-xl bg-background card-shadow"
+              className="w-[300px] flex-shrink-0 snap-center rounded-xl border border-border/60 bg-background p-6 shadow-sm md:w-[340px]"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}

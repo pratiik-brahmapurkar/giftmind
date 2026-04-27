@@ -93,9 +93,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     <>
       {/* Logo */}
       <div className="p-4 border-b border-white/10 flex items-center gap-2 h-14">
-        <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center shrink-0">
-          <Gift className="w-4 h-4 text-primary-foreground" />
-        </div>
+        <img src="/brand/giftmind-symbol.png" alt="GiftMind" className="h-8 w-8 shrink-0 object-contain" />
         {!collapsed && (
           <span className="text-sm font-heading font-bold text-white truncate">
             GiftMind Admin

@@ -11,11 +11,9 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-// TODO: Before production, change Access-Control-Allow-Origin to:
-// 'https://giftmind.in' (or your production domain)
 // ── CORS headers ───────────────────────────────────────────────────────────────
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://giftmind.in",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -100,6 +98,7 @@ interface ProductLink {
   coupon_text?: string | null;
   affiliate_source?: string | null;
   attribution_label?: string | null;
+  affiliate_variant_label?: string | null;
   is_affiliate?: boolean | null;
 }
 
@@ -152,9 +151,10 @@ function normalizeAffiliateVariants(store: MarketplaceStore) {
       return {
         param,
         weight,
+        label: sanitizeString(String(entry.label ?? ""), 100) || null,
       };
     })
-    .filter((entry): entry is { param: string; weight: number } => Boolean(entry?.param));
+    .filter((entry): entry is { param: string; weight: number; label: string | null } => Boolean(entry?.param));
 }
 
 function hashSeed(input: string) {
@@ -167,9 +167,13 @@ function hashSeed(input: string) {
 }
 
 function pickAffiliateParam(store: MarketplaceStore, identitySeed: string) {
+  return pickAffiliateVariant(store, identitySeed).param;
+}
+
+function pickAffiliateVariant(store: MarketplaceStore, identitySeed: string): { param: string | null; label: string | null } {
   const variants = normalizeAffiliateVariants(store);
   if (variants.length === 0) {
-    return store.affiliate_param;
+    return { param: store.affiliate_param, label: null };
   }
 
   const totalWeight = variants.reduce((sum, variant) => sum + variant.weight, 0);
@@ -179,11 +183,11 @@ function pickAffiliateParam(store: MarketplaceStore, identitySeed: string) {
   for (const variant of variants) {
     cursor += variant.weight;
     if (bucket < cursor) {
-      return variant.param;
+      return { param: variant.param, label: variant.label };
     }
   }
 
-  return variants[0]?.param ?? store.affiliate_param;
+  return variants[0] ? { param: variants[0].param, label: variants[0].label } : { param: store.affiliate_param, label: null };
 }
 
 function buildSearchUrl(store: MarketplaceStore, keyword: string, identitySeed: string): string {
@@ -336,7 +340,7 @@ function buildEnrichedProductLink(store: MarketplaceStore, concept: GiftConcept,
 }
 
 function buildSearchProductLink(store: MarketplaceStore, concept: GiftConcept, keyword: string, identitySeed: string): ProductLink {
-  const affiliateParam = pickAffiliateParam(store, identitySeed);
+  const affiliateVariant = pickAffiliateVariant(store, identitySeed);
   return {
     store_id: store.store_id,
     store_name: store.store_name,
@@ -346,8 +350,9 @@ function buildSearchProductLink(store: MarketplaceStore, concept: GiftConcept, k
     product_category: concept.product_category,
     is_search_link: true,
     search_url: buildSearchUrl(store, keyword, identitySeed),
-    attribution_label: affiliateParam ? "Affiliate search" : "Search",
-    is_affiliate: Boolean(affiliateParam),
+    attribution_label: affiliateVariant.param ? "Affiliate search" : "Search",
+    affiliate_variant_label: affiliateVariant.label,
+    is_affiliate: Boolean(affiliateVariant.param),
   };
 }
 

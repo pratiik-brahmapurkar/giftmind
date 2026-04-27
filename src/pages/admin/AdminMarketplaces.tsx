@@ -780,7 +780,7 @@ export default function AdminMarketplaces() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"stores" | "products">("stores");
+  const [activeTab, setActiveTab] = useState<"stores" | "products" | "health">("stores");
   const [selectedCountry, setSelectedCountry] = useState<string>(() => parseCountryHash(window.location.hash));
   const [allStores, setAllStores] = useState<MarketplaceRow[]>([]);
   const [storeSearch, setStoreSearch] = useState("");
@@ -806,6 +806,8 @@ export default function AdminMarketplaces() {
   const [productStoreFilter, setProductStoreFilter] = useState("all");
   const [productCategoryFilter, setProductCategoryFilter] = useState("all");
   const [productStatusFilter, setProductStatusFilter] = useState("all");
+  const [healthCountryFilter, setHealthCountryFilter] = useState<string>(() => parseCountryHash(window.location.hash));
+  const [healthStoreFilter, setHealthStoreFilter] = useState("all");
   const [visibleProductCount, setVisibleProductCount] = useState(24);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [productDialogError, setProductDialogError] = useState("");
@@ -901,6 +903,7 @@ export default function AdminMarketplaces() {
     const nextCountry = parseCountryHash(location.hash);
     setSelectedCountry(nextCountry);
     setProductCountryFilter((current) => (current === "all" ? current : nextCountry));
+    setHealthCountryFilter((current) => (current === "all" ? current : nextCountry));
     setPreviewForm((prev) => ({ ...prev, country_code: nextCountry }));
   }, [location.hash]);
 
@@ -924,7 +927,7 @@ export default function AdminMarketplaces() {
     );
   }, [countryStores, debouncedStoreSearch]);
 
-  const allProducts = productsQuery.data ?? [];
+  const allProducts = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
   const filteredProducts = useMemo(() => {
     return allProducts
       .filter((product) => productCountryFilter === "all" || product.country_code === productCountryFilter)
@@ -970,6 +973,32 @@ export default function AdminMarketplaces() {
     }).length;
     return { total, active, inStock, stale };
   }, [allProducts]);
+
+  const filteredHealthRows = useMemo(() => {
+    return (catalogHealthQuery.data ?? [])
+      .filter((row) => healthCountryFilter === "all" || row.country_code === healthCountryFilter)
+      .filter((row) => healthStoreFilter === "all" || row.store_id === healthStoreFilter);
+  }, [catalogHealthQuery.data, healthCountryFilter, healthStoreFilter]);
+
+  const healthProducts = useMemo(() => {
+    return allProducts
+      .filter((product) => healthCountryFilter === "all" || product.country_code === healthCountryFilter)
+      .filter((product) => healthStoreFilter === "all" || product.store_id === healthStoreFilter);
+  }, [allProducts, healthCountryFilter, healthStoreFilter]);
+
+  const healthSummary = useMemo(() => {
+    const total = healthProducts.length;
+    const inStock = healthProducts.filter((product) => product.stock_status === "in_stock").length;
+    const oos = healthProducts.filter((product) => product.stock_status === "out_of_stock").length;
+    const noImage = healthProducts.filter((product) => !product.image_url).length;
+    const noAffiliateUrl = healthProducts.filter((product) => !product.affiliate_url).length;
+    const stale = healthProducts.filter((product) => {
+      const days = staleDays(product.updated_at);
+      return typeof days === "number" && days > 30;
+    }).length;
+
+    return { total, inStock, oos, noImage, noAffiliateUrl, stale };
+  }, [healthProducts]);
 
   const clickStats = useMemo(() => {
     const firstDayOfMonth = new Date();
@@ -1311,6 +1340,53 @@ export default function AdminMarketplaces() {
     );
   }
 
+  function formatPercent(part: number | null | undefined, total: number | null | undefined) {
+    const denominator = Number(total ?? 0);
+    if (denominator <= 0) return "0%";
+    return `${Math.round((Number(part ?? 0) / denominator) * 100)}%`;
+  }
+
+  function formatRelativeDays(value: string | null | undefined) {
+    if (!value) return "Never";
+    const days = staleDays(value);
+    if (days == null) return "Never";
+    if (days <= 0) return "Today";
+    if (days === 1) return "1 day ago";
+    return `${days} days ago`;
+  }
+
+  function exportHealthCsv() {
+    csvDownload(
+      `giftmind-catalog-health-${new Date().toISOString().slice(0, 10)}.csv`,
+      [
+        "store_id",
+        "store_name",
+        "country_code",
+        "product_category",
+        "total_products",
+        "in_stock",
+        "out_of_stock",
+        "unknown_stock",
+        "has_image",
+        "has_affiliate_url",
+        "last_updated",
+      ],
+      filteredHealthRows.map((row) => ({
+        store_id: row.store_id ?? "",
+        store_name: row.store_name ?? "",
+        country_code: row.country_code ?? "",
+        product_category: row.product_category ?? "",
+        total_products: row.total_products ?? 0,
+        in_stock: row.in_stock ?? 0,
+        out_of_stock: row.out_of_stock ?? 0,
+        unknown_stock: row.unknown_stock ?? 0,
+        has_image: row.has_image ?? 0,
+        has_affiliate_url: row.has_affiliate_url ?? 0,
+        last_updated: row.last_updated ?? "",
+      })),
+    );
+  }
+
   async function testLink(store: MarketplaceRow) {
     const previewUrl = buildPreviewUrl(store);
     if (!previewUrl) {
@@ -1611,7 +1687,7 @@ export default function AdminMarketplaces() {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "stores" | "products")} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "stores" | "products" | "health")} className="space-y-6">
         <TabsList className="inline-flex h-auto min-w-max gap-1 bg-muted/70 p-1">
           <TabsTrigger value="stores" className="gap-2 px-4 py-2">
             <Store className="h-4 w-4" />
@@ -1620,6 +1696,10 @@ export default function AdminMarketplaces() {
           <TabsTrigger value="products" className="gap-2 px-4 py-2">
             <Package className="h-4 w-4" />
             Products
+          </TabsTrigger>
+          <TabsTrigger value="health" className="gap-2 px-4 py-2">
+            <RefreshCw className="h-4 w-4" />
+            Health
           </TabsTrigger>
         </TabsList>
 
@@ -2090,6 +2170,132 @@ export default function AdminMarketplaces() {
               ) : null}
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="health" className="space-y-6">
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <RefreshCw className="h-5 w-5" />
+                Catalog Health
+              </CardTitle>
+              <CardDescription>Store/category freshness, stock, image coverage, and affiliate URL coverage.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              {[
+                ["Total Products", healthSummary.total, ""],
+                ["In Stock", healthSummary.inStock, formatPercent(healthSummary.inStock, healthSummary.total)],
+                ["OOS", healthSummary.oos, formatPercent(healthSummary.oos, healthSummary.total)],
+                ["No Image", healthSummary.noImage, ""],
+                ["No Affiliate URL", healthSummary.noAffiliateUrl, ""],
+                ["Stale >30d", healthSummary.stale, ""],
+              ].map(([label, value, detail]) => (
+                <div key={String(label)} className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+                  <div className="mt-2 flex items-end gap-2">
+                    <p className="text-2xl font-semibold text-foreground">{value}</p>
+                    {detail ? <p className="pb-1 text-xs text-muted-foreground">{detail}</p> : null}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="flex flex-col gap-3 p-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <FilterSelect
+                  value={healthCountryFilter}
+                  onChange={setHealthCountryFilter}
+                  options={[
+                    { value: "all", label: "All countries" },
+                    ...COUNTRY_OPTIONS.map((country) => ({ value: country.code, label: `${country.flag} ${country.name}` })),
+                  ]}
+                />
+                <FilterSelect
+                  value={healthStoreFilter}
+                  onChange={setHealthStoreFilter}
+                  options={[
+                    { value: "all", label: "All stores" },
+                    ...storeOptions,
+                  ]}
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button variant="outline" onClick={exportHealthCsv} disabled={filteredHealthRows.length === 0}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Health Report CSV
+                </Button>
+                <Button variant="outline" onClick={runCatalogCleanup} disabled={isCatalogCleanupRunning}>
+                  {isCatalogCleanupRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Deactivate stale OOS products
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0">
+              {catalogHealthQuery.isLoading ? (
+                <div className="space-y-3 p-4">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <Skeleton key={index} className="h-12 rounded-lg" />
+                  ))}
+                </div>
+              ) : filteredHealthRows.length === 0 ? (
+                <div className="p-10 text-center">
+                  <p className="text-lg font-semibold text-foreground">No health rows match the current filters.</p>
+                  <p className="text-sm text-muted-foreground">Add active products to populate catalog health rollups.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="min-w-[920px]">
+                    <div className="grid grid-cols-[1.4fr,0.6fr,1fr,0.6fr,0.7fr,0.6fr,1fr,1.7fr] gap-3 border-b px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span>Store</span>
+                      <span>Country</span>
+                      <span>Category</span>
+                      <span>Total</span>
+                      <span>In Stock</span>
+                      <span>OOS</span>
+                      <span>Last Sync</span>
+                      <span>Alerts</span>
+                    </div>
+                    {filteredHealthRows.map((row) => {
+                      const total = Number(row.total_products ?? 0);
+                      const stale = row.last_updated ? (staleDays(row.last_updated) ?? 0) > 30 : true;
+                      const oosRate = total > 0 ? Number(row.out_of_stock ?? 0) / total : 0;
+                      const affiliateCoverage = total > 0 ? Number(row.has_affiliate_url ?? 0) / total : 1;
+                      const imageCoverage = total > 0 ? Number(row.has_image ?? 0) / total : 1;
+
+                      return (
+                        <div
+                          key={`${row.country_code}-${row.store_id}-${row.product_category}`}
+                          className={`grid grid-cols-[1.4fr,0.6fr,1fr,0.6fr,0.7fr,0.6fr,1fr,1.7fr] gap-3 border-b px-4 py-3 text-sm ${stale || oosRate > 0.3 || affiliateCoverage < 0.5 ? "bg-amber-50/70" : ""}`}
+                        >
+                          <span className="font-medium text-foreground">{row.store_name || row.store_id}</span>
+                          <span>{row.country_code}</span>
+                          <span>{row.product_category || "general"}</span>
+                          <span>{total}</span>
+                          <span>{row.in_stock ?? 0}</span>
+                          <span>{row.out_of_stock ?? 0}</span>
+                          <span>{formatRelativeDays(row.last_updated)}</span>
+                          <span className="flex flex-wrap gap-1">
+                            {stale ? <Badge variant="outline" className="border-amber-300 text-amber-800">Stale</Badge> : null}
+                            {oosRate > 0.3 ? <Badge variant="outline" className="border-amber-300 text-amber-800">High OOS</Badge> : null}
+                            {affiliateCoverage < 0.5 ? <Badge variant="outline" className="border-amber-300 text-amber-800">Low affiliate coverage</Badge> : null}
+                            {imageCoverage < 0.5 ? <Badge variant="secondary">Low image coverage</Badge> : null}
+                            {!stale && oosRate <= 0.3 && affiliateCoverage >= 0.5 && imageCoverage >= 0.5 ? (
+                              <Badge variant="secondary">Healthy</Badge>
+                            ) : null}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

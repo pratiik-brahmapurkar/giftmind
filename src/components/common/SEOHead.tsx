@@ -15,7 +15,7 @@ interface SEOProps {
 export function SEOHead({
   title,
   description,
-  image = 'https://giftmind.in/og-image.png',
+  image = 'https://giftmind.in/brand/giftmind-lockup.png',
   url = typeof window !== 'undefined' ? window.location.href : '',
   type = 'website',
   publishedAt,

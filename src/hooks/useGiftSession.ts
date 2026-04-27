@@ -445,6 +445,7 @@ function useGiftSessionV1() {
       recipientCountry?: string | null;
       clickedFrom?: "results_screen" | "success_screen";
       product_category?: string;
+      affiliate_variant_label?: string | null;
       is_affiliate?: boolean | null;
     }) => {
       const {
@@ -473,6 +474,7 @@ function useGiftSessionV1() {
         country: product.recipientCountry ?? null,
         estimated_price: product.price_amount ?? null,
         is_search_link: Boolean(product.is_search_link),
+        affiliate_variant_label: product.affiliate_variant_label ?? null,
         clicked_from: product.clickedFrom ?? "results_screen",
       });
 

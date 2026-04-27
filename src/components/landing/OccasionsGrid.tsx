@@ -29,11 +29,11 @@ const OccasionsGrid = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold font-heading mb-4">
-            Every occasion. Every relationship. <span className="text-primary">Covered.</span>
+          <h2 className="mb-4 font-heading text-3xl font-bold md:text-4xl">
+            Built for the moments where gifts carry meaning.
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            From birthdays to Diwali, new romance to your boss's retirement — GiftMind knows the rules.
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            From birthdays to Diwali, new romance to a boss's retirement, GiftMind adapts the recommendation to the occasion and relationship.
           </p>
         </motion.div>
 

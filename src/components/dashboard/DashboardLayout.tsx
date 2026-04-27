@@ -167,10 +167,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Logo */}
         <div className="p-4 flex items-center gap-2 border-b border-border h-14">
           <Link to="/" className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center shrink-0">
-              <Gift className="w-4 h-4 text-primary-foreground" />
-            </div>
-            {sidebarOpen && <span className="text-lg font-heading font-bold text-foreground truncate">GiftMind</span>}
+            {sidebarOpen ? (
+              <img src="/brand/giftmind-lockup.png" alt="GiftMind" className="h-8 w-auto max-w-[150px] object-contain" />
+            ) : (
+              <img src="/brand/giftmind-symbol.png" alt="GiftMind" className="h-8 w-8 shrink-0 object-contain" />
+            )}
           </Link>
         </div>
 
@@ -229,10 +230,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <header className="h-14 border-b border-border bg-card px-4 flex items-center justify-between shrink-0">
           {/* Mobile logo */}
           <Link to="/" className="md:hidden flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
-              <Gift className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="text-base font-heading font-bold text-foreground">GiftMind</span>
+            <img src="/brand/giftmind-lockup.png" alt="GiftMind" className="h-8 w-auto object-contain" />
           </Link>
           <div className="hidden md:block" />
 

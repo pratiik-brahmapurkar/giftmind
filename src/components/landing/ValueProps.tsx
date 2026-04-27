@@ -4,20 +4,20 @@ import { Clock, Target, Globe } from "lucide-react";
 const props = [
   {
     icon: Clock,
-    title: "Saves Hours",
-    description: "No more browsing 50 tabs. Get curated, confident picks in under a minute.",
+    title: "Cuts the search spiral",
+    description: "Skip the tab overload. Start from three strong choices with clear reasoning.",
     color: "bg-primary/10 text-primary",
   },
   {
     icon: Target,
-    title: "Builds Confidence",
-    description: "Know WHY this gift is right. Every recommendation comes with a reasoning score.",
+    title: "Explains the fit",
+    description: "See why each idea works for this person, not just why it is popular.",
     color: "bg-accent/10 text-accent",
   },
   {
     icon: Globe,
-    title: "Culturally Smart",
-    description: "Diwali, Eid, Christmas — we know the rules, traditions, and what truly resonates.",
+    title: "Respects context",
+    description: "Adjusts for occasion, relationship, budget, country, and cultural expectations.",
     color: "bg-success/10 text-success",
   },
 ];
@@ -32,11 +32,11 @@ const ValueProps = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Why <span className="text-primary">GiftMind</span>?
+          <h2 className="mb-4 text-3xl font-bold md:text-4xl">
+            Why GiftMind feels different
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            We don't just suggest gifts. We give you the confidence to gift.
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            It narrows the decision, explains the logic, and keeps the gift tied to the relationship.
           </p>
         </motion.div>
 
@@ -44,7 +44,7 @@ const ValueProps = () => {
           {props.map((prop, i) => (
             <motion.div
               key={prop.title}
-            className="card-shadow rounded-xl border border-border/60 bg-card p-8 text-center transition-all duration-300 hover:-translate-y-1"
+              className="rounded-xl border border-border/60 bg-card p-8 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}

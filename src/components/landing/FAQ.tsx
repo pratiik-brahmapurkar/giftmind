@@ -9,7 +9,7 @@ import {
 const faqs = [
   {
     q: "How is GiftMind different from just asking ChatGPT?",
-    a: "ChatGPT gives you a generic list. GiftMind gives you 3 specific recommendations with confidence scores, explains WHY each works for YOUR recipient, tells you what the gift communicates about your relationship, and links you directly to stores in your country. It's a gift strategist, not a chatbot.",
+    a: "GiftMind is built around the gifting workflow: recipient profiles, occasion context, confidence scores, relationship signals, and store links for the right country. Instead of a broad list, you get three choices you can compare and act on.",
   },
   {
     q: "Which stores do you link to?",
@@ -33,7 +33,7 @@ const faqs = [
   },
   {
     q: "What if I don't like the recommendations?",
-    a: "You can regenerate within the same session (up to your plan's limit) at no extra cost. Our average confidence score is 80+, and most users find their gift in the first set.",
+    a: "You can regenerate within the same session up to your plan's limit. You can also refine the recipient details over time so future recommendations get more specific.",
   },
   {
     q: "Can I use GiftMind for Diwali, Eid, Christmas, and other cultural occasions?",
@@ -47,7 +47,7 @@ const faqs = [
 
 const FAQ = () => {
   return (
-    <section className="py-24 bg-card">
+    <section className="bg-card py-20 md:py-24">
       <div className="container mx-auto px-4 max-w-3xl">
         <motion.div
           className="text-center mb-12"
@@ -56,8 +56,8 @@ const FAQ = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold font-heading mb-4">
-            Questions? We've got <span className="text-primary">answers.</span>
+          <h2 className="mb-4 font-heading text-3xl font-bold md:text-4xl">
+            Questions before your first gift?
           </h2>
         </motion.div>
 

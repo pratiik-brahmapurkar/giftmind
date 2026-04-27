@@ -942,6 +942,7 @@ export type Database = {
       }
       product_clicks: {
         Row: {
+          affiliate_variant_label: string | null
           clicked_at: string | null
           clicked_from: string | null
           country: string | null
@@ -961,6 +962,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          affiliate_variant_label?: string | null
           clicked_at?: string | null
           clicked_from?: string | null
           country?: string | null
@@ -980,6 +982,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          affiliate_variant_label?: string | null
           clicked_at?: string | null
           clicked_from?: string | null
           country?: string | null

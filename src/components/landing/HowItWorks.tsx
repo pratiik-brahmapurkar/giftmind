@@ -4,27 +4,27 @@ import { Users, Brain, ShoppingCart } from "lucide-react";
 const steps = [
   {
     icon: Users,
-    title: "Tell us about the person",
-    description: "Share the relationship, interests, occasion, and budget. The more we know, the better we match.",
+    title: "Describe the recipient",
+    description: "Add the relationship, occasion, budget, country, and a few details that make them them.",
     step: "01",
   },
   {
     icon: Brain,
-    title: "Get confident recommendations",
-    description: "Receive 3 AI-matched gifts with confidence scores and reasons WHY each gift is perfect.",
+    title: "Understand each pick",
+    description: "Get three ideas with a confidence score, why it fits, and what the gift communicates.",
     step: "02",
   },
   {
     icon: ShoppingCart,
-    title: "Buy with one click",
-    description: "Get direct links to top stores in your region — compare prices and buy instantly.",
+    title: "Choose and buy faster",
+    description: "Use regional store links to compare options, then save the choice for future gifting.",
     step: "03",
   },
 ];
 
 const HowItWorks = () => {
   return (
-    <section className="py-24 bg-card">
+    <section className="bg-card py-20 md:py-24">
       <div className="container mx-auto px-4">
         <motion.div
           className="text-center mb-16"
@@ -33,11 +33,11 @@ const HowItWorks = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            How It <span className="text-primary">Works</span>
+          <h2 className="mb-4 text-3xl font-bold md:text-4xl">
+            From vague idea to confident gift
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Three simple steps to the perfect gift. Every time.
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            A faster workflow for moments when the gift needs to feel considered, not convenient.
           </p>
         </motion.div>
 
@@ -48,7 +48,7 @@ const HowItWorks = () => {
             {steps.map((step, i) => (
               <motion.div
                 key={step.step}
-                className="relative text-center p-8 rounded-xl bg-background card-shadow hover:card-shadow-hover transition-shadow duration-300 group z-10"
+                className="group relative z-10 rounded-xl border border-border/70 bg-background p-7 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -57,8 +57,8 @@ const HowItWorks = () => {
                 <div className="text-6xl font-bold text-primary/10 absolute top-4 right-6 font-heading">
                   {step.step}
                 </div>
-                <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <step.icon className="w-8 h-8 text-primary-foreground" strokeWidth={1.5} />
+                <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-100 text-amber-800 transition-transform duration-300 group-hover:scale-105">
+                  <step.icon className="h-7 w-7" strokeWidth={1.5} />
                 </div>
                 <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
                 <p className="text-muted-foreground leading-relaxed">{step.description}</p>

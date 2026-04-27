@@ -20,6 +20,7 @@ export interface ProductLink {
   coupon_text?: string | null;
   affiliate_source?: string | null;
   attribution_label?: string | null;
+  affiliate_variant_label?: string | null;
   is_affiliate?: boolean | null;
 }
 

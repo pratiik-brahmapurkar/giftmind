@@ -1,31 +1,116 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Gift, Heart, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Gift, Heart, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const GiftBoxAnimation = () => (
-  <div className="relative h-64 w-64 md:h-80 md:w-80">
-    <div className="absolute inset-8 rounded-full bg-amber-200/50 blur-3xl" />
+const giftMatches = [
+  {
+    title: "Handcrafted brass diya set",
+    reason: "Traditional, premium, and festive without being impersonal.",
+    score: 94,
+    store: "Amazon.in",
+  },
+  {
+    title: "Silk stole in warm jewel tones",
+    reason: "Elegant, wearable, and suitable for a close family gift.",
+    score: 89,
+    store: "Myntra",
+  },
+  {
+    title: "Artisanal sweets hamper",
+    reason: "Safe for the occasion, but still feels curated and thoughtful.",
+    score: 82,
+    store: "Local stores",
+  },
+];
+
+const HeroPreview = () => (
+  <div className="relative w-full max-w-[440px]">
+    <div className="absolute inset-8 rounded-full bg-amber-200/35 blur-3xl" />
+
     <motion.div
-      className="relative flex h-full w-full items-center justify-center"
+      className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-card p-5 shadow-xl"
       animate={{ y: [0, -10, 0] }}
-      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
     >
-      <div className="relative">
-        <div className="relative h-32 w-32 overflow-hidden rounded-[28px] gradient-primary shadow-xl md:h-40 md:w-40">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Gift className="h-12 w-12 text-primary-foreground md:h-16 md:w-16" strokeWidth={1.5} />
+      <motion.div
+        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-amber-100/60 to-transparent"
+        animate={{ opacity: [0.45, 0.8, 0.45] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="relative flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Gift brief</p>
+          <p className="mt-1 text-sm font-medium text-foreground">Mother-in-law · Diwali · India</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {["Warm", "Traditional", "Under ₹5k"].map((chip) => (
+              <span key={chip} className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
+                {chip}
+              </span>
+            ))}
           </div>
-          <div className="absolute left-1/2 top-0 h-full w-4 -translate-x-1/2 bg-white/25" />
-          <div className="absolute left-0 top-1/2 h-4 w-full -translate-y-1/2 bg-white/25" />
         </div>
+
         <motion.div
-          className="absolute left-1/2 top-0 h-8 w-36 -translate-x-1/2 -translate-y-5 rounded-2xl bg-[linear-gradient(135deg,#E4C663_0%,#D4A04A_100%)] shadow-lg md:h-10 md:w-44"
-          animate={{ rotate: [-8, -14, -8], y: [-18, -28, -18] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-amber-50 shadow-inner"
+          animate={{ scale: [1, 1.04, 1] }}
+          transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
         >
-          <div className="absolute -top-2 left-1/2 h-5 w-8 -translate-x-1/2 rounded-full bg-[#4C2A85]/20" />
+          <img src="/brand/giftmind-symbol.png" alt="" className="h-14 w-14 object-contain" />
         </motion.div>
+      </div>
+
+      <div className="relative my-5 h-9">
+        <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+        <motion.div
+          className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-amber-500 shadow-glow-amber"
+          animate={{ left: ["4%", "94%", "4%"] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <div className="absolute left-1/2 top-1/2 grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-amber-200 bg-card">
+          <Sparkles className="h-4 w-4 text-amber-600" strokeWidth={1.5} />
+        </div>
+      </div>
+
+      <div className="relative space-y-3">
+        {giftMatches.map((match, index) => (
+          <motion.div
+            key={match.title}
+            className="rounded-xl border border-border/70 bg-background p-4 shadow-sm"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.45, delay: 0.35 + index * 0.18 }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800">
+                    {index + 1}
+                  </span>
+                  <p className="line-clamp-1 text-sm font-semibold text-foreground">{match.title}</p>
+                </div>
+                <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{match.reason}</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="font-mono text-lg font-bold text-success">{match.score}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">score</p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <motion.div
+                  className="h-full rounded-full bg-success"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${match.score}%` }}
+                  transition={{ duration: 0.65, delay: 0.55 + index * 0.18 }}
+                />
+              </div>
+              <span className="whitespace-nowrap text-muted-foreground">{match.store}</span>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </motion.div>
 
@@ -60,47 +145,44 @@ const GiftBoxAnimation = () => (
 
 const Hero = () => {
   return (
-    <section className="relative overflow-hidden bg-background">
-      <div className="absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(circle_at_top_left,rgba(212,160,74,0.18),transparent_44%),radial-gradient(circle_at_top_right,rgba(76,42,133,0.08),transparent_38%)]" />
-
-      <div className="container relative z-10 mx-auto px-4 py-20 md:py-24">
-        <div className="flex flex-col items-center gap-12 lg:flex-row lg:gap-16">
+    <section className="relative overflow-hidden bg-[linear-gradient(180deg,#FAF7F2_0%,#FDFCFA_72%,#FFFFFF_100%)]">
+      <div className="container relative z-10 mx-auto px-4 pb-16 pt-24 md:pb-20 md:pt-28">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr,0.95fr] lg:gap-16">
           <motion.div
-            className="flex-1 text-center lg:text-left"
+            className="text-center lg:text-left"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
             <motion.div
-              className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700"
+              className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
             >
               <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-              Confidence-first gift intelligence
+              Built for thoughtful gifting, not generic lists
             </motion.div>
 
             <h1 className="font-heading text-display-md text-balance text-foreground md:text-display-lg">
-              Stop guessing.{" "}
-              <span className="text-amber-700">Start gifting</span>{" "}
-              <span className="text-balance">with confidence.</span>
+              AI gift recommendations that feel{" "}
+              <span className="text-amber-700">personal</span>, not random.
             </h1>
 
             <p className="mt-6 max-w-xl text-body-lg text-muted-foreground">
-              GiftMind gives you warm, precise recommendations with confidence scores, cultural context, and direct store links so you can choose once and move forward calmly.
+              Tell GiftMind who you are buying for. Get three thoughtful options with confidence scores, cultural context, and links to stores that work for your region.
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
               <Button asChild variant="hero" size="lg" className="text-base">
                 <Link to="/signup">
                   <Gift className="mr-2 h-5 w-5" strokeWidth={1.5} />
-                  Find the Perfect Gift
+                  Get 3 Gift Ideas
                 </Link>
               </Button>
               <Button asChild variant="heroGhost" size="lg" className="text-base">
                 <a href="#how">
-                  See How It Works
+                  See the Flow
                   <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.5} />
                 </a>
               </Button>
@@ -109,26 +191,26 @@ const Hero = () => {
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-neutral-700 lg:justify-start">
               <span className="flex items-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
-                3 free sessions
+                Free monthly credits
               </span>
               <span className="flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
-                No credit card required
+                <Search className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
+                Store links included
               </span>
               <span className="flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
-                60-second results
+                <ShieldCheck className="h-3.5 w-3.5 text-success" strokeWidth={1.5} />
+                No credit card
               </span>
             </div>
           </motion.div>
 
           <motion.div
-            className="flex flex-1 justify-center"
+            className="flex justify-center lg:justify-end"
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <GiftBoxAnimation />
+            <HeroPreview />
           </motion.div>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 
 const ProductPreview = () => {
   return (
-    <section className="bg-[#F2EDE4] py-24">
+    <section className="bg-[#F2EDE4] py-20 md:py-24">
       <div className="container mx-auto px-4">
         <motion.div
           className="mb-12 text-center"
@@ -14,10 +14,10 @@ const ProductPreview = () => {
           transition={{ duration: 0.5 }}
         >
           <h2 className="font-heading text-3xl font-bold text-foreground md:text-4xl">
-            See what <span className="text-amber-700">confident gifting</span> looks like
+            A recommendation you can actually act on
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-            A real GiftMind recommendation, designed to feel like guidance from someone who knows both the person and the occasion.
+            GiftMind does more than name a product. It gives you the reason, the signal it sends, and the practical next step.
           </p>
         </motion.div>
 
@@ -35,27 +35,27 @@ const ProductPreview = () => {
                   Best Match
                 </Badge>
                 <h3 className="font-heading text-2xl font-semibold text-foreground">
-                  Personalized Star Map of Your First Date Night
+                  Personalized star map of your first date night
                 </h3>
               </div>
               <ConfidenceBadge score={92} size="sm" animate={false} />
             </div>
 
             <p className="mt-4 text-sm leading-6 text-neutral-600">
-              A custom star map showing exactly how the sky looked on the night you first met, framed with your names and date engraved.
+              A custom print showing how the sky looked on the night you first met, framed with your names and date.
             </p>
 
             <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Why it works</p>
               <p className="mt-1 text-sm leading-6 text-neutral-700">
-                Your wife values meaning over flash. This ties memory, beauty, and personalization together in a way that feels intimate rather than generic.
+                Your partner values meaning over flash. This ties memory, beauty, and personalization together without feeling generic.
               </p>
             </div>
 
             <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">What it communicates</p>
               <p className="mt-1 text-sm leading-6 text-neutral-700">
-                “I remember the details of our story. I picked something about us, not something off a generic list.”
+                "I remember the details of our story. I picked something about us, not something from a generic list."
               </p>
             </div>
 

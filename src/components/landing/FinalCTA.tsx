@@ -14,14 +14,14 @@ const FinalCTA = () => {
           transition={{ duration: 0.5 }}
         >
           <h2 className="mb-4 font-heading text-3xl font-bold text-amber-950 md:text-4xl">
-            Stop guessing. Start gifting with confidence.
+            Get three thoughtful gift ideas in your first session.
           </h2>
           <p className="mx-auto mb-8 max-w-xl text-lg text-amber-950/80">
-            3 free credits. 60 seconds to your first recommendation. No credit card needed.
+            Free monthly credits, clear reasoning, and no credit card required.
           </p>
           <Button asChild variant="heroGhost" size="xl" className="border-amber-950/10 bg-background/90 text-amber-900 shadow-md hover:bg-background">
             <Link to="/signup">
-              Find the Perfect Gift
+              Start Free
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
             </Link>
           </Button>
