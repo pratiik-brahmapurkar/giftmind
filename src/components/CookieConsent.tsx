@@ -1,25 +1,35 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { initPosthog } from "@/lib/posthog";
+import { initPosthog, trackEvent } from "@/lib/posthog";
+import { useFlag } from "@/hooks/useAppSettings";
 
 const COOKIE_KEY = "gm_cookie_consent";
 
 const CookieConsent = () => {
   const [visible, setVisible] = useState(false);
+  const consentRequired = useFlag("feature_cookie_consent_required", true);
+  const posthogEnabled = useFlag("feature_posthog_enabled", true);
 
   useEffect(() => {
+    if (!consentRequired) {
+      initPosthog({ enabled: posthogEnabled, requireConsent: false });
+      setVisible(false);
+      return;
+    }
     const saved = localStorage.getItem(COOKIE_KEY);
     if (!saved) setVisible(true);
-    if (saved === "accepted") initPosthog();
-  }, []);
+    if (saved === "accepted") initPosthog({ enabled: posthogEnabled, requireConsent: true });
+  }, [consentRequired, posthogEnabled]);
 
   const accept = () => {
     localStorage.setItem(COOKIE_KEY, "accepted");
     setVisible(false);
-    initPosthog();
+    initPosthog({ enabled: posthogEnabled, requireConsent: true });
+    trackEvent("cookie_consent_accepted");
   };
 
   const decline = () => {
+    trackEvent("cookie_consent_declined");
     localStorage.setItem(COOKIE_KEY, "declined");
     setVisible(false);
   };

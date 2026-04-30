@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/common/SEOHead";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useMyAdminRole } from "@/hooks/useMyAdminRole";
+import { VALID_AI_PROVIDERS, type AiProviderKey } from "@/lib/settings-schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,13 @@ type TabValue = (typeof TAB_CONFIG)[number]["value"];
 
 const MODEL_OPTIONS = ["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"];
 const STORE_LEVEL_OPTIONS = ["basic", "standard", "all"];
+const PROVIDER_COST_TIER: Record<AiProviderKey, string> = {
+  "groq-llama": "Low",
+  "gemini-flash": "Low",
+  "claude-haiku": "Medium",
+  "gemini-pro": "High",
+  "claude-sonnet": "High",
+};
 
 const DEFAULT_SETTINGS = {
   site_name: "GiftMind",
@@ -72,6 +80,14 @@ const DEFAULT_SETTINGS = {
   ai_model_free: "claude-haiku-4-5-20251001",
   ai_model_pro: "claude-sonnet-4-20250514",
   ai_model_signal: "claude-sonnet-4-20250514",
+  provider_chain_spark_gifts: ["groq-llama", "gemini-flash", "claude-haiku"],
+  provider_chain_pro_gifts: ["claude-sonnet", "claude-haiku", "gemini-pro"],
+  provider_chain_signal_free: ["groq-llama", "gemini-flash", "claude-haiku"],
+  provider_chain_signal_pro: ["claude-sonnet", "claude-haiku", "gemini-flash"],
+  provider_chain_relationship: ["groq-llama", "gemini-flash", "claude-haiku"],
+  ai_timeout_ms_primary: 45000,
+  ai_timeout_ms_fallback: 30000,
+  ai_max_attempts: 3,
   gift_session_cost: 1,
   signal_check_cost: 0.5,
   max_gift_sessions_per_hour: 10,
@@ -145,6 +161,23 @@ type CreditGrantRow = Pick<Tables<"credit_transactions">, "id" | "created_at" | 
 type ElevatedUserRow = Pick<Tables<"users">, "id" | "email" | "role" | "updated_at">;
 type UserEmailRow = Pick<Tables<"users">, "id" | "email">;
 type AIModelFieldKey = "ai_model_free" | "ai_model_pro" | "ai_model_signal";
+type ProviderChainFieldKey =
+  | "provider_chain_spark_gifts"
+  | "provider_chain_pro_gifts"
+  | "provider_chain_signal_free"
+  | "provider_chain_signal_pro"
+  | "provider_chain_relationship";
+type FeatureFlagKey =
+  | "feature_signup_enabled"
+  | "feature_google_oauth"
+  | "feature_blog_enabled"
+  | "feature_signal_check"
+  | "feature_cross_border_gifting"
+  | "feature_occasion_reminders"
+  | "feature_credit_expiry_warnings"
+  | "feature_posthog_enabled"
+  | "feature_cookie_consent_required"
+  | "maintenance_mode";
 type PackageNumericField = "credits" | "price_usd" | "validity_days" | "max_recipients" | "max_regenerations";
 type PackageBooleanField = "has_signal_check" | "has_batch_mode" | "has_priority_ai" | "has_history_export";
 type SecurityLimitField =
@@ -154,11 +187,47 @@ type SecurityLimitField =
   | "referrals_per_hour"
   | "blog_ai_generations_per_day";
 type AdminRpcName = "run_credit_expiry" | "recalculate_all_balances";
+type SettingsHistoryRow = {
+  id: string;
+  key: string;
+  old_value: unknown;
+  new_value: unknown;
+  changed_by: string | null;
+  changed_at: string;
+  reason: string | null;
+};
 
 const AI_MODEL_FIELDS: Array<{ key: AIModelFieldKey; label: string; note: string; cost: string }> = [
   { key: "ai_model_free", label: "Model for Spark/Thoughtful/Confident plans", note: "Cheaper model for standard users.", cost: "Cost: ~$0.003 per gift session." },
   { key: "ai_model_pro", label: "Model for Pro plan", note: "Premium model for Pro users. Better quality.", cost: "Cost: ~$0.035 per gift session." },
   { key: "ai_model_signal", label: "Model for Signal Check", note: "Always Sonnet — this is the premium differentiator.", cost: "Cost: ~$0.01 per signal check." },
+];
+
+const PROVIDER_CHAIN_FIELDS: Array<{ key: ProviderChainFieldKey; label: string; description: string }> = [
+  { key: "provider_chain_spark_gifts", label: "Spark Gifts", description: "Gift generation fallback order for Spark users." },
+  { key: "provider_chain_pro_gifts", label: "Pro Gifts", description: "Gift generation fallback order for Pro users." },
+  { key: "provider_chain_signal_free", label: "Signal Check Spark", description: "Signal Check fallback order for Spark users." },
+  { key: "provider_chain_signal_pro", label: "Signal Check Pro", description: "Signal Check fallback order for Pro users." },
+  { key: "provider_chain_relationship", label: "Relationship Insight", description: "Provider order for relationship insight jobs." },
+];
+
+const FEATURE_FLAG_ROWS: Array<{
+  key: FeatureFlagKey;
+  title: string;
+  description: string;
+  enforcedIn: string[];
+  priority: "P0" | "P1" | "P2";
+}> = [
+  { key: "feature_signup_enabled", title: "Allow new signups", description: "When OFF, signup page should show registrations paused.", enforcedIn: ["Frontend", "Edge Function"], priority: "P1" },
+  { key: "feature_google_oauth", title: "Google OAuth login", description: "When OFF, only email/password login is available.", enforcedIn: ["Frontend"], priority: "P2" },
+  { key: "feature_blog_enabled", title: "Public blog", description: "When OFF, /blog should be hidden from users.", enforcedIn: ["Frontend"], priority: "P2" },
+  { key: "feature_signal_check", title: "Signal Check", description: "When OFF, Signal Check is hidden and blocked server-side.", enforcedIn: ["Frontend", "Edge Function"], priority: "P1" },
+  { key: "feature_cross_border_gifting", title: "Cross-border gifting", description: "When OFF, recipient location controls are hidden and cross-border requests are blocked.", enforcedIn: ["Frontend", "Edge Function"], priority: "P1" },
+  { key: "feature_occasion_reminders", title: "Occasion reminders (email)", description: "When OFF, cron job skips reminder emails.", enforcedIn: ["Edge Function"], priority: "P1" },
+  { key: "feature_credit_expiry_warnings", title: "Credit expiry warnings (email)", description: "When OFF, cron job skips expiry warning emails.", enforcedIn: ["Edge Function"], priority: "P1" },
+  { key: "feature_posthog_enabled", title: "Posthog analytics", description: "When OFF, Posthog does not initialize.", enforcedIn: ["Frontend"], priority: "P2" },
+  { key: "feature_cookie_consent_required", title: "Cookie consent required", description: "When OFF, analytics load without asking. Not recommended for compliance.", enforcedIn: ["Frontend"], priority: "P2" },
+  { key: "maintenance_mode", title: "Maintenance mode", description: "When ON, app pages and Edge Functions return maintenance responses.", enforcedIn: ["Frontend", "Edge Function"], priority: "P0" },
 ];
 
 const PACKAGE_NUMERIC_FIELDS: Array<{ label: string; field: PackageNumericField }> = [
@@ -272,6 +341,9 @@ function FeatureFlagRow({
   title,
   description,
   checked,
+  enforcedIn,
+  priority,
+  lastChanged,
   saving,
   saved,
   onChange,
@@ -279,6 +351,9 @@ function FeatureFlagRow({
   title: string;
   description: string;
   checked: boolean;
+  enforcedIn?: string[];
+  priority?: "P0" | "P1" | "P2";
+  lastChanged?: string | null;
   saving?: boolean;
   saved?: boolean;
   onChange: (value: boolean) => void;
@@ -291,10 +366,86 @@ function FeatureFlagRow({
           {saved && <span className="text-xs font-medium text-emerald-600">✓ Saved</span>}
         </div>
         <p className="text-xs text-muted-foreground">{description}</p>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {priority ? <Badge variant={priority === "P0" ? "destructive" : "outline"}>{priority}</Badge> : null}
+          {enforcedIn?.map((item) => <Badge key={item} variant="secondary">{item}</Badge>)}
+          {lastChanged ? <span className="text-xs text-muted-foreground">Changed {formatTimestamp(lastChanged)}</span> : null}
+        </div>
       </div>
       <div className="flex items-center gap-3">
         {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         <Switch checked={checked} onCheckedChange={onChange} />
+      </div>
+    </div>
+  );
+}
+
+function stringifySettingValue(value: unknown) {
+  if (value == null) return "null";
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function ProviderChainEditor({
+  label,
+  description,
+  value,
+  defaultValue,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: string[];
+  defaultValue: string[];
+  onChange: (value: string[]) => void;
+}) {
+  const available = VALID_AI_PROVIDERS.filter((provider) => !value.includes(provider));
+  const primaryProvider = value[0] as AiProviderKey | undefined;
+
+  const move = (provider: string, direction: -1 | 1) => {
+    const index = value.indexOf(provider);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= value.length) return;
+    const next = [...value];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    onChange(next);
+  };
+
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{label}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        </div>
+        {primaryProvider ? <Badge variant="outline">{PROVIDER_COST_TIER[primaryProvider]} cost primary</Badge> : null}
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {value.map((provider, index) => (
+          <div key={provider} className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-muted-foreground">#{index + 1}</span>
+              <Badge variant="secondary">{provider}</Badge>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => move(provider, -1)} disabled={index === 0}>Up</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => move(provider, 1)} disabled={index === value.length - 1}>Down</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => value.length > 1 && onChange(value.filter((item) => item !== provider))} disabled={value.length <= 1}>Remove</Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {available.map((provider) => (
+          <Button key={provider} type="button" variant="outline" size="sm" onClick={() => value.length < VALID_AI_PROVIDERS.length && onChange([...value, provider])}>
+            Add {provider}
+          </Button>
+        ))}
+        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(defaultValue)}>
+          Reset default
+        </Button>
       </div>
     </div>
   );
@@ -346,6 +497,14 @@ const AdminSettings = () => {
     ai_model_free: asString(settingsWithDefaults.ai_model_free, DEFAULT_SETTINGS.ai_model_free),
     ai_model_pro: asString(settingsWithDefaults.ai_model_pro, DEFAULT_SETTINGS.ai_model_pro),
     ai_model_signal: asString(settingsWithDefaults.ai_model_signal, DEFAULT_SETTINGS.ai_model_signal),
+    provider_chain_spark_gifts: asStringArray(settingsWithDefaults.provider_chain_spark_gifts, DEFAULT_SETTINGS.provider_chain_spark_gifts),
+    provider_chain_pro_gifts: asStringArray(settingsWithDefaults.provider_chain_pro_gifts, DEFAULT_SETTINGS.provider_chain_pro_gifts),
+    provider_chain_signal_free: asStringArray(settingsWithDefaults.provider_chain_signal_free, DEFAULT_SETTINGS.provider_chain_signal_free),
+    provider_chain_signal_pro: asStringArray(settingsWithDefaults.provider_chain_signal_pro, DEFAULT_SETTINGS.provider_chain_signal_pro),
+    provider_chain_relationship: asStringArray(settingsWithDefaults.provider_chain_relationship, DEFAULT_SETTINGS.provider_chain_relationship),
+    ai_timeout_ms_primary: asNumber(settingsWithDefaults.ai_timeout_ms_primary, DEFAULT_SETTINGS.ai_timeout_ms_primary),
+    ai_timeout_ms_fallback: asNumber(settingsWithDefaults.ai_timeout_ms_fallback, DEFAULT_SETTINGS.ai_timeout_ms_fallback),
+    ai_max_attempts: asNumber(settingsWithDefaults.ai_max_attempts, DEFAULT_SETTINGS.ai_max_attempts),
     gift_session_cost: asNumber(settingsWithDefaults.gift_session_cost, DEFAULT_SETTINGS.gift_session_cost),
     signal_check_cost: asNumber(settingsWithDefaults.signal_check_cost, DEFAULT_SETTINGS.signal_check_cost),
     max_gift_sessions_per_hour: asNumber(settingsWithDefaults.max_gift_sessions_per_hour, DEFAULT_SETTINGS.max_gift_sessions_per_hour),
@@ -411,6 +570,28 @@ const AdminSettings = () => {
     },
     enabled: roleChecked,
   });
+
+  const { data: settingsHistory = [], refetch: refetchSettingsHistory } = useQuery({
+    queryKey: ["admin-settings-history"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("settings_history")
+        .select("id, key, old_value, new_value, changed_by, changed_at, reason")
+        .order("changed_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data || []) as SettingsHistoryRow[];
+    },
+    enabled: roleChecked,
+  });
+
+  const latestSettingChange = useMemo(() => {
+    const entries = new Map<string, string>();
+    settingsHistory.forEach((row) => {
+      if (!entries.has(row.key)) entries.set(row.key, row.changed_at);
+    });
+    return entries;
+  }, [settingsHistory]);
 
   useEffect(() => {
     setPackageDrafts((creditPackages || []).map((pkg) => ({ ...pkg })));
@@ -589,36 +770,40 @@ const AdminSettings = () => {
   async function handleSaveGeneral() {
     const { error } = await updateMultipleSettings(generalForm);
     if (error) {
-      toast.error("Failed to save settings");
+      toast.error(error.message || "Failed to save settings");
       return;
     }
+    await refetchSettingsHistory();
     toast.success("✓ Settings saved");
   }
 
   async function handleSaveAi() {
     const { error } = await updateMultipleSettings(aiForm);
     if (error) {
-      toast.error("Failed to save settings");
+      toast.error(error.message || "Failed to save settings");
       return;
     }
+    await refetchSettingsHistory();
     toast.success("✓ Settings saved");
   }
 
   async function handleSaveCredits() {
     const { error } = await updateMultipleSettings(creditsForm);
     if (error) {
-      toast.error("Failed to save settings");
+      toast.error(error.message || "Failed to save settings");
       return;
     }
+    await refetchSettingsHistory();
     toast.success("✓ Settings saved");
   }
 
   async function handleSaveEmail() {
     const { error } = await updateMultipleSettings(emailForm);
     if (error) {
-      toast.error("Failed to save settings");
+      toast.error(error.message || "Failed to save settings");
       return;
     }
+    await refetchSettingsHistory();
     toast.success("✓ Settings saved");
   }
 
@@ -633,9 +818,10 @@ const AdminSettings = () => {
     };
     const { error } = await updateMultipleSettings(updates);
     if (error) {
-      toast.error("Failed to save settings");
+      toast.error(error.message || "Failed to save settings");
       return;
     }
+    await refetchSettingsHistory();
     toast.success("✓ Settings saved");
   }
 
@@ -684,9 +870,10 @@ const AdminSettings = () => {
     const { error } = await updateSetting(key, value);
     if (error) {
       setFeatureFlags((prev) => ({ ...prev, [key]: !value }));
-      toast.error("Failed to save setting");
+      toast.error(error.message || "Failed to save setting");
       return;
     }
+    await refetchSettingsHistory();
     setSavedFeatureKey(key);
   }
 
@@ -698,9 +885,10 @@ const AdminSettings = () => {
     const { error } = await updateSetting("maintenance_mode", value);
     if (error) {
       setFeatureFlags((prev) => ({ ...prev, maintenance_mode: false }));
-      toast.error("Failed to save setting");
+      toast.error(error.message || "Failed to save setting");
       return;
     }
+    await refetchSettingsHistory();
     setSavedFeatureKey("maintenance_mode");
   }
 
@@ -917,6 +1105,46 @@ const AdminSettings = () => {
                       <p className="text-xs text-muted-foreground">{field.cost}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-sm font-semibold text-foreground">Provider Routing</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Ordered fallback chains are read by Edge Functions at request time. Changes take effect without a deploy.
+                  </p>
+                </div>
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  {PROVIDER_CHAIN_FIELDS.map((field) => (
+                    <ProviderChainEditor
+                      key={field.key}
+                      label={field.label}
+                      description={field.description}
+                      value={aiForm[field.key]}
+                      defaultValue={DEFAULT_SETTINGS[field.key]}
+                      onChange={(value) => setAiForm((prev) => ({ ...prev, [field.key]: value }))}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Primary provider timeout (ms)</Label>
+                  <Input type="number" min="1000" step="1000" value={aiForm.ai_timeout_ms_primary} onChange={(e) => setAiForm((prev) => ({ ...prev, ai_timeout_ms_primary: Number(e.target.value) }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fallback provider timeout (ms)</Label>
+                  <Input type="number" min="1000" step="1000" value={aiForm.ai_timeout_ms_fallback} onChange={(e) => setAiForm((prev) => ({ ...prev, ai_timeout_ms_fallback: Number(e.target.value) }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Max AI attempts</Label>
+                  <Input type="number" min="1" max={VALID_AI_PROVIDERS.length} value={aiForm.ai_max_attempts} onChange={(e) => setAiForm((prev) => ({ ...prev, ai_max_attempts: Number(e.target.value) }))} />
                 </div>
               </div>
 
@@ -1156,16 +1384,19 @@ const AdminSettings = () => {
               <CardDescription>Toggle features on or off instantly. Feature flags save automatically.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FeatureFlagRow title="Allow new signups" description="When OFF, signup page should show registrations paused." checked={featureFlags.feature_signup_enabled} saved={savedFeatureKey === "feature_signup_enabled"} onChange={(checked) => handleFeatureToggle("feature_signup_enabled", checked)} />
-              <FeatureFlagRow title="Google OAuth login" description="When OFF, only email/password login is available." checked={featureFlags.feature_google_oauth} saved={savedFeatureKey === "feature_google_oauth"} onChange={(checked) => handleFeatureToggle("feature_google_oauth", checked)} />
-              <FeatureFlagRow title="Public blog" description="When OFF, /blog should be hidden from users." checked={featureFlags.feature_blog_enabled} saved={savedFeatureKey === "feature_blog_enabled"} onChange={(checked) => handleFeatureToggle("feature_blog_enabled", checked)} />
-              <FeatureFlagRow title="Signal Check" description="When OFF, Signal Check is hidden for all plans." checked={featureFlags.feature_signal_check} saved={savedFeatureKey === "feature_signal_check"} onChange={(checked) => handleFeatureToggle("feature_signal_check", checked)} />
-              <FeatureFlagRow title="Cross-border gifting" description="When OFF, recipient location controls should be hidden." checked={featureFlags.feature_cross_border_gifting} saved={savedFeatureKey === "feature_cross_border_gifting"} onChange={(checked) => handleFeatureToggle("feature_cross_border_gifting", checked)} />
-              <FeatureFlagRow title="Occasion reminders (email)" description="When OFF, cron job should skip reminder emails." checked={featureFlags.feature_occasion_reminders} saved={savedFeatureKey === "feature_occasion_reminders"} onChange={(checked) => handleFeatureToggle("feature_occasion_reminders", checked)} />
-              <FeatureFlagRow title="Credit expiry warnings (email)" description="When OFF, cron job should skip expiry warning emails." checked={featureFlags.feature_credit_expiry_warnings} saved={savedFeatureKey === "feature_credit_expiry_warnings"} onChange={(checked) => handleFeatureToggle("feature_credit_expiry_warnings", checked)} />
-              <FeatureFlagRow title="Posthog analytics" description="When OFF, Posthog should not initialize." checked={featureFlags.feature_posthog_enabled} saved={savedFeatureKey === "feature_posthog_enabled"} onChange={(checked) => handleFeatureToggle("feature_posthog_enabled", checked)} />
-              <FeatureFlagRow title="Cookie consent required" description="When OFF, analytics load without asking. Not recommended for compliance." checked={featureFlags.feature_cookie_consent_required} saved={savedFeatureKey === "feature_cookie_consent_required"} onChange={(checked) => handleFeatureToggle("feature_cookie_consent_required", checked)} />
-              <FeatureFlagRow title="🚧 Maintenance mode" description="When ON, all non-admin pages should show maintenance mode." checked={featureFlags.maintenance_mode} saved={savedFeatureKey === "maintenance_mode"} onChange={(checked) => handleFeatureToggle("maintenance_mode", checked)} />
+              {FEATURE_FLAG_ROWS.map((flag) => (
+                <FeatureFlagRow
+                  key={flag.key}
+                  title={flag.title}
+                  description={flag.description}
+                  checked={featureFlags[flag.key]}
+                  enforcedIn={flag.enforcedIn}
+                  priority={flag.priority}
+                  lastChanged={latestSettingChange.get(flag.key) ?? null}
+                  saved={savedFeatureKey === flag.key}
+                  onChange={(checked) => handleFeatureToggle(flag.key, checked)}
+                />
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1250,6 +1481,39 @@ const AdminSettings = () => {
                           <TableCell>{event.event}</TableCell>
                           <TableCell>{event.user}</TableCell>
                           <TableCell>{event.details}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">Settings Change Log</h3>
+                  <Button variant="outline" size="sm" onClick={() => refetchSettingsHistory()}>Refresh</Button>
+                </div>
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Key</TableHead>
+                        <TableHead>Old Value</TableHead>
+                        <TableHead>New Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {settingsHistory.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">No settings changes recorded yet.</TableCell></TableRow>
+                      ) : settingsHistory.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell className="whitespace-nowrap text-xs">{formatTimestamp(row.changed_at)}</TableCell>
+                          <TableCell className="font-mono text-xs">{row.key}</TableCell>
+                          <TableCell className="max-w-[240px] truncate text-xs text-muted-foreground">{stringifySettingValue(row.old_value)}</TableCell>
+                          <TableCell className="max-w-[240px] truncate text-xs">{stringifySettingValue(row.new_value)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

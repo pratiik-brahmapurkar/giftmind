@@ -199,6 +199,7 @@ const Profile = () => {
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
+    trackEvent("referral_link_copied", { source: "settings" });
     setCopied(true);
     toast.success("Copied!");
     setTimeout(() => setCopied(false), 2000);

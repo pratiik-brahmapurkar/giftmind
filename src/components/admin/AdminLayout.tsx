@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   BarChart3,
+  Activity,
   Users,
   CreditCard,
   Gift,
@@ -32,6 +33,7 @@ const navSections = [
       { label: "Users", path: "/admin/users", icon: Users, requiredRole: "viewer" },
       { label: "Credits & Revenue", path: "/admin/credits", icon: CreditCard, requiredRole: "viewer" },
       { label: "Gift Analytics", path: "/admin/gifts", icon: Gift, requiredRole: "viewer" },
+      { label: "AI Telemetry", path: "/admin/telemetry", icon: Activity, requiredRole: "viewer" },
     ],
   },
   {

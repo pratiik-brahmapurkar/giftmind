@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseJsonBody, sanitizeString, validateReferralCode } from "../_shared/validate.ts";
+import { captureServerEvent } from "../_shared/server-analytics.ts";
+import { loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 
 // ── Environment ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -52,6 +54,10 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
+
     // ── 1. Authenticate the new user (the one who just signed up) ────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -259,6 +265,10 @@ serve(async (req: Request): Promise<Response> => {
 
     // ── 9. Return success ─────────────────────────────────────────────────────
     const referrerName = referrer.email?.split("@")[0] ?? "a friend";
+    await captureServerEvent("referral_signup_completed", user.id, {
+      referrer_id: referrer.id,
+      referral_code: referralCode,
+    });
 
     return json({
       success: true,

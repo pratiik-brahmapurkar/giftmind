@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseJsonBody, sanitizeString } from "../_shared/validate.ts";
+import { captureServerEvent } from "../_shared/server-analytics.ts";
+import { loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 import { UNITS_PER_CREDIT } from "../_shared/credits.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -356,6 +358,11 @@ async function createOrder(body: CheckoutBody, userId: string) {
   }
 
   const { creditPackage, priceUsd } = await getCreditPackage(packageId);
+  await captureServerEvent("credit_purchase_started", userId, {
+    package_name: creditPackage.name,
+    price: priceUsd,
+    currency,
+  });
   const accessToken = await getPayPalAccessToken();
 
   const order = await paypalRequest<{ id?: string; status?: string }>(
@@ -498,6 +505,12 @@ async function captureOrder(body: CheckoutBody, userId: string) {
     priceUsd,
     paypalCaptureId: getCaptureId(capturePayload),
   });
+  await captureServerEvent("credit_purchase_completed", userId, {
+    package_name: creditPackage.name,
+    price: priceUsd,
+    currency: "USD",
+    batch_id: finalized.batch.id,
+  });
 
   return json({
     success: true,
@@ -517,14 +530,23 @@ serve(async (req: Request): Promise<Response> => {
     return json({ error: "Method not allowed" }, 405);
   }
 
+  let checkoutBody: CheckoutBody | null = null;
+  let authUserId: string | null = null;
+
   try {
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
+
     const auth = await getAuthenticatedUser(req);
     if (auth.response) return auth.response;
+    authUserId = auth.user.id;
 
     const parsed = await parseJsonBody<CheckoutBody>(req, json);
     if (parsed.response) return parsed.response;
 
     const body = parsed.data ?? {};
+    checkoutBody = body;
     if (body.action === "create_order") {
       return await createOrder(body, auth.user.id);
     }
@@ -536,6 +558,12 @@ serve(async (req: Request): Promise<Response> => {
     return json({ error: "Invalid checkout action" }, 400);
   } catch (error) {
     console.error("Unhandled error in paypal-checkout:", error);
+    if (authUserId) {
+      await captureServerEvent("credit_purchase_failed", authUserId, {
+        package_name: checkoutBody?.package_id ?? null,
+        error_code: error instanceof Error ? error.message.substring(0, 120) : "unknown",
+      });
+    }
     return json(
       {
         error: error instanceof Error ? error.message : "An unexpected error occurred",

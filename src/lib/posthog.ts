@@ -20,11 +20,12 @@ function hasValidPosthogKey(value: string | undefined) {
     && !lowered.startsWith("phc_placeholder");
 }
 
-export function initPosthog() {
+export function initPosthog(options: { requireConsent?: boolean; enabled?: boolean } = {}) {
+  if (options.enabled === false) return;
   if (!import.meta.env.PROD && !ENABLE_POSTHOG_IN_DEV) return;
   // Only initialize if user has accepted cookies
   const consent = localStorage.getItem('gm_cookie_consent');
-  if (consent !== 'accepted') return;
+  if (options.requireConsent !== false && consent !== 'accepted') return;
   if (initialized) return;
   if (!hasValidPosthogKey(POSTHOG_KEY)) {
     console.log("PostHog: No API key configured, skipping initialization");
@@ -48,6 +49,16 @@ export function identifyUser(userId: string, properties: Record<string, Json>) {
 export function trackEvent(event: string, properties?: Record<string, Json>) {
   if (!initialized) return;
   posthog.capture(event, properties);
+}
+
+export function getFeatureFlag(key: string): string | boolean | undefined {
+  if (!initialized) return undefined;
+  const variant = posthog.getFeatureFlag(key);
+  return typeof variant === "string" || typeof variant === "boolean" ? variant : undefined;
+}
+
+export function isPosthogInitialized() {
+  return initialized;
 }
 
 export function resetUser() {

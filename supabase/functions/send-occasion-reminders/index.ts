@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { captureServerEvent } from "../_shared/server-analytics.ts";
+import { getFlag, loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -248,7 +250,11 @@ serve(async (req) => {
   }
 
   try {
-    const enabled = await loadOccasionReminderEnabled();
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
+
+    const enabled = getFlag(runtimeSettings, "feature_occasion_reminders", await loadOccasionReminderEnabled());
     if (!enabled) {
       return json({ success: true, skipped: true, reason: "feature_disabled" });
     }
@@ -321,6 +327,11 @@ serve(async (req) => {
               daysBefore: window,
             });
             remindersSent += 1;
+            await captureServerEvent("occasion_reminder_sent", recipient.user_id, {
+              occasion: label,
+              days_before: window,
+              recipient_id: recipient.id,
+            });
             console.log("occasion_reminder_sent", {
               user_id: recipient.user_id,
               recipient_id: recipient.id,

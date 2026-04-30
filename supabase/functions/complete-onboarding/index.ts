@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFlag, loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -54,6 +55,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
+  const runtimeSettings = await loadSettings(supabaseAdmin);
+  const maintenance = maintenanceResponse(runtimeSettings, json);
+  if (maintenance) return maintenance;
+  if (!getFlag(runtimeSettings, "feature_signup_enabled", true)) {
+    return json({ error: "SIGNUPS_DISABLED" }, 503);
+  }
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("users")

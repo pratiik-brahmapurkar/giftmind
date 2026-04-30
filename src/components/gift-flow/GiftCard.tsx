@@ -36,7 +36,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { GiftRecommendation, Recipient } from "@/hooks/useGiftSession";
 import type { SelectGiftOptions } from "@/hooks/giftSessionTypes";
+import { useExperiment } from "@/hooks/useExperiment";
 import type { ProductResult } from "@/lib/productLinks";
+import { EXPERIMENTS } from "@/lib/experiments";
 import { getPlanConfig } from "@/lib/geoConfig";
 import { trackEvent } from "@/lib/posthog";
 import { cn } from "@/lib/utils";
@@ -114,6 +116,8 @@ export default function GiftCard({
   const [selectionNote, setSelectionNote] = useState("");
   const [createReminder, setCreateReminder] = useState(Boolean(occasionDate));
   const [savedForLater, setSavedForLater] = useState(false);
+  const { variant: giftCardLayout } = useExperiment(EXPERIMENTS.GIFT_CARD_LAYOUT);
+  const isCompactLayout = giftCardLayout === "compact";
   const topProduct = products?.products?.[0] ?? null;
   const visibleStoreLinks = products?.products?.slice(0, 3) ?? [];
   const VisualIcon = visualIconForCategory(gift.product_category);
@@ -142,9 +146,12 @@ export default function GiftCard({
             isBestMatch ? "border-amber-300 shadow-glow-amber motion-safe:animate-gift-reveal" : "",
           )}
         >
-          <CardContent className="space-y-5 p-4 sm:p-6">
+          <CardContent className={cn("p-4 sm:p-6", isCompactLayout ? "space-y-4" : "space-y-5")}>
             <div className="flex flex-col gap-4 lg:flex-row">
-              <div className="relative flex min-h-[190px] items-center justify-center overflow-hidden rounded-2xl border border-[#EFE3D1] bg-[#FBF6EC] lg:w-56 lg:shrink-0">
+              <div className={cn(
+                "relative flex items-center justify-center overflow-hidden rounded-2xl border border-[#EFE3D1] bg-[#FBF6EC] lg:shrink-0",
+                isCompactLayout ? "min-h-[140px] lg:w-44" : "min-h-[190px] lg:w-56",
+              )}>
                 {topProduct?.image_url ? (
                   <img
                     src={topProduct.image_url}

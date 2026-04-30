@@ -21,6 +21,9 @@ import {
   getNextResetIso,
   parseNumberSetting,
 } from "../_shared/credits.ts";
+import { captureServerEvent } from "../_shared/server-analytics.ts";
+import { getFlag, getNumber, loadSettings, maintenanceResponse } from "../_shared/settings.ts";
+import { logAiCall, resolveModel } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -369,6 +372,9 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, jsonResponse);
+    if (maintenance) return maintenance;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -410,6 +416,13 @@ serve(async (req) => {
     if (!body.session_id) {
       return jsonResponse({ error: "Session id is required" }, 400);
     }
+    if (!getFlag(runtimeSettings, "feature_cross_border_gifting", true)) {
+      const requestedCountry = sanitizeString(body.recipient_country ?? "", 30);
+      const recipientCountry = sanitizeString(body.recipient?.country ?? "", 30);
+      if (requestedCountry && recipientCountry && requestedCountry !== recipientCountry) {
+        return jsonResponse({ error: "Cross-border gifting is temporarily unavailable." }, 503);
+      }
+    }
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("gift_sessions")
@@ -437,7 +450,8 @@ serve(async (req) => {
       return jsonResponse({ error: "Failed to validate request rate" }, 500);
     }
 
-    if ((recentCount || 0) >= 10) {
+    const maxSessionsPerHour = Math.max(1, Math.floor(getNumber(runtimeSettings, "max_gift_sessions_per_hour", 10)));
+    if ((recentCount || 0) >= maxSessionsPerHour) {
       return jsonResponse(
         {
           error: "Too many gift sessions in the last hour. Please wait.",
@@ -582,7 +596,7 @@ serve(async (req) => {
       remaining_balance: deductResult?.remaining_balance ?? null,
     }));
 
-    const providerChain = getProviderChain(plan, "gift-generation");
+    const providerChain = getProviderChain(plan, "gift-generation", runtimeSettings);
     console.log(JSON.stringify({
       event: "ai_provider_selected",
       provider: providerChain[0],
@@ -590,13 +604,17 @@ serve(async (req) => {
       operation: "gift_generation",
       session_id: body.session_id,
     }));
-    const aiResult = await callAIWithFallback(providerChain, {
-      systemPrompt: buildSystemPrompt(),
-      userMessage: buildUserMessage(body),
-      maxTokens: 2500,
-      temperature: 0.8,
-      responseFormat: "json",
-    });
+    const aiResult = await callAIWithFallback(
+      providerChain,
+      {
+        systemPrompt: buildSystemPrompt(),
+        userMessage: buildUserMessage(body),
+        maxTokens: 2500,
+        temperature: 0.8,
+        responseFormat: "json",
+      },
+      runtimeSettings,
+    );
 
     let parsed: unknown;
     try {
@@ -605,6 +623,25 @@ serve(async (req) => {
       const message = parseError instanceof Error ? parseError.message : String(parseError);
       console.error("AI response parse failed:", message);
       console.error("Raw text:", aiResult.text.substring(0, 500));
+      await logAiCall(supabaseAdmin, {
+        session_id: body.session_id,
+        function_name: "generate-gifts",
+        provider: aiResult.provider,
+        attempt_number: aiResult.attemptNumber,
+        status: "error",
+        latency_ms: aiResult.latencyMs,
+        tokens_input: aiResult.tokensInput,
+        tokens_output: aiResult.tokensOutput,
+        error_type: "invalid_response",
+        error_message: message,
+      });
+      await captureServerEvent("ai_generation_failed", user.id, {
+        provider: aiResult.provider,
+        model: resolveModel(aiResult.provider),
+        error_type: "invalid_response",
+        attempt_number: aiResult.attemptNumber,
+        session_id: body.session_id,
+      });
 
       return jsonResponse(
         {
@@ -624,6 +661,18 @@ serve(async (req) => {
     }
 
     if (!validateAIResponse(parsed)) {
+      await logAiCall(supabaseAdmin, {
+        session_id: body.session_id,
+        function_name: "generate-gifts",
+        provider: aiResult.provider,
+        attempt_number: aiResult.attemptNumber,
+        status: "error",
+        latency_ms: aiResult.latencyMs,
+        tokens_input: aiResult.tokensInput,
+        tokens_output: aiResult.tokensOutput,
+        error_type: "invalid_response",
+        error_message: "AI response missing valid recommendations.",
+      });
       return jsonResponse(
         {
           error: "AI response missing valid recommendations.",
@@ -641,6 +690,18 @@ serve(async (req) => {
     }
 
     if (parsed.recommendations.length !== 3) {
+      await logAiCall(supabaseAdmin, {
+        session_id: body.session_id,
+        function_name: "generate-gifts",
+        provider: aiResult.provider,
+        attempt_number: aiResult.attemptNumber,
+        status: "error",
+        latency_ms: aiResult.latencyMs,
+        tokens_input: aiResult.tokensInput,
+        tokens_output: aiResult.tokensOutput,
+        error_type: "invalid_response",
+        error_message: `Unexpected recommendation count: ${parsed.recommendations.length}`,
+      });
       return jsonResponse(
         {
           error: "AI returned an unexpected number of recommendations.",
@@ -662,6 +723,26 @@ serve(async (req) => {
       (max, recommendation) => Math.max(max, recommendation.confidence_score ?? 0),
       0,
     );
+    const telemetry = await logAiCall(supabaseAdmin, {
+      session_id: body.session_id,
+      function_name: "generate-gifts",
+      provider: aiResult.provider,
+      attempt_number: aiResult.attemptNumber,
+      status: "success",
+      latency_ms: aiResult.latencyMs,
+      tokens_input: aiResult.tokensInput,
+      tokens_output: aiResult.tokensOutput,
+    });
+    await captureServerEvent("ai_generation_completed", user.id, {
+      provider: aiResult.provider,
+      model: resolveModel(aiResult.provider),
+      latency_ms: aiResult.latencyMs,
+      tokens_used: (aiResult.tokensInput ?? 0) + (aiResult.tokensOutput ?? 0),
+      attempt_number: aiResult.attemptNumber,
+      is_fallback: aiResult.attemptNumber > 1,
+      engine_version: "legacy",
+      session_id: body.session_id,
+    });
 
     const { error: updateError } = await supabaseAdmin
       .from("gift_sessions")
@@ -674,6 +755,8 @@ serve(async (req) => {
         ai_attempt_number: aiResult.attemptNumber,
         ai_tokens_input: aiResult.tokensInput,
         ai_tokens_output: aiResult.tokensOutput,
+        ai_error_type: null,
+        ai_estimated_cost_usd: telemetry.estimated_cost_usd,
         ...(body.is_regeneration ? { regeneration_count: (session.regeneration_count ?? 0) + 1 } : {}),
         status: "active",
       })
@@ -712,6 +795,32 @@ serve(async (req) => {
     }
 
     const mapped = mapAIError(error);
+    const lastFailure = error instanceof AIFallbackError ? error.errors[error.errors.length - 1] : null;
+    if (refundContext && (error instanceof AIFallbackError || error instanceof AIProviderError)) {
+      const provider = error instanceof AIProviderError ? error.provider : (lastFailure?.provider ?? "unknown");
+      const errorType = error instanceof AIProviderError ? error.type : error.finalType;
+      await logAiCall(refundContext.supabaseAdmin, {
+        session_id: refundContext.sessionId,
+        function_name: "generate-gifts",
+        provider,
+        attempt_number: error instanceof AIFallbackError ? error.errors.length : 1,
+        status: errorType === "timeout" ? "timeout" : errorType === "rate_limit" ? "rate_limited" : "error",
+        error_type: errorType,
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      await refundContext.supabaseAdmin
+        .from("gift_sessions")
+        .update({ ai_error_type: errorType })
+        .eq("id", refundContext.sessionId)
+        .eq("user_id", refundContext.userId);
+      await captureServerEvent("ai_generation_failed", refundContext.userId, {
+        provider,
+        model: resolveModel(provider),
+        error_type: errorType,
+        attempt_number: error instanceof AIFallbackError ? error.errors.length : 1,
+        session_id: refundContext.sessionId,
+      });
+    }
     return jsonResponse(
       {
         ...mapped.body,

@@ -19,6 +19,7 @@ export interface AICallParams {
   maxTokens?: number;
   temperature?: number;
   responseFormat?: "json" | "text";
+  timeoutMs?: number;
 }
 
 export interface AICallResult {
@@ -66,6 +67,16 @@ export class AIFallbackError extends Error {
 }
 
 type JsonRecord = Record<string, unknown>;
+
+export type RuntimeSettings = Record<string, unknown>;
+
+export const VALID_PROVIDERS: Provider[] = [
+  "claude-sonnet",
+  "claude-haiku",
+  "gemini-flash",
+  "gemini-pro",
+  "groq-llama",
+];
 
 function snippet(value: string, maxLength = 200): string {
   return value.substring(0, maxLength);
@@ -214,7 +225,7 @@ async function callClaude(
         messages: [{ role: "user", content: params.userMessage }],
       }),
     },
-    45_000,
+    params.timeoutMs ?? 45_000,
   );
 
   const text = pickClaudeText(data);
@@ -264,7 +275,7 @@ async function callGemini(
         },
       }),
     },
-    45_000,
+    params.timeoutMs ?? 45_000,
   );
 
   const text = pickGeminiText(data);
@@ -313,7 +324,7 @@ async function callGroq(params: AICallParams): Promise<AICallResult> {
         response_format: params.responseFormat === "json" ? { type: "json_object" } : undefined,
       }),
     },
-    30_000,
+    params.timeoutMs ?? 30_000,
   );
 
   const payload = getRecord(data);
@@ -340,30 +351,39 @@ async function callGroq(params: AICallParams): Promise<AICallResult> {
 export async function callAIWithFallback(
   chain: Provider[],
   params: AICallParams,
+  settings: RuntimeSettings = {},
 ): Promise<AICallResult> {
   const errors: ProviderFailure[] = [];
+  const maxAttempts = getRuntimeNumber(settings, "ai_max_attempts", chain.length);
+  const boundedChain = chain.slice(0, Math.max(1, Math.min(chain.length, Math.floor(maxAttempts))));
 
-  for (let i = 0; i < chain.length; i += 1) {
-    const provider = chain[i];
+  for (let i = 0; i < boundedChain.length; i += 1) {
+    const provider = boundedChain[i];
+    const timeoutMs = getRuntimeNumber(
+      settings,
+      i === 0 ? "ai_timeout_ms_primary" : "ai_timeout_ms_fallback",
+      i === 0 ? 45_000 : 30_000,
+    );
+    const attemptParams = { ...params, timeoutMs };
 
     try {
       let result: AICallResult;
 
       switch (provider) {
         case "claude-sonnet":
-          result = await callClaude("claude-sonnet-4-20250514", params);
+          result = await callClaude("claude-sonnet-4-20250514", attemptParams);
           break;
         case "claude-haiku":
-          result = await callClaude("claude-haiku-4-5-20251001", params);
+          result = await callClaude("claude-haiku-4-5-20251001", attemptParams);
           break;
         case "gemini-flash":
-          result = await callGemini("gemini-2.5-flash-preview-04-17", params);
+          result = await callGemini("gemini-2.5-flash-preview-04-17", attemptParams);
           break;
         case "gemini-pro":
-          result = await callGemini("gemini-3-1-pro", params);
+          result = await callGemini("gemini-3-1-pro", attemptParams);
           break;
         case "groq-llama":
-          result = await callGroq(params);
+          result = await callGroq(attemptParams);
           break;
         default:
           throw createProviderError(provider, "config", `Unknown provider: ${provider}`);
@@ -395,7 +415,7 @@ export async function callAIWithFallback(
 
       console.error(`AI provider ${provider} failed:`, getErrorMessage(error));
 
-      if (i === chain.length - 1) {
+      if (i === boundedChain.length - 1) {
         const lastError = errors[errors.length - 1];
         throw new AIFallbackError(errors, lastError?.type ?? "api_error", lastError?.status);
       }
@@ -410,25 +430,44 @@ export async function callAIWithFallback(
 export function getProviderChain(
   plan: string,
   operation: "gift-generation" | "signal-check" | "message-draft" | "relationship-insight",
+  settings: RuntimeSettings = {},
 ): Provider[] {
   const freeTierChain: Provider[] = ["groq-llama", "gemini-flash", "claude-haiku"];
+  const proGiftsChain: Provider[] = ["claude-sonnet", "claude-haiku", "gemini-pro"];
+  const proSignalChain: Provider[] = ["claude-sonnet", "claude-haiku", "gemini-flash"];
 
   if (operation === "relationship-insight") {
-    return freeTierChain;
+    return parseProviderChain(settings.provider_chain_relationship, freeTierChain);
   }
 
   if (operation === "signal-check") {
-    if (plan === "pro") return ["claude-sonnet", "claude-haiku", "gemini-flash"];
-    return freeTierChain;
+    if (plan === "pro") return parseProviderChain(settings.provider_chain_signal_pro, proSignalChain);
+    return parseProviderChain(settings.provider_chain_signal_free, freeTierChain);
   }
 
   switch (plan) {
     case "pro":
-      return ["claude-sonnet", "claude-haiku", "gemini-pro"];
+      return parseProviderChain(settings.provider_chain_pro_gifts, proGiftsChain);
     case "spark":
     default:
-      return freeTierChain;
+      return parseProviderChain(settings.provider_chain_spark_gifts, freeTierChain);
   }
+}
+
+function getRuntimeNumber(settings: RuntimeSettings, key: string, fallback: number) {
+  const value = settings[key];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function parseProviderChain(raw: unknown, fallback: Provider[]) {
+  if (!Array.isArray(raw) || raw.length === 0) return fallback;
+  const valid = raw.filter((provider): provider is Provider => VALID_PROVIDERS.includes(provider as Provider));
+  return valid.length > 0 ? valid.slice(0, VALID_PROVIDERS.length) : fallback;
 }
 
 // ── Safe JSON parser ──

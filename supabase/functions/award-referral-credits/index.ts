@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseJsonBody, sanitizeString } from "../_shared/validate.ts";
 import { DEFAULT_REFERRAL_REWARD_UNITS, parseNumberSetting } from "../_shared/credits.ts";
+import { captureServerEvent } from "../_shared/server-analytics.ts";
+import { loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 
 // ── Environment ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -57,6 +59,10 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
+
     // ── 1. Authenticate the referred user (who just completed a session) ──────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -202,6 +208,11 @@ serve(async (req: Request): Promise<Response> => {
       // the credits_awarded flag which we read at the start
       console.error("Failed to mark referral completed:", referralUpdateError.message);
     }
+    await captureServerEvent("referral_reward_granted", referral.referrer_id, {
+      bonus_amount: referralRewardUnits,
+      referred_user_id: user.id,
+      session_id,
+    });
 
     // ── 7. Return success ─────────────────────────────────────────────────────
     return json({

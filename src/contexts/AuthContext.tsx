@@ -48,7 +48,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               if (data) {
                 const normalizedPlan = normalizePlan(data.active_plan);
                 identifyUser(session.user.id, {
-                  email: session.user.email,
                   plan: normalizedPlan,
                   country: data.country,
                   signup_date: data.created_at,

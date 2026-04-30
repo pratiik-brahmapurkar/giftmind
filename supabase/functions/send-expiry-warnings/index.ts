@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { formatCreditUnits } from "../_shared/credits.ts";
+import { getFlag, loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 
 // ── Environment ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -57,6 +58,13 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
+    if (!getFlag(runtimeSettings, "feature_credit_expiry_warnings", true)) {
+      return json({ success: true, skipped: true, reason: "feature_disabled" });
+    }
+
     // ── 1. Find credit batches expiring within the next 3 days ───────────────
     const now = new Date();
     const threeDaysFromNow = new Date(now);

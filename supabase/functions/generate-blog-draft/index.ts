@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseJsonBody, sanitizeString } from "../_shared/validate.ts";
+import { getFlag, loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 
 // TODO: Before production, change Access-Control-Allow-Origin to:
 // 'https://giftmind.in' (or your production domain)
@@ -7,6 +9,12 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+});
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -23,6 +31,13 @@ serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
+    if (!getFlag(runtimeSettings, "feature_blog_enabled", true)) {
+      return json({ error: "Blog is disabled" }, 503);
+    }
+
     const parsedBody = await parseJsonBody<{ topic?: string; tone?: string; wordCount?: number }>(req, json);
     if (parsedBody.response) return parsedBody.response;
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,7 @@ import {
 import { Bell, Download, Trash2, Shield, AlertTriangle, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { normalizePlan } from "@/lib/plans";
+import { trackEvent } from "@/lib/posthog";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 
 type UserProfile = Tables<"users">;
@@ -159,6 +160,13 @@ const Settings = () => {
   });
 
   const isGoogleUser = user?.app_metadata?.provider === "google";
+
+  useEffect(() => {
+    if (profileLoading || !user) return;
+    ["notifications", "connected_accounts", "data_privacy", "danger_zone"].forEach((section) => {
+      trackEvent("settings_section_viewed", { section });
+    });
+  }, [profileLoading, user]);
 
   return (
     <DashboardLayout>

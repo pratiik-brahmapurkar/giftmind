@@ -31,6 +31,7 @@ import { getOutboundProductUrl, type ProductLink, type ProductResult } from "@/l
 import { getSignalFeedbackComparison, parseSignalChecks, type ParsedSignalCheck } from "@/lib/signalCheck";
 import type { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/posthog";
 
 type RecipientSummary = Pick<Tables<"recipients">, "id" | "name" | "relationship" | "country">;
 type FeedbackRow = Tables<"gift_feedback">;
@@ -298,6 +299,11 @@ export default function GiftHistory() {
     enabled: !!user,
   });
 
+  useEffect(() => {
+    if (!user || isLoading) return;
+    trackEvent("gift_history_viewed", { session_count: sessions.length });
+  }, [isLoading, sessions.length, user]);
+
   const feedbackBySession = useMemo(
     () => new Map(feedbackRows.map((row) => [row.session_id, row])),
     [feedbackRows],
@@ -447,6 +453,14 @@ export default function GiftHistory() {
   });
 
   const toggleExpanded = (sessionId: string) => {
+    const isOpening = !expandedIds.includes(sessionId);
+    if (isOpening) {
+      const session = sessions.find((item) => item.id === sessionId);
+      trackEvent("gift_history_detail_viewed", {
+        session_id: sessionId,
+        occasion: session?.occasion ?? null,
+      });
+    }
     setExpandedIds((current) =>
       current.includes(sessionId)
         ? current.filter((id) => id !== sessionId)

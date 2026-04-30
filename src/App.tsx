@@ -1,17 +1,19 @@
-import { Suspense, lazy, useEffect, type ReactNode } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AnalyticsProvider } from "@/contexts/AnalyticsContext";
 import AuthGuard from "@/components/AuthGuard";
 import AdminGuard from "@/components/admin/AdminGuard";
 import CookieConsent from "@/components/CookieConsent";
 import AppErrorBoundary from "@/components/common/AppErrorBoundary";
 import { InstallPrompt } from "@/components/common/InstallPrompt";
 import PageLoader from "@/components/common/PageLoader";
-import { initPosthog } from "@/lib/posthog";
+import { useFlag } from "@/hooks/useAppSettings";
+import { useMyAdminRole } from "@/hooks/useMyAdminRole";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -41,6 +43,7 @@ const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminCredits = lazy(() => import("@/pages/admin/AdminCredits"));
 const AdminGiftAnalytics = lazy(() => import("@/pages/admin/AdminGiftAnalytics"));
+const AdminTelemetry = lazy(() => import("@/pages/admin/AdminTelemetry"));
 const AdminBlogPosts = lazy(() => import("@/pages/admin/AdminBlogPosts"));
 const AdminBlogCategories = lazy(() => import("@/pages/admin/AdminBlogCategories"));
 const AdminMediaLibrary = lazy(() => import("@/pages/admin/AdminMediaLibrary"));
@@ -51,11 +54,31 @@ const AdminAuditLog = lazy(() => import("@/pages/admin/AdminAuditLog"));
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  useEffect(() => {
-    initPosthog();
-  }, []);
+function MaintenanceGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const maintenanceMode = useFlag("maintenance_mode", false);
+  const { role } = useMyAdminRole();
+  const isAdminRoute = location.pathname.startsWith("/admin");
+  const canBypass = role === "viewer" || role === "admin" || role === "superadmin";
 
+  if (maintenanceMode && !(isAdminRoute && canBypass)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="max-w-md text-center">
+          <img src="/brand/giftmind-symbol.png" alt="GiftMind" className="mx-auto mb-6 h-14 w-14" />
+          <h1 className="font-heading text-3xl font-bold text-foreground">GiftMind is under maintenance</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            We are making a platform update. Please try again shortly.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+const App = () => {
   const routeWithLoader = (element: ReactNode) => (
     <Suspense fallback={<PageLoader />}>{element}</Suspense>
   );
@@ -67,8 +90,10 @@ const App = () => {
         <Sonner />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
-            <AppErrorBoundary>
-              <Routes>
+            <AnalyticsProvider>
+              <AppErrorBoundary>
+              <MaintenanceGate>
+                <Routes>
                 <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
@@ -107,6 +132,10 @@ const App = () => {
                 element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminGiftAnalytics /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
+                path="/admin/telemetry"
+                element={routeWithLoader(<AuthGuard><AdminGuard><AdminLayout><AdminTelemetry /></AdminLayout></AdminGuard></AuthGuard>)}
+              />
+              <Route
                 path="/admin/blog"
                 element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminBlogPosts /></AdminLayout></AdminGuard></AuthGuard>)}
               />
@@ -142,11 +171,13 @@ const App = () => {
                 path="/admin/settings"
                 element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="superadmin"><AdminLayout><AdminSettings /></AdminLayout></AdminGuard></AuthGuard>)}
               />
-                <Route path="*" element={<NotFound />} />
+              <Route path="*" element={<NotFound />} />
               </Routes>
-            </AppErrorBoundary>
-            <InstallPrompt />
-            <CookieConsent />
+              </MaintenanceGate>
+              </AppErrorBoundary>
+              <InstallPrompt />
+              <CookieConsent />
+            </AnalyticsProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

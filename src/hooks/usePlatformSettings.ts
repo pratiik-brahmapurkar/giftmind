@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { validateSettingValue } from "@/lib/settings-schema";
 import type { Json } from "@/integrations/supabase/types";
 
 export interface PlatformSettings {
@@ -74,6 +75,10 @@ export function usePlatformSettings(enabled = true) {
   }, [enabled, fetchSettings]);
 
   const updateSetting = useCallback(async (key: string, value: Json) => {
+    if (!validateSettingValue(key, value)) {
+      return { error: new Error(`Invalid value for setting: ${key}`) };
+    }
+
     setIsSaving(true);
     const {
       data: { user },
@@ -100,6 +105,11 @@ export function usePlatformSettings(enabled = true) {
   }, []);
 
   const updateMultipleSettings = useCallback(async (updates: Record<string, Json>) => {
+    const invalidKey = Object.entries(updates).find(([key, value]) => !validateSettingValue(key, value))?.[0];
+    if (invalidKey) {
+      return { error: new Error(`Invalid value for setting: ${invalidKey}`) };
+    }
+
     setIsSaving(true);
     const {
       data: { user },

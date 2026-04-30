@@ -15,6 +15,9 @@ import {
   parseNumberSetting,
 } from "../_shared/credits.ts";
 import { parseJsonBody, sanitizeString, validateRelationship } from "../_shared/validate.ts";
+import { captureServerEvent } from "../_shared/server-analytics.ts";
+import { getFlag, getNumber, loadSettings, maintenanceResponse } from "../_shared/settings.ts";
+import { logAiCall, resolveModel } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -252,6 +255,9 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -283,7 +289,7 @@ serve(async (req) => {
     const plan = userData.active_plan || "spark";
 
     const signalSettings = await loadSignalCheckSettings(supabaseAdmin);
-    if (!signalSettings.featureSignalCheck) {
+    if (!getFlag(runtimeSettings, "feature_signal_check", signalSettings.featureSignalCheck)) {
       return json(
         {
           error: "FEATURE_DISABLED",
@@ -402,11 +408,12 @@ serve(async (req) => {
       return json({ error: "Failed to validate request rate" }, 500);
     }
 
-    if ((rateLimitCount ?? 0) >= signalSettings.signalChecksPerDay) {
+    const signalChecksPerDay = Math.max(1, Math.floor(getNumber(runtimeSettings, "signal_checks_per_day", signalSettings.signalChecksPerDay)));
+    if ((rateLimitCount ?? 0) >= signalChecksPerDay) {
       return json(
         {
           error: "RATE_LIMITED",
-          message: `You've run ${signalSettings.signalChecksPerDay} analyses today. Check back tomorrow.`,
+          message: `You've run ${signalChecksPerDay} analyses today. Check back tomorrow.`,
         },
         429,
       );
@@ -521,17 +528,21 @@ serve(async (req) => {
         ? `PREVIOUS SIGNAL CHECK:\n${JSON.stringify(parentSignalCheck.result_payload, null, 2)}\nFOLLOW-UP DIRECTION: ${cleanFollowUpPrompt}\nRevise the analysis in that direction if it fits. If it does not fit, explain why and use adjustment_suggestions.`
         : "";
 
-    const chain = getProviderChain(plan, "signal-check");
+    const chain = getProviderChain(plan, "signal-check", runtimeSettings);
     let parsed: unknown;
     let result;
     try {
-      result = await callAIWithFallback(chain, {
-        systemPrompt: SIGNAL_CHECK_SYSTEM_PROMPT,
-        userMessage: buildSignalCheckMessage(body, parentContext),
-        maxTokens: 1000,
-        temperature: 0.6,
-        responseFormat: "json",
-      });
+      result = await callAIWithFallback(
+        chain,
+        {
+          systemPrompt: SIGNAL_CHECK_SYSTEM_PROMPT,
+          userMessage: buildSignalCheckMessage(body, parentContext),
+          maxTokens: 1000,
+          temperature: 0.6,
+          responseFormat: "json",
+        },
+        runtimeSettings,
+      );
 
       try {
         parsed = parseAIJson(result.text);
@@ -552,6 +563,26 @@ serve(async (req) => {
       }
     } catch (error) {
       console.error("Signal Check AI failure:", error);
+      const lastFailure = error instanceof AIFallbackError ? error.errors[error.errors.length - 1] : null;
+      const provider = error instanceof AIProviderError ? error.provider : (lastFailure?.provider ?? "unknown");
+      const errorType = error instanceof AIProviderError ? error.type : error instanceof AIFallbackError ? error.finalType : "api_error";
+      await logAiCall(supabaseAdmin, {
+        session_id: body.session_id,
+        function_name: "signal-check",
+        provider,
+        attempt_number: error instanceof AIFallbackError ? error.errors.length : 1,
+        status: errorType === "timeout" ? "timeout" : errorType === "rate_limit" ? "rate_limited" : "error",
+        error_type: errorType,
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      await captureServerEvent("ai_generation_failed", user.id, {
+        provider,
+        model: resolveModel(provider),
+        error_type: errorType,
+        attempt_number: error instanceof AIFallbackError ? error.errors.length : 1,
+        session_id: body.session_id,
+        function_name: "signal-check",
+      });
       const refund = await refundSignalCheckCredits({
         supabaseAdmin,
         userId: user.id,
@@ -576,6 +607,27 @@ serve(async (req) => {
 
     let storedSignalCheckId: string | null = null;
     const nextRevisionNumber = (latestSavedCheck?.revision_number ?? 0) + 1;
+    const telemetry = await logAiCall(supabaseAdmin, {
+      session_id: body.session_id,
+      function_name: "signal-check",
+      provider: result.provider,
+      attempt_number: result.attemptNumber,
+      status: "success",
+      latency_ms: result.latencyMs,
+      tokens_input: result.tokensInput,
+      tokens_output: result.tokensOutput,
+    });
+    await captureServerEvent("ai_generation_completed", user.id, {
+      provider: result.provider,
+      model: resolveModel(result.provider),
+      latency_ms: result.latencyMs,
+      tokens_used: (result.tokensInput ?? 0) + (result.tokensOutput ?? 0),
+      attempt_number: result.attemptNumber,
+      is_fallback: result.attemptNumber > 1,
+      engine_version: "signal-check",
+      session_id: body.session_id,
+      function_name: "signal-check",
+    });
 
     try {
       const { data: insertedSignalCheck, error: insertSignalCheckError } = await supabaseAdmin
@@ -631,7 +683,16 @@ serve(async (req) => {
 
       const { error: updateError } = await supabaseAdmin
         .from("gift_sessions")
-        .update({ ai_response: updatedResponse })
+        .update({
+          ai_response: updatedResponse,
+          ai_provider_used: result.provider,
+          ai_latency_ms: result.latencyMs,
+          ai_attempt_number: result.attemptNumber,
+          ai_tokens_input: result.tokensInput,
+          ai_tokens_output: result.tokensOutput,
+          ai_error_type: null,
+          ai_estimated_cost_usd: telemetry.estimated_cost_usd,
+        })
         .eq("id", body.session_id)
         .eq("user_id", user.id);
 

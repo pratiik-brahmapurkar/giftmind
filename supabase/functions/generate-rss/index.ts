@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFlag, loadSettings, maintenanceResponse } from "../_shared/settings.ts";
 
 // TODO: Before production, if you add CORS here, restrict Access-Control-Allow-Origin to:
 // 'https://giftmind.in' (or your production domain)
@@ -10,12 +11,26 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method !== "GET") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
   }
 
   try {
+    const runtimeSettings = await loadSettings(supabaseAdmin);
+    const maintenance = maintenanceResponse(runtimeSettings, json);
+    if (maintenance) return maintenance;
+    if (!getFlag(runtimeSettings, "feature_blog_enabled", true)) {
+      return json({ error: "Blog is disabled" }, 503);
+    }
+
     const { data: posts, error } = await supabaseAdmin
       .from("blog_posts")
       .select("title, slug, excerpt, published_at")
