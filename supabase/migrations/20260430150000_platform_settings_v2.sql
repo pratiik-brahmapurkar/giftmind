@@ -39,7 +39,14 @@ BEGIN
   ) THEN
     CREATE POLICY settings_history_admin_read ON public.settings_history
       FOR SELECT TO authenticated
-      USING (public.has_any_admin_role(auth.uid()));
+      USING (
+        EXISTS (
+          SELECT 1
+          FROM public.users
+          WHERE id = auth.uid()
+            AND role::text IN ('viewer', 'admin', 'superadmin')
+        )
+      );
   END IF;
 END $$;
 
@@ -106,14 +113,35 @@ CREATE POLICY platform_settings_select_for_admins
 ON public.platform_settings
 FOR SELECT
 TO authenticated
-USING (public.has_any_admin_role(auth.uid()));
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.users
+    WHERE id = auth.uid()
+      AND role::text IN ('viewer', 'admin', 'superadmin')
+  )
+);
 
 CREATE POLICY platform_settings_write_for_superadmins
 ON public.platform_settings
 FOR ALL
 TO authenticated
-USING (public.has_role(auth.uid(), 'superadmin'))
-WITH CHECK (public.has_role(auth.uid(), 'superadmin'));
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.users
+    WHERE id = auth.uid()
+      AND role::text = 'superadmin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.users
+    WHERE id = auth.uid()
+      AND role::text = 'superadmin'
+  )
+);
 
 CREATE POLICY authenticated_read_public_settings ON public.platform_settings
   FOR SELECT TO authenticated
