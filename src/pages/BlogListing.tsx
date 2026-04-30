@@ -61,6 +61,7 @@ export default function BlogListing() {
         title="The GiftMind Blog"
         description="Gift ideas, guides, and the psychology of thoughtful giving."
         keywords={["gift ideas", "gift guides", "festival gifting", "relationship gifting", "budget gifts"]}
+        alternateRssUrl="https://giftmind.in/blog/rss.xml"
       />
       <Navbar />
 

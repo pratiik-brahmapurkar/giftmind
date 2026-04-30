@@ -38,6 +38,7 @@ function useGiftSessionV1() {
       currency: string;
       specialContext: string;
       contextTags: string[];
+      sourceBlogSlug?: string | null;
     }) => {
       const {
         data: { user },
@@ -61,7 +62,8 @@ function useGiftSessionV1() {
           special_context: data.specialContext,
           context_tags: data.contextTags,
           status: "active",
-        })
+          ...((data.sourceBlogSlug ? { source_blog_slug: data.sourceBlogSlug } : {}) as Record<string, unknown>),
+        } as never)
         .select()
         .single();
 
@@ -129,6 +131,7 @@ function useGiftSessionV1() {
           session_id: params.sessionId,
           is_regeneration: Boolean(params.isRegeneration),
           action_id: params.actionId,
+          source_blog_slug: params.sourceBlogSlug || null,
         },
       });
 
@@ -242,6 +245,7 @@ function useGiftSessionV1() {
             currency: params.currency,
             specialContext: params.specialContext,
             contextTags: params.contextTags,
+            sourceBlogSlug: params.sourceBlogSlug,
           });
         }
 

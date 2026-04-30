@@ -49,6 +49,7 @@ const AdminBlogCategories = lazy(() => import("@/pages/admin/AdminBlogCategories
 const AdminMediaLibrary = lazy(() => import("@/pages/admin/AdminMediaLibrary"));
 const AdminBlogAnalytics = lazy(() => import("@/pages/admin/AdminBlogAnalytics"));
 const AdminBlogEditor = lazy(() => import("@/pages/admin/AdminBlogEditor"));
+const AdminBlogCalendar = lazy(() => import("@/pages/admin/AdminBlogCalendar"));
 const AdminMarketplaces = lazy(() => import("@/pages/admin/AdminMarketplaces"));
 const AdminAuditLog = lazy(() => import("@/pages/admin/AdminAuditLog"));
 
@@ -150,6 +151,10 @@ const App = () => {
               <Route
                 path="/admin/blog/categories"
                 element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminBlogCategories /></AdminLayout></AdminGuard></AuthGuard>)}
+              />
+              <Route
+                path="/admin/blog/calendar"
+                element={routeWithLoader(<AuthGuard><AdminGuard requiredRole="admin"><AdminLayout><AdminBlogCalendar /></AdminLayout></AdminGuard></AuthGuard>)}
               />
               <Route
                 path="/admin/media"

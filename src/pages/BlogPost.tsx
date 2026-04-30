@@ -30,6 +30,7 @@ type BlogPostRow = {
   meta_title: string | null;
   meta_description: string | null;
   published_at: string | null;
+  updated_at: string | null;
   view_count: number | null;
   cta_click_count: number | null;
   cta_type: string | null;
@@ -89,25 +90,22 @@ export default function BlogPost() {
     if (!post || previewRequested || post.status !== "published") return;
 
     const trackView = async () => {
-      const rpc = supabase.rpc as (
-        fn: string,
-        args: Record<string, unknown>,
-      ) => Promise<{ error: { message?: string } | null }>;
+      const { error } = await supabase.functions.invoke("track-blog-view", {
+        body: { slug: post.slug, action: "view" },
+      });
 
-      const newRpc = await rpc("increment_blog_view", { post_id: post.id });
-      if (!newRpc.error) return;
-
-      const legacyRpc = await rpc("increment_post_views", { post_slug: post.slug });
-      if (!legacyRpc.error) return;
-
-      await supabase
-        .from("blog_posts")
-        .update({ view_count: (post.view_count || 0) + 1 })
-        .eq("id", post.id);
+      if (!error) {
+        trackEvent("blog_post_viewed", {
+          post_id: post.id,
+          slug: post.slug,
+          category: (post.blog_categories as { name?: string } | null)?.name || null,
+          source: searchParams.get("source") || "direct",
+        });
+      }
     };
 
     void trackView();
-  }, [post?.id, previewRequested]);
+  }, [post, previewRequested, searchParams]);
 
   const contentParts = useMemo(() => splitMarkdownForCta(post?.content || "", 3), [post?.content]);
   const postUrl = typeof window !== "undefined" ? window.location.href : `https://giftmind.in/blog/${slug}`;
@@ -139,14 +137,15 @@ export default function BlogPost() {
     if (!post) return;
 
     trackEvent("blog_cta_clicked", {
+      post_id: post.id,
       slug: post.slug,
       occasion: post.cta_occasion,
+      cta_url: post.cta_url,
     });
 
-    await supabase
-      .from("blog_posts")
-      .update({ cta_click_count: (post.cta_click_count || 0) + 1 })
-      .eq("id", post.id);
+    await supabase.functions.invoke("track-blog-view", {
+      body: { slug: post.slug, action: "cta_click" },
+    });
   };
 
   if (isLoading || (previewRequested && adminLoading)) {
@@ -177,6 +176,35 @@ export default function BlogPost() {
 
   const categoryName = (post.blog_categories as { name?: string } | null)?.name || "Blog";
   const categorySlug = (post.blog_categories as { slug?: string } | null)?.slug;
+  const canonicalBlogUrl = `https://giftmind.in/blog/${post.slug}`;
+  const jsonLd = post.status === "published"
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: post.meta_title || post.title,
+        description: post.meta_description || getExcerptFallback(post),
+        image: post.featured_image_url || undefined,
+        datePublished: post.published_at || undefined,
+        dateModified: post.updated_at || post.published_at || undefined,
+        author: {
+          "@type": "Organization",
+          name: "GiftMind",
+          url: "https://giftmind.in",
+        },
+        publisher: {
+          "@type": "Organization",
+          name: "GiftMind",
+          logo: {
+            "@type": "ImageObject",
+            url: "https://giftmind.in/logo.png",
+          },
+        },
+        mainEntityOfPage: {
+          "@type": "WebPage",
+          "@id": canonicalBlogUrl,
+        },
+      }
+    : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -187,6 +215,7 @@ export default function BlogPost() {
         type="article"
         publishedAt={post.published_at || undefined}
         keywords={post.tags || []}
+        jsonLd={jsonLd}
       />
       <Navbar />
 
@@ -238,7 +267,7 @@ export default function BlogPost() {
               {post.cta_type !== "none" && post.cta_text ? (
                 <BlogCtaBox
                   title={post.cta_text}
-                  url={post.cta_url}
+                  url={`${post.cta_url || "/gift-flow"}${(post.cta_url || "/gift-flow").includes("?") ? "&" : "?"}source=blog&blog=${encodeURIComponent(post.slug)}`}
                   occasion={post.cta_occasion}
                   onClick={() => {
                     void handleCtaClick();

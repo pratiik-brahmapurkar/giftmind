@@ -51,7 +51,7 @@ serve(async (req: Request): Promise<Response> => {
   <description>Gift ideas, guides, and thoughtful giving recommendations.</description>
   <language>en-us</language>
   <lastBuildDate>${now}</lastBuildDate>
-  <atom:link href="${domain}/api/rss" rel="self" type="application/rss+xml" />`;
+  <atom:link href="${domain}/blog/rss.xml" rel="self" type="application/rss+xml" />`;
 
     for (const post of (posts || [])) {
       const pubDate = new Date(post.published_at || new Date()).toUTCString();

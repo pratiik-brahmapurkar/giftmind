@@ -57,6 +57,7 @@ interface GiftRequest {
   session_id: string;
   is_regeneration?: boolean;
   action_id?: string | null;
+  source_blog_slug?: string | null;
 }
 
 interface GiftRecommendation {
@@ -757,6 +758,7 @@ serve(async (req) => {
         ai_tokens_output: aiResult.tokensOutput,
         ai_error_type: null,
         ai_estimated_cost_usd: telemetry.estimated_cost_usd,
+        source_blog_slug: body.source_blog_slug ? sanitizeString(body.source_blog_slug, 120) : null,
         ...(body.is_regeneration ? { regeneration_count: (session.regeneration_count ?? 0) + 1 } : {}),
         status: "active",
       })

@@ -155,8 +155,10 @@ export default function GiftFlow() {
     startTrackedRef.current = true;
 
     const source = searchParams.get("source");
+    const sourceBlogSlug = source === "blog" ? searchParams.get("blog") || searchParams.get("slug") : null;
     trackEvent("gift_flow_started", {
       entry_source: source || (searchParams.get("recipient") ? "recipient_prefill" : "direct"),
+      source_blog_slug: sourceBlogSlug,
       has_prefill: Boolean(
         searchParams.get("recipient")
         || searchParams.get("occasion")
@@ -281,6 +283,7 @@ export default function GiftFlow() {
   const generationParams = useMemo(() => {
     if (!selectedRecipient || !selectedOccasion || budgetMin == null || budgetMax == null) return null;
 
+    const source = searchParams.get("source");
     return {
       recipient: selectedRecipient,
       occasion: selectedOccasion,
@@ -293,6 +296,7 @@ export default function GiftFlow() {
       specialContext,
       contextTags,
       userPlan,
+      sourceBlogSlug: source === "blog" ? searchParams.get("blog") || searchParams.get("slug") : null,
     };
   }, [
     budgetMax,
@@ -304,6 +308,7 @@ export default function GiftFlow() {
     selectedOccasion,
     selectedRecipient,
     specialContext,
+    searchParams,
     userCountry,
     userPlan,
   ]);

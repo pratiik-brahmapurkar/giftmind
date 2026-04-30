@@ -139,6 +139,15 @@ export function calculateSEOScore(post: Partial<BlogPostRecord> & { title?: stri
   const firstParagraph = content.split(/\n\s*\n/)[0] || "";
   const words = content.toLowerCase().split(/\s+/).filter(Boolean);
   const h2s = content.match(/^## .+/gm) || [];
+  const sentences = content
+    .replace(/[#>*_`[\]()!-]/g, " ")
+    .split(/[.!?]+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const averageSentenceWords =
+    sentences.length > 0
+      ? sentences.reduce((sum, sentence) => sum + getWordCount(sentence), 0) / sentences.length
+      : 0;
   const keywordCount = keyword
     ? words.filter((word) => word.includes(keyword)).length
     : 0;
@@ -210,6 +219,16 @@ export function calculateSEOScore(post: Partial<BlogPostRecord> & { title?: stri
       label: "CTA is enabled",
       pass: post.cta_type !== "none" && !!post.cta_text,
     },
+    {
+      id: "json-ld-ready",
+      label: "Has Article schema data",
+      pass: !!post.published_at && !!post.meta_title && !!post.featured_image_url,
+    },
+    {
+      id: "readability",
+      label: "Average sentence is under 20 words",
+      pass: averageSentenceWords > 0 && averageSentenceWords < 20,
+    },
   ];
 
   if (!keyword) {
@@ -230,9 +249,11 @@ export function calculateSEOScore(post: Partial<BlogPostRecord> & { title?: stri
   if (checklist[10].pass) score += 5;
   if (checklist[11].pass) score += 5;
   if (checklist[12].pass) score += 5;
+  if (checklist[13].pass) score += 5;
+  if (checklist[14].pass) score += 5;
 
   return {
-    score: Math.min(score, 100),
+    score: Math.min(Math.round((score / 110) * 100), 100),
     keywordDensity,
     wordCount: words.length,
     checklist,

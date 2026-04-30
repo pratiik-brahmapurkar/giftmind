@@ -11,7 +11,18 @@ interface ProfileCompletionBannerProps {
   onClick: () => void;
 }
 
-const DISMISS_KEY = "gm_profile_banner_dismissed";
+const DISMISS_KEY = "gm_profile_banner_dismissed_v2";
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function isDismissed() {
+  const rawValue = localStorage.getItem(DISMISS_KEY);
+  if (!rawValue) return false;
+
+  const timestamp = Number(rawValue);
+  if (!Number.isFinite(timestamp)) return rawValue === "true";
+
+  return Date.now() - timestamp < THIRTY_DAYS_MS;
+}
 
 export function ProfileCompletionBanner({
   completionPercentage,
@@ -19,7 +30,7 @@ export function ProfileCompletionBanner({
   missingFields,
   onClick,
 }: ProfileCompletionBannerProps) {
-  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISS_KEY) === "true");
+  const [dismissed, setDismissed] = useState(() => isDismissed());
 
   useEffect(() => {
     if (dismissed || completionPercentage >= 100) return;
@@ -54,7 +65,7 @@ export function ProfileCompletionBanner({
           aria-label="Dismiss profile completion banner"
           className="shrink-0 rounded-md p-1 text-amber-700 transition-colors hover:bg-amber-100 hover:text-amber-900"
           onClick={() => {
-            sessionStorage.setItem(DISMISS_KEY, "true");
+            localStorage.setItem(DISMISS_KEY, String(Date.now()));
             setDismissed(true);
             trackEvent("profile_banner_dismissed", {
               completion_percentage: completionPercentage,

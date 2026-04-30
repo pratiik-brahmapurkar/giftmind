@@ -31,6 +31,7 @@ import {
   getWordCount,
 } from "@/lib/blog";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/posthog";
 import { SEOHead } from "@/components/common/SEOHead";
 import BlogMarkdown from "@/components/blog/BlogMarkdown";
 import AiDraftModal from "@/components/blog-editor/AiDraftModal";
@@ -82,6 +83,12 @@ type SeoAssistantResult = {
   improvements: Array<{ type: string; current: string; suggestion: string }>;
   missing_elements?: string[];
   rewritten_meta_description?: string;
+};
+
+type TitleVariant = {
+  title: string;
+  style: string;
+  chars: number;
 };
 
 const DEFAULT_CTA_TEXT = "Find the Perfect Gift →";
@@ -138,6 +145,10 @@ export default function AdminBlogEditor() {
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [seoAssistantResult, setSeoAssistantResult] = useState<SeoAssistantResult | null>(null);
   const [seoAssistantOpen, setSeoAssistantOpen] = useState(false);
+  const [titleVariants, setTitleVariants] = useState<TitleVariant[]>([]);
+  const [titleVariantsOpen, setTitleVariantsOpen] = useState(false);
+  const [titleVariantsLoading, setTitleVariantsLoading] = useState(false);
+  const [rewritingSection, setRewritingSection] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingFeaturedImage, setUploadingFeaturedImage] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -314,10 +325,43 @@ export default function AdminBlogEditor() {
 
     const timeout = window.setTimeout(() => {
       void savePost("draft", true);
-    }, 60_000);
+    }, 30_000);
 
     return () => window.clearTimeout(timeout);
   }, [mode, dirty, title, slug, excerpt, content, status, categoryId, tags, featuredImageUrl, featuredImageAlt, focusKeyword, metaTitle, metaDescription, ctaEnabled, ctaText, ctaUrl, ctaOccasion, scheduledDate, scheduledTime]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const isCommand = event.metaKey || event.ctrlKey;
+      if (!isCommand) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "s") {
+        event.preventDefault();
+        void savePost("draft");
+      }
+      if (event.shiftKey && key === "p") {
+        event.preventDefault();
+        void savePost(status === "scheduled" ? "scheduled" : "published");
+      }
+      if (key === "k") {
+        event.preventDefault();
+        const url = window.prompt("Link URL", "https://");
+        if (url) insertAtCursor("[", `](${url})`, "link text");
+      }
+      if (key === "b") {
+        event.preventDefault();
+        insertAtCursor("**", "**", "bold text");
+      }
+      if (key === "i") {
+        event.preventDefault();
+        insertAtCursor("*", "*", "italic text");
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [status, title, slug, excerpt, content, categoryId, tags, featuredImageUrl, featuredImageAlt, focusKeyword, metaTitle, metaDescription, ctaEnabled, ctaText, ctaUrl, ctaOccasion, scheduledDate, scheduledTime]);
 
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -612,6 +656,75 @@ export default function AdminBlogEditor() {
     }
   };
 
+  const suggestTitles = async () => {
+    if (!content.trim() && !focusKeyword.trim()) {
+      toast.error("Add content or a focus keyword first");
+      return;
+    }
+
+    setTitleVariantsLoading(true);
+    try {
+      const response = await supabase.functions.invoke("blog-ai-assistant", {
+        body: {
+          action: "generate_title_variants",
+          existing_content: content,
+          focus_keyword: focusKeyword,
+        },
+      });
+
+      if (response.error) throw response.error;
+      setTitleVariants(response.data?.result?.variants || []);
+      setTitleVariantsOpen(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to suggest titles");
+    } finally {
+      setTitleVariantsLoading(false);
+    }
+  };
+
+  const rewriteSelection = async () => {
+    const element = markdownInputRef.current;
+    if (!element) return;
+
+    const start = element.selectionStart || 0;
+    const end = element.selectionEnd || 0;
+    const selectedText = content.slice(start, end);
+    if (!selectedText.trim()) {
+      toast.error("Select text to rewrite first");
+      return;
+    }
+
+    const instruction = window.prompt("Rewrite instruction", "Make it clearer and more concise");
+    if (!instruction?.trim()) return;
+
+    setRewritingSection(true);
+    try {
+      const response = await supabase.functions.invoke("blog-ai-assistant", {
+        body: {
+          action: "rewrite_section",
+          section_text: selectedText,
+          instruction,
+          focus_keyword: focusKeyword,
+        },
+      });
+
+      if (response.error) throw response.error;
+      const rewritten = response.data?.result?.rewritten;
+      if (!rewritten) throw new Error("AI did not return rewritten text");
+
+      setContent(`${content.slice(0, start)}${rewritten}${content.slice(end)}`);
+      trackEvent("blog_section_rewritten", {
+        instruction_length: instruction.length,
+        section_word_count: getWordCount(selectedText),
+      });
+      toast.success("Section rewritten");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to rewrite section");
+    } finally {
+      setRewritingSection(false);
+    }
+  };
+
   const previewPost = () => {
     if (mode === "create") {
       toast.error("Save the draft first to open a preview");
@@ -623,7 +736,7 @@ export default function AdminBlogEditor() {
       return;
     }
 
-    window.open(`/blog/${slug}?preview=true`, "_blank", "noopener,noreferrer");
+    window.open(status === "published" ? `/blog/${slug}` : `/blog/${slug}?preview=true`, "_blank", "noopener,noreferrer");
   };
 
   if (isLoading) {
@@ -647,7 +760,7 @@ export default function AdminBlogEditor() {
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" className="rounded-full" onClick={previewPost} disabled={mode === "create" && !id}>
-            Preview
+            {status === "published" ? "View Live" : "Preview"}
           </Button>
           <Button variant="outline" className="rounded-full" onClick={() => void savePost("draft")} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
@@ -669,7 +782,13 @@ export default function AdminBlogEditor() {
           <Card className="rounded-[28px] border-slate-200/80">
             <CardContent className="space-y-5 p-6">
               <div className="space-y-3">
-                <Label htmlFor="blog-title">Title</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="blog-title">Title</Label>
+                  <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={suggestTitles} disabled={titleVariantsLoading}>
+                    {titleVariantsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Suggest titles
+                  </Button>
+                </div>
                 <Input
                   id="blog-title"
                   value={title}
@@ -753,6 +872,10 @@ export default function AdminBlogEditor() {
                     <Button type="button" size="sm" variant="outline" className="rounded-full" onClick={() => insertAtCursor("```\n", "\n```", "code block")}>
                       {"</>"}
                     </Button>
+                    <Button type="button" size="sm" variant="outline" className="rounded-full" onClick={rewriteSelection} disabled={rewritingSection}>
+                      {rewritingSection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                      Rewrite
+                    </Button>
                     <Button type="button" size="sm" variant="ghost" className="rounded-full" onClick={() => setMediaPickerOpen(true)}>
                       Library
                     </Button>
@@ -774,6 +897,12 @@ export default function AdminBlogEditor() {
                       ref={markdownInputRef}
                       value={content}
                       onChange={(event) => setContent(event.target.value)}
+                      onContextMenu={(event) => {
+                        const element = markdownInputRef.current;
+                        if (!element || element.selectionStart === element.selectionEnd) return;
+                        event.preventDefault();
+                        if (window.confirm("Rewrite selected text with AI?")) void rewriteSelection();
+                      }}
                       placeholder="Write your post in markdown..."
                       className="min-h-[520px] rounded-[24px] border-slate-200 font-mono text-sm leading-7"
                     />
@@ -791,6 +920,12 @@ export default function AdminBlogEditor() {
                         ref={markdownInputRef}
                         value={content}
                         onChange={(event) => setContent(event.target.value)}
+                        onContextMenu={(event) => {
+                          const element = markdownInputRef.current;
+                          if (!element || element.selectionStart === element.selectionEnd) return;
+                          event.preventDefault();
+                          if (window.confirm("Rewrite selected text with AI?")) void rewriteSelection();
+                        }}
                         placeholder="Write your post in markdown..."
                         className="min-h-[520px] rounded-[24px] border-slate-200 font-mono text-sm leading-7"
                       />
@@ -801,8 +936,20 @@ export default function AdminBlogEditor() {
                   </TabsContent>
                 </Tabs>
 
-                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  Word count: <span className="font-medium text-slate-900">{wordCount}</span> | Estimated read time: <span className="font-medium text-slate-900">{readTime} min</span>
+                <div className="space-y-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      Word count: <span className="font-medium text-slate-900">{wordCount}</span> | Estimated read time: <span className="font-medium text-slate-900">{readTime} min</span>
+                    </span>
+                    {wordCount > 100 ? (
+                      <span className={cn("text-xs font-medium", wordCount >= 800 ? "text-emerald-700" : "text-slate-500")}>
+                        {wordCount} / 800 words
+                      </span>
+                    ) : null}
+                  </div>
+                  {wordCount > 100 ? (
+                    <Progress value={Math.min(100, (wordCount / 800) * 100)} className={cn("h-2 bg-slate-200", wordCount >= 800 ? "[&>div]:bg-emerald-500" : "[&>div]:bg-amber-500")} />
+                  ) : null}
                 </div>
               </div>
 
@@ -1165,6 +1312,34 @@ export default function AdminBlogEditor() {
         onClose={() => setMediaPickerOpen(false)}
         onSelect={(url, alt) => insertAtCursor(`![${alt}](${url})`)}
       />
+
+      <Dialog open={titleVariantsOpen} onOpenChange={setTitleVariantsOpen}>
+        <DialogContent className="max-w-2xl rounded-[28px]">
+          <DialogHeader>
+            <DialogTitle>Suggested Titles</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {titleVariants.map((variant) => (
+              <button
+                key={`${variant.style}-${variant.title}`}
+                type="button"
+                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-primary/30 hover:bg-primary/5"
+                onClick={() => {
+                  setTitle(variant.title);
+                  if (!metaTitle || metaTitle === title.slice(0, 60)) setMetaTitle(variant.title.slice(0, 60));
+                  setTitleVariantsOpen(false);
+                }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium text-slate-950">{variant.title}</p>
+                  <Badge variant="outline" className="rounded-full capitalize">{variant.style}</Badge>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{variant.chars} characters</p>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={seoAssistantOpen} onOpenChange={setSeoAssistantOpen}>
         <DialogContent className="max-w-2xl rounded-[28px]">

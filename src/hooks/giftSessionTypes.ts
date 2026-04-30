@@ -79,6 +79,7 @@ export interface GenerateGiftParams {
   specialContext: string;
   contextTags: string[];
   userPlan: string;
+  sourceBlogSlug?: string | null;
 }
 
 export interface GenerateGiftsResponse {

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AlertTriangle, Eye, MousePointerClick, Newspaper, Target } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AlertTriangle, Eye, MousePointerClick, Newspaper, Target, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/common/SEOHead";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,15 @@ type AnalyticsRow = {
 
 type SortKey = "title" | "view_count" | "cta_click_count" | "ctr" | "seo_score";
 
+function getRangeStart(range: string) {
+  if (range === "all") return null;
+  const days = range === "7d" ? 7 : range === "90d" ? 90 : 30;
+  const date = new Date();
+  date.setDate(date.getDate() - days + 1);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString().slice(0, 10);
+}
+
 export default function AdminBlogAnalytics() {
   const [searchParams] = useSearchParams();
   const [sortKey, setSortKey] = useState<SortKey>("view_count");
@@ -44,6 +53,7 @@ export default function AdminBlogAnalytics() {
   const [range, setRange] = useState("30d");
 
   const highlightId = searchParams.get("highlight");
+  const rangeStart = getRangeStart(range);
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["admin-blog-analytics-posts"],
@@ -56,6 +66,41 @@ export default function AdminBlogAnalytics() {
 
       if (error) throw error;
       return (data as AnalyticsRow[]) || [];
+    },
+  });
+
+  const { data: dailyStats = [] } = useQuery({
+    queryKey: ["admin-blog-daily-stats", rangeStart],
+    queryFn: async () => {
+      let query = (supabase.from("blog_daily_stats" as never) as any)
+        .select("post_id, date, views, cta_clicks")
+        .order("date", { ascending: true });
+
+      if (rangeStart) {
+        query = query.gte("date", rangeStart);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as Array<{ post_id: string; date: string; views: number; cta_clicks: number }>;
+    },
+  });
+
+  const { data: blogConversions = 0 } = useQuery({
+    queryKey: ["admin-blog-conversions", rangeStart],
+    queryFn: async () => {
+      let query = supabase
+        .from("gift_sessions")
+        .select("id", { count: "exact", head: true })
+        .not("source_blog_slug" as never, "is", null);
+
+      if (rangeStart) {
+        query = query.gte("created_at", new Date(`${rangeStart}T00:00:00`).toISOString());
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
     },
   });
 
@@ -79,17 +124,22 @@ export default function AdminBlogAnalytics() {
   );
 
   const totals = useMemo(() => {
-    const totalViews = enrichedPosts.reduce((sum, post) => sum + (post.view_count || 0), 0);
-    const totalClicks = enrichedPosts.reduce((sum, post) => sum + (post.cta_click_count || 0), 0);
+    const rangedViews = dailyStats.reduce((sum, item) => sum + (item.views || 0), 0);
+    const rangedClicks = dailyStats.reduce((sum, item) => sum + (item.cta_clicks || 0), 0);
+    const totalViews = range === "all" ? enrichedPosts.reduce((sum, post) => sum + (post.view_count || 0), 0) : rangedViews;
+    const totalClicks = range === "all" ? enrichedPosts.reduce((sum, post) => sum + (post.cta_click_count || 0), 0) : rangedClicks;
     const ctr = totalViews > 0 ? (totalClicks / totalViews) * 100 : 0;
+    const conversionRate = totalClicks > 0 ? ((blogConversions || 0) / totalClicks) * 100 : 0;
 
     return {
       totalViews,
       totalClicks,
       publishedPosts: enrichedPosts.length,
       ctr,
+      conversions: blogConversions || 0,
+      conversionRate,
     };
-  }, [enrichedPosts]);
+  }, [blogConversions, dailyStats, enrichedPosts, range]);
 
   const chartData = useMemo(
     () =>
@@ -98,6 +148,27 @@ export default function AdminBlogAnalytics() {
         views: post.view_count || 0,
       })),
     [enrichedPosts],
+  );
+
+  const timeSeriesData = useMemo(() => {
+    const topPostIds = new Set(enrichedPosts.slice(0, 5).map((post) => post.id));
+    const postNameById = Object.fromEntries(enrichedPosts.map((post) => [post.id, post.title.length > 18 ? `${post.title.slice(0, 18)}...` : post.title]));
+    const grouped = new Map<string, Record<string, string | number>>();
+
+    dailyStats
+      .filter((item) => topPostIds.has(item.post_id))
+      .forEach((item) => {
+        const row = grouped.get(item.date) || { date: item.date.slice(5) };
+        row[postNameById[item.post_id] || item.post_id] = (Number(row[postNameById[item.post_id] || item.post_id]) || 0) + (item.views || 0);
+        grouped.set(item.date, row);
+      });
+
+    return Array.from(grouped.values());
+  }, [dailyStats, enrichedPosts]);
+
+  const lineKeys = useMemo(
+    () => Array.from(new Set(timeSeriesData.flatMap((row) => Object.keys(row).filter((key) => key !== "date")))).slice(0, 5),
+    [timeSeriesData],
   );
 
   const topViews = useMemo(() => enrichedPosts.slice(0, 5), [enrichedPosts]);
@@ -163,12 +234,13 @@ export default function AdminBlogAnalytics() {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         {[
           { label: "Total Views", value: totals.totalViews.toLocaleString(), icon: Eye },
           { label: "CTA Clicks", value: totals.totalClicks.toLocaleString(), icon: MousePointerClick },
           { label: "Published", value: totals.publishedPosts.toLocaleString(), icon: Newspaper },
           { label: "CTR", value: `${totals.ctr.toFixed(1)}%`, icon: Target },
+          { label: "Blog → Gift Flow", value: `${totals.conversions.toLocaleString()} (${totals.conversionRate.toFixed(1)}%)`, icon: TrendingUp },
         ].map((card) => (
           <Card key={card.label} className="rounded-[24px] border-slate-200/80">
             <CardContent className="flex items-center justify-between p-5">
@@ -181,6 +253,29 @@ export default function AdminBlogAnalytics() {
           </Card>
         ))}
       </div>
+
+      <Card className="rounded-[28px] border-slate-200/80">
+        <CardHeader>
+          <CardTitle>Daily Views Trend</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[320px]">
+          {timeSeriesData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={timeSeriesData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                <YAxis tickLine={false} axisLine={false} />
+                <Tooltip />
+                {lineKeys.map((key, index) => (
+                  <Line key={key} type="monotone" dataKey={key} stroke={["#7c3aed", "#0891b2", "#16a34a", "#ea580c", "#db2777"][index]} strokeWidth={2} dot={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-slate-500">No daily stats for this range yet.</div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="rounded-[28px] border-slate-200/80">
         <CardHeader>

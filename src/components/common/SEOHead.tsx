@@ -10,6 +10,8 @@ interface SEOProps {
   author?: string;
   keywords?: string[];
   noIndex?: boolean;
+  jsonLd?: Record<string, unknown> | null;
+  alternateRssUrl?: string;
 }
 
 export function SEOHead({
@@ -22,6 +24,8 @@ export function SEOHead({
   author,
   keywords,
   noIndex = false,
+  jsonLd,
+  alternateRssUrl,
 }: SEOProps) {
   useEffect(() => {
     // Title
@@ -73,8 +77,20 @@ export function SEOHead({
     }
     canonical.setAttribute('href', url);
     
+    if (alternateRssUrl) {
+      let rss = document.querySelector('link[rel="alternate"][type="application/rss+xml"]');
+      if (!rss) {
+        rss = document.createElement('link');
+        rss.setAttribute('rel', 'alternate');
+        rss.setAttribute('type', 'application/rss+xml');
+        document.head.appendChild(rss);
+      }
+      rss.setAttribute('title', 'GiftMind Blog RSS');
+      rss.setAttribute('href', alternateRssUrl);
+    }
+
     // JSON-LD (for articles)
-    if (type === 'article') {
+    if (jsonLd || type === 'article') {
       let script = document.querySelector('script[data-seo-jsonld]');
       if (!script) {
         script = document.createElement('script');
@@ -82,7 +98,7 @@ export function SEOHead({
         script.setAttribute('data-seo-jsonld', 'true');
         document.head.appendChild(script);
       }
-      script.textContent = JSON.stringify({
+      script.textContent = JSON.stringify(jsonLd || {
         "@context": "https://schema.org",
         "@type": "Article",
         "headline": title,
@@ -97,7 +113,7 @@ export function SEOHead({
         }
       });
     }
-  }, [title, description, image, url, type, publishedAt, author, keywords, noIndex]);
+  }, [title, description, image, url, type, publishedAt, author, keywords, noIndex, jsonLd, alternateRssUrl]);
 
   return null; // This component only sets head tags
 }

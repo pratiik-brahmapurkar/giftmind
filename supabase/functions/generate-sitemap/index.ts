@@ -31,6 +31,8 @@ serve(async (req: Request): Promise<Response> => {
     const staticPages = [
       { path: "/", priority: "1.0", changefreq: "daily" },
       { path: "/blog", priority: "0.9", changefreq: "daily" },
+      { path: "/gift-flow", priority: "0.8", changefreq: "weekly" },
+      { path: "/pricing", priority: "0.7", changefreq: "weekly" },
       { path: "/credits", priority: "0.8", changefreq: "weekly" },
       { path: "/privacy-policy", priority: "0.3", changefreq: "monthly" },
       { path: "/terms", priority: "0.3", changefreq: "monthly" },
@@ -65,8 +67,8 @@ serve(async (req: Request): Promise<Response> => {
   <url>
     <loc>${domain}/blog/${post.slug}</loc>
     <lastmod>${formattedDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>`;
     }
 
