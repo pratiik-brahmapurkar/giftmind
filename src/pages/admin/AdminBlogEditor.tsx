@@ -31,6 +31,7 @@ import {
   getWordCount,
 } from "@/lib/blog";
 import { cn } from "@/lib/utils";
+import { ALLOWED_MEDIA_TYPES, uploadMediaAsset } from "@/lib/mediaLibrary";
 import { trackEvent } from "@/lib/posthog";
 import { SEOHead } from "@/components/common/SEOHead";
 import BlogMarkdown from "@/components/blog/BlogMarkdown";
@@ -443,39 +444,14 @@ export default function AdminBlogEditor() {
   const uploadFileToBlogMedia = async (file: File, altText: string) => {
     if (!user) throw new Error("You must be logged in to upload images.");
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      throw new Error("Only JPG, PNG, and WebP files are allowed.");
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error("Images must be under 5MB.");
-    }
-
-    const filePath = `featured/${Date.now()}_${file.name.replace(/\s+/g, "-")}`;
-    const { data, error } = await supabase.storage
-      .from("blog-media")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (error) throw error;
-
-    const { data: publicUrlData } = supabase.storage.from("blog-media").getPublicUrl(data.path);
-
-    const { error: mediaError } = await supabase.from("blog_media").insert({
-      file_name: file.name,
-      file_url: publicUrlData.publicUrl,
-      file_type: file.type,
-      file_size: file.size,
-      alt_text: altText,
-      uploaded_by: user.id,
+    const media = await uploadMediaAsset({
+      file,
+      altText,
+      folder: "blog",
+      uploadedBy: user.id,
     });
 
-    if (mediaError) throw mediaError;
-
-    return publicUrlData.publicUrl;
+    return media.file_url;
   };
 
   const handleFeaturedImageUpload = async (file: File) => {
@@ -1310,7 +1286,14 @@ export default function AdminBlogEditor() {
       <MediaPickerModal
         open={mediaPickerOpen}
         onClose={() => setMediaPickerOpen(false)}
-        onSelect={(url, alt) => insertAtCursor(`![${alt}](${url})`)}
+        onSelect={(url, alt, mediaId) => {
+          insertAtCursor(`![${alt}](${url})`);
+          trackEvent("media_inserted_to_post", {
+            file_id: mediaId || null,
+            post_id: id || null,
+            has_alt_text: Boolean(alt.trim()),
+          });
+        }}
       />
 
       <Dialog open={titleVariantsOpen} onOpenChange={setTitleVariantsOpen}>
@@ -1378,7 +1361,7 @@ export default function AdminBlogEditor() {
       <input
         ref={featuredFileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={ALLOWED_MEDIA_TYPES.join(",")}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -1390,7 +1373,7 @@ export default function AdminBlogEditor() {
       <input
         ref={contentImageInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={ALLOWED_MEDIA_TYPES.join(",")}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];

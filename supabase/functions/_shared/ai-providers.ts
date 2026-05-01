@@ -429,7 +429,7 @@ export async function callAIWithFallback(
 
 export function getProviderChain(
   plan: string,
-  operation: "gift-generation" | "signal-check" | "message-draft" | "relationship-insight",
+  operation: "gift-generation" | "signal-check" | "message-draft" | "relationship-insight" | "chat-finder",
   settings: RuntimeSettings = {},
 ): Provider[] {
   const freeTierChain: Provider[] = ["groq-llama", "gemini-flash", "claude-haiku"];
@@ -438,6 +438,10 @@ export function getProviderChain(
 
   if (operation === "relationship-insight") {
     return parseProviderChain(settings.provider_chain_relationship, freeTierChain);
+  }
+
+  if (operation === "chat-finder") {
+    return parseProviderChain(settings.provider_chain_chat_finder, freeTierChain);
   }
 
   if (operation === "signal-check") {

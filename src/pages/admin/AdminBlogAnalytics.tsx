@@ -36,6 +36,18 @@ type AnalyticsRow = {
 };
 
 type SortKey = "title" | "view_count" | "cta_click_count" | "ctr" | "seo_score";
+type DailyStatRow = { post_id: string; date: string; views: number; cta_clicks: number };
+type QueryResult<T> = { data: T[] | null; error: unknown };
+type DailyStatsQuery = PromiseLike<QueryResult<DailyStatRow>> & {
+  gte: (column: string, value: string) => DailyStatsQuery;
+};
+type UntypedSupabaseTables = {
+  from: (table: "blog_daily_stats") => {
+    select: (columns: string) => {
+      order: (column: string, options: { ascending: boolean }) => DailyStatsQuery;
+    };
+  };
+};
 
 function getRangeStart(range: string) {
   if (range === "all") return null;
@@ -72,7 +84,8 @@ export default function AdminBlogAnalytics() {
   const { data: dailyStats = [] } = useQuery({
     queryKey: ["admin-blog-daily-stats", rangeStart],
     queryFn: async () => {
-      let query = (supabase.from("blog_daily_stats" as never) as any)
+      let query = (supabase as unknown as UntypedSupabaseTables)
+        .from("blog_daily_stats")
         .select("post_id, date, views, cta_clicks")
         .order("date", { ascending: true });
 
@@ -82,7 +95,7 @@ export default function AdminBlogAnalytics() {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as Array<{ post_id: string; date: string; views: number; cta_clicks: number }>;
+      return data || [];
     },
   });
 

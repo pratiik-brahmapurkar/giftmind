@@ -46,6 +46,18 @@ type TelemetryRow = {
   error_message: string | null;
   created_at: string;
 };
+type QueryResult<T> = { data: T[] | null; error: unknown };
+type TelemetryQuery = PromiseLike<QueryResult<TelemetryRow>> & {
+  gte: (column: string, value: string) => TelemetryQuery;
+  order: (column: string, options: { ascending: boolean }) => {
+    limit: (count: number) => PromiseLike<QueryResult<TelemetryRow>>;
+  };
+};
+type UntypedTelemetryTables = {
+  from: (table: "ai_telemetry_log") => {
+    select: (columns: string) => TelemetryQuery;
+  };
+};
 
 const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
 
@@ -86,7 +98,7 @@ const AdminTelemetry = () => {
   const { data: rows = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["admin-ai-telemetry", since],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as UntypedTelemetryTables)
         .from("ai_telemetry_log")
         .select("*")
         .gte("created_at", since)

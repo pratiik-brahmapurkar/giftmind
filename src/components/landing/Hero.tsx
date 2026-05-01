@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Gift, Heart, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import ChatWidget from "@/components/chat/ChatWidget";
 
 const giftMatches = [
   {
@@ -212,6 +213,7 @@ const Hero = () => {
                   <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.5} />
                 </a>
               </Button>
+              <ChatWidget surface="landing" compact className="sm:w-auto" />
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-neutral-700 lg:justify-start">

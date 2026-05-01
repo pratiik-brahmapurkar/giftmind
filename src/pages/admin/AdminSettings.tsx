@@ -85,6 +85,7 @@ const DEFAULT_SETTINGS = {
   provider_chain_signal_free: ["groq-llama", "gemini-flash", "claude-haiku"],
   provider_chain_signal_pro: ["claude-sonnet", "claude-haiku", "gemini-flash"],
   provider_chain_relationship: ["groq-llama", "gemini-flash", "claude-haiku"],
+  provider_chain_chat_finder: ["groq-llama", "gemini-flash", "claude-haiku"],
   ai_timeout_ms_primary: 45000,
   ai_timeout_ms_fallback: 30000,
   ai_max_attempts: 3,
@@ -116,6 +117,7 @@ const DEFAULT_SETTINGS = {
   feature_credit_expiry_warnings: true,
   feature_posthog_enabled: true,
   feature_cookie_consent_required: true,
+  feature_chat_finder: false,
   maintenance_mode: false,
   allowed_origins: ["https://giftmind.in", "http://localhost:5173"],
   maintenance_last_credit_expiry_run: null,
@@ -166,7 +168,8 @@ type ProviderChainFieldKey =
   | "provider_chain_pro_gifts"
   | "provider_chain_signal_free"
   | "provider_chain_signal_pro"
-  | "provider_chain_relationship";
+  | "provider_chain_relationship"
+  | "provider_chain_chat_finder";
 type FeatureFlagKey =
   | "feature_signup_enabled"
   | "feature_google_oauth"
@@ -177,6 +180,7 @@ type FeatureFlagKey =
   | "feature_credit_expiry_warnings"
   | "feature_posthog_enabled"
   | "feature_cookie_consent_required"
+  | "feature_chat_finder"
   | "maintenance_mode";
 type PackageNumericField = "credits" | "price_usd" | "validity_days" | "max_recipients" | "max_regenerations";
 type PackageBooleanField = "has_signal_check" | "has_batch_mode" | "has_priority_ai" | "has_history_export";
@@ -196,6 +200,17 @@ type SettingsHistoryRow = {
   changed_at: string;
   reason: string | null;
 };
+type QueryResult<T> = { data: T[] | null; error: unknown };
+type SettingsHistoryQuery = PromiseLike<QueryResult<SettingsHistoryRow>>;
+type UntypedSettingsTables = {
+  from: (table: "settings_history") => {
+    select: (columns: string) => {
+      order: (column: string, options: { ascending: boolean }) => {
+        limit: (count: number) => SettingsHistoryQuery;
+      };
+    };
+  };
+};
 
 const AI_MODEL_FIELDS: Array<{ key: AIModelFieldKey; label: string; note: string; cost: string }> = [
   { key: "ai_model_free", label: "Model for Spark/Thoughtful/Confident plans", note: "Cheaper model for standard users.", cost: "Cost: ~$0.003 per gift session." },
@@ -209,6 +224,7 @@ const PROVIDER_CHAIN_FIELDS: Array<{ key: ProviderChainFieldKey; label: string; 
   { key: "provider_chain_signal_free", label: "Signal Check Spark", description: "Signal Check fallback order for Spark users." },
   { key: "provider_chain_signal_pro", label: "Signal Check Pro", description: "Signal Check fallback order for Pro users." },
   { key: "provider_chain_relationship", label: "Relationship Insight", description: "Provider order for relationship insight jobs." },
+  { key: "provider_chain_chat_finder", label: "Ask GiftMind Chat", description: "Provider order for chat-first gift discovery." },
 ];
 
 const FEATURE_FLAG_ROWS: Array<{
@@ -227,6 +243,7 @@ const FEATURE_FLAG_ROWS: Array<{
   { key: "feature_credit_expiry_warnings", title: "Credit expiry warnings (email)", description: "When OFF, cron job skips expiry warning emails.", enforcedIn: ["Edge Function"], priority: "P1" },
   { key: "feature_posthog_enabled", title: "Posthog analytics", description: "When OFF, Posthog does not initialize.", enforcedIn: ["Frontend"], priority: "P2" },
   { key: "feature_cookie_consent_required", title: "Cookie consent required", description: "When OFF, analytics load without asking. Not recommended for compliance.", enforcedIn: ["Frontend"], priority: "P2" },
+  { key: "feature_chat_finder", title: "Ask GiftMind chat", description: "When OFF, chat-first gift discovery surfaces are hidden and chat turns are blocked server-side.", enforcedIn: ["Frontend", "Edge Function"], priority: "P1" },
   { key: "maintenance_mode", title: "Maintenance mode", description: "When ON, app pages and Edge Functions return maintenance responses.", enforcedIn: ["Frontend", "Edge Function"], priority: "P0" },
 ];
 
@@ -502,6 +519,7 @@ const AdminSettings = () => {
     provider_chain_signal_free: asStringArray(settingsWithDefaults.provider_chain_signal_free, DEFAULT_SETTINGS.provider_chain_signal_free),
     provider_chain_signal_pro: asStringArray(settingsWithDefaults.provider_chain_signal_pro, DEFAULT_SETTINGS.provider_chain_signal_pro),
     provider_chain_relationship: asStringArray(settingsWithDefaults.provider_chain_relationship, DEFAULT_SETTINGS.provider_chain_relationship),
+    provider_chain_chat_finder: asStringArray(settingsWithDefaults.provider_chain_chat_finder, DEFAULT_SETTINGS.provider_chain_chat_finder),
     ai_timeout_ms_primary: asNumber(settingsWithDefaults.ai_timeout_ms_primary, DEFAULT_SETTINGS.ai_timeout_ms_primary),
     ai_timeout_ms_fallback: asNumber(settingsWithDefaults.ai_timeout_ms_fallback, DEFAULT_SETTINGS.ai_timeout_ms_fallback),
     ai_max_attempts: asNumber(settingsWithDefaults.ai_max_attempts, DEFAULT_SETTINGS.ai_max_attempts),
@@ -542,6 +560,7 @@ const AdminSettings = () => {
     feature_credit_expiry_warnings: asBoolean(settingsWithDefaults.feature_credit_expiry_warnings, true),
     feature_posthog_enabled: asBoolean(settingsWithDefaults.feature_posthog_enabled ?? settingsWithDefaults.posthog_enabled, true),
     feature_cookie_consent_required: asBoolean(settingsWithDefaults.feature_cookie_consent_required ?? settingsWithDefaults.cookie_consent_required, true),
+    feature_chat_finder: asBoolean(settingsWithDefaults.feature_chat_finder, false),
     maintenance_mode: asBoolean(settingsWithDefaults.maintenance_mode, false),
   }), [settingsWithDefaults]);
   const [featureFlags, setFeatureFlags] = useState(featureInitial);
@@ -574,7 +593,7 @@ const AdminSettings = () => {
   const { data: settingsHistory = [], refetch: refetchSettingsHistory } = useQuery({
     queryKey: ["admin-settings-history"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as UntypedSettingsTables)
         .from("settings_history")
         .select("id, key, old_value, new_value, changed_by, changed_at, reason")
         .order("changed_at", { ascending: false })

@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import ChatWidget from "@/components/chat/ChatWidget";
 
 /* ── Sidebar nav items ── */
 const sidebarItems = [
@@ -355,6 +356,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           );
         })}
       </nav>
+      <ChatWidget surface="dashboard" />
     </div>
   );
 };

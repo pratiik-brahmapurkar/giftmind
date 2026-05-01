@@ -10,6 +10,7 @@ import FAQ from "@/components/landing/FAQ";
 import FinalCTA from "@/components/landing/FinalCTA";
 import Footer from "@/components/landing/Footer";
 import { SEOHead } from "@/components/common/SEOHead";
+import ChatWidget from "@/components/chat/ChatWidget";
 
 const Index = () => {
   return (
@@ -36,6 +37,7 @@ const Index = () => {
       </div>
       <FinalCTA />
       <Footer />
+      <ChatWidget surface="landing" />
     </div>
   );
 };

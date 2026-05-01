@@ -19,6 +19,7 @@ import { CreditHealthWidget } from "@/components/dashboard/CreditHealthWidget";
 import { OccasionsStrip, getOccasionUrgencyTier, type OccasionUrgencyTier } from "@/components/dashboard/OccasionsStrip";
 import { ReengagementBanner } from "@/components/dashboard/ReengagementBanner";
 import { SmartGreeting } from "@/components/dashboard/SmartGreeting";
+import { AskGiftMindCard } from "@/components/chat/ChatWidget";
 import { getDaysSince, useDashboardSegment } from "@/hooks/useDashboardSegment";
 import { getProfileCompletionMissingFields, parseOnboardingState } from "@/features/onboarding/utils";
 import { parseRecipientImportantDates } from "@/lib/recipients";
@@ -433,6 +434,7 @@ const Dashboard = () => {
       <SEOHead title="Dashboard" description="Your GiftMind dashboard" noIndex={true} />
       <div className="mx-auto max-w-6xl space-y-6 pb-20 md:pb-0">
         <SmartGreeting firstName={firstName} segment={segment} onPrimaryAction={primaryAction} />
+        <AskGiftMindCard />
 
         {segment === "dormant" ? (
           <ReengagementBanner

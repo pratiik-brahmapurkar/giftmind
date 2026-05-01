@@ -50,33 +50,51 @@ export type Database = {
       blog_media: {
         Row: {
           alt_text: string | null
+          asset_type: string
           created_at: string | null
           file_name: string
           file_size: number | null
           file_type: string | null
           file_url: string
+          folder: string
+          height: number | null
           id: string
+          tags: string[]
           uploaded_by: string | null
+          usage_count: number
+          width: number | null
         }
         Insert: {
           alt_text?: string | null
+          asset_type?: string
           created_at?: string | null
           file_name: string
           file_size?: number | null
           file_type?: string | null
           file_url: string
+          folder?: string
+          height?: number | null
           id?: string
+          tags?: string[]
           uploaded_by?: string | null
+          usage_count?: number
+          width?: number | null
         }
         Update: {
           alt_text?: string | null
+          asset_type?: string
           created_at?: string | null
           file_name?: string
           file_size?: number | null
           file_type?: string | null
           file_url?: string
+          folder?: string
+          height?: number | null
           id?: string
+          tags?: string[]
           uploaded_by?: string | null
+          usage_count?: number
+          width?: number | null
         }
         Relationships: [
           {
@@ -393,6 +411,7 @@ export type Database = {
         Row: {
           amount: number
           batch_id: string | null
+          context: string
           created_at: string | null
           id: string
           metadata: Json | null
@@ -405,6 +424,7 @@ export type Database = {
         Insert: {
           amount: number
           batch_id?: string | null
+          context?: string
           created_at?: string | null
           id?: string
           metadata?: Json | null
@@ -417,6 +437,7 @@ export type Database = {
         Update: {
           amount?: number
           batch_id?: string | null
+          context?: string
           created_at?: string | null
           id?: string
           metadata?: Json | null
@@ -679,6 +700,7 @@ export type Database = {
           ai_tokens_output: number | null
           budget_max: number | null
           budget_min: number | null
+          chat_thread_id: string | null
           confidence_score: number | null
           context_tags: string[] | null
           cultural_rules_applied: number
@@ -704,6 +726,7 @@ export type Database = {
           selected_gift_name: string | null
           selected_gift_note: string | null
           special_context: string | null
+          source: string
           status: string | null
           urgency: string | null
           user_id: string
@@ -719,6 +742,7 @@ export type Database = {
           ai_tokens_output?: number | null
           budget_max?: number | null
           budget_min?: number | null
+          chat_thread_id?: string | null
           confidence_score?: number | null
           context_tags?: string[] | null
           cultural_rules_applied?: number
@@ -744,6 +768,7 @@ export type Database = {
           selected_gift_name?: string | null
           selected_gift_note?: string | null
           special_context?: string | null
+          source?: string
           status?: string | null
           urgency?: string | null
           user_id: string
@@ -759,6 +784,7 @@ export type Database = {
           ai_tokens_output?: number | null
           budget_max?: number | null
           budget_min?: number | null
+          chat_thread_id?: string | null
           confidence_score?: number | null
           context_tags?: string[] | null
           cultural_rules_applied?: number
@@ -784,6 +810,7 @@ export type Database = {
           selected_gift_name?: string | null
           selected_gift_note?: string | null
           special_context?: string | null
+          source?: string
           status?: string | null
           urgency?: string | null
           user_id?: string
