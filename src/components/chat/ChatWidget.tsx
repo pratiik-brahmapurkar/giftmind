@@ -93,9 +93,9 @@ interface ChatWidgetProps {
 }
 
 const QUICK_PROMPTS = [
-  "Birthday gift for dad around ₹3000",
-  "Anniversary ideas under EUR 75",
-  "Teacher thank-you gift around PKR 5000",
+  "Birthday gift for dad around $80",
+  "Anniversary ideas under $75",
+  "Teacher thank-you gift around $50",
 ];
 
 function getGuestId() {
@@ -240,7 +240,7 @@ function useChatFinderEnabled() {
 
   const configured = data?.feature_chat_finder;
   if (typeof configured === "boolean") return configured;
-  return import.meta.env.DEV;
+  return true;
 }
 
 function chatFailureMessage(message: string) {
