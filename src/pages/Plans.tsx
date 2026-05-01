@@ -15,11 +15,7 @@ const Plans = () => {
   return (
     <DashboardLayout>
       <SEOHead title="Plans" description="Compare Spark and Pro for GiftMind." />
-      <div className="mx-auto max-w-5xl space-y-8">
-        <div className="space-y-2 text-center">
-          <h1 className="font-heading text-3xl font-bold text-foreground">Choose Your Plan</h1>
-          <p className="text-muted-foreground">Spark is free and generous. Pro is coming soon for unlimited gifting.</p>
-        </div>
+      <div className="mx-auto max-w-6xl">
         <PricingCards currentPlan={plan} source="plans_page" />
       </div>
     </DashboardLayout>
