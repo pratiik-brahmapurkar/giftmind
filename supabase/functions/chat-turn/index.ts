@@ -25,6 +25,7 @@ type ChatTurnRequest = {
   source_surface?: "landing" | "dashboard" | "blog";
   blog_post_slug?: string | null;
   slots?: Partial<ChatSlots> | null;
+  intake_only?: boolean | null;
 };
 
 type ChatSlots = {
@@ -32,6 +33,7 @@ type ChatSlots = {
   occasion: string | null;
   budget_min: number | null;
   budget_max: number | null;
+  currency: string | null;
   interests: string[];
   age_band: string | null;
   country: string | null;
@@ -120,21 +122,64 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const CURRENCY_ALIASES: Array<[RegExp, string]> = [
+  [/\b(inr|rs|rupees?)\b|₹/i, "INR"],
+  [/\b(pkr|pakistani\s+rupees?)\b/i, "PKR"],
+  [/\b(eur|euros?)\b|€/i, "EUR"],
+  [/\b(gbp|pounds?|quid)\b|£/i, "GBP"],
+  [/\b(cad|canadian\s+dollars?)\b/i, "CAD"],
+  [/\b(aud|australian\s+dollars?)\b/i, "AUD"],
+  [/\b(aed|dirhams?)\b/i, "AED"],
+  [/\b(sgd|singapore\s+dollars?)\b/i, "SGD"],
+  [/\b(jpy|yen)\b|¥/i, "JPY"],
+  [/\b(usd|dollars?|bucks?)\b|\$/i, "USD"],
+];
+
+function parseCurrency(message: string) {
+  return CURRENCY_ALIASES.find(([pattern]) => pattern.test(message))?.[1] ?? null;
+}
+
+function countryForCurrency(currency: string | null | undefined) {
+  const map: Record<string, string> = {
+    INR: "IN",
+    PKR: "PK",
+    EUR: "DE",
+    GBP: "GB",
+    CAD: "CA",
+    AUD: "AU",
+    AED: "AE",
+    SGD: "SG",
+    JPY: "JP",
+    USD: "US",
+  };
+  return currency ? map[currency] ?? null : null;
+}
+
+function currencyPattern() {
+  return String.raw`(?:₹|€|£|¥|\$|\b(?:usd|dollars?|bucks?|inr|rs|rupees?|pkr|pakistani\s+rupees?|eur|euros?|gbp|pounds?|quid|cad|aud|aed|dirhams?|sgd|jpy|yen)\b)`;
+}
+
+function parseMoney(value: string) {
+  return Number(value.replace(/,/g, ""));
+}
+
 function parseBudget(message: string) {
-  const range = message.match(/(?:\$|usd\s*)?(\d{1,5})\s*(?:-|to|–)\s*(?:\$|usd\s*)?(\d{1,5})/i);
+  const currency = parseCurrency(message);
+  const money = currencyPattern();
+  const range = message.match(new RegExp(String.raw`(?:${money}\s*)?(\d{1,7}(?:,\d{2,3})*)\s*(?:-|to|–)\s*(?:${money}\s*)?(\d{1,7}(?:,\d{2,3})*)`, "i"));
   if (range) {
-    const min = Number(range[1]);
-    const max = Number(range[2]);
-    if (Number.isFinite(min) && Number.isFinite(max)) return { min: Math.min(min, max), max: Math.max(min, max) };
+    const min = parseMoney(range[1]);
+    const max = parseMoney(range[2]);
+    if (Number.isFinite(min) && Number.isFinite(max)) return { min: Math.min(min, max), max: Math.max(min, max), currency };
   }
 
-  const single = message.match(/(?:under|around|about|~|budget|for|less than)?\s*(?:\$|usd\s*)?(\d{2,5})/i);
+  const single = message.match(new RegExp(String.raw`(?:under|around|about|~|budget|for|less than)?\s*(?:${money}\s*)?(\d{2,7}(?:,\d{2,3})*)`, "i"));
   if (single) {
-    const value = Number(single[1]);
-    if (Number.isFinite(value)) return { min: Math.max(1, Math.round(value * 0.65)), max: value };
+    const value = parseMoney(single[1]);
+    if (Number.isFinite(value)) return { min: Math.max(1, Math.round(value * 0.65)), max: value, currency };
   }
 
-  return { min: null, max: null };
+  return { min: null, max: null, currency };
 }
 
 function extractSlots(message: string, previous?: Partial<ChatSlots> | null): ChatSlots {
@@ -173,6 +218,7 @@ function extractSlots(message: string, previous?: Partial<ChatSlots> | null): Ch
     occasion: sanitizeString(occasion || "", 80) || null,
     budget_min: budget.min ?? previous?.budget_min ?? null,
     budget_max: budget.max ?? previous?.budget_max ?? null,
+    currency: budget.currency ?? previous?.currency ?? null,
     interests: Array.from(new Set([...(previous?.interests || []), ...interests])).slice(0, 8),
     age_band: age && age > 0 && age < 120 ? `${age}` : previous?.age_band || null,
     country: previous?.country || null,
@@ -193,6 +239,7 @@ function fallbackCards(slots: ChatSlots): GiftCard[] {
   const interest = slots.interests[0] || "their hobbies";
   const max = slots.budget_max || 80;
   const min = slots.budget_min || Math.max(15, Math.round(max * 0.6));
+  const currency = slots.currency || "USD";
   const relationship = slots.recipient_relationship || "recipient";
   return [
     {
@@ -200,7 +247,7 @@ function fallbackCards(slots: ChatSlots): GiftCard[] {
       title: `Premium ${interest} upgrade`,
       blurb: `A practical but thoughtful upgrade connected to ${relationship}'s interest in ${interest}.`,
       confidence: 84,
-      estimated_price: { min, max, currency: "USD" },
+      estimated_price: { min, max, currency },
       why_it_fits: [`Matches ${interest}`, "Fits the stated budget", "Feels more personal than a generic gift"],
       citations: ["heuristic_interest_match"],
       search_keywords: [`${interest} gift`, `${relationship} ${interest}`],
@@ -212,7 +259,7 @@ function fallbackCards(slots: ChatSlots): GiftCard[] {
       title: "Personalised keepsake",
       blurb: "A keepsake adds emotional value without needing a highly specific product preference.",
       confidence: 78,
-      estimated_price: { min: Math.max(10, min - 10), max, currency: "USD" },
+      estimated_price: { min: Math.max(10, min - 10), max, currency },
       why_it_fits: ["Works for personal occasions", "Easy to tailor", "Safe when preferences are still broad"],
       citations: ["occasion_playbook_general"],
       search_keywords: ["personalized gift", `${relationship} keepsake`],
@@ -224,7 +271,7 @@ function fallbackCards(slots: ChatSlots): GiftCard[] {
       title: "Experience-led gift set",
       blurb: "A small bundle around an activity can feel curated and useful.",
       confidence: 74,
-      estimated_price: { min, max, currency: "USD" },
+      estimated_price: { min, max, currency },
       why_it_fits: ["Creates an experience", "Flexible across stores", "Good fallback if sizing or taste is uncertain"],
       citations: ["gift_guide_bundle_strategy"],
       search_keywords: [`${interest} gift set`, "gift hamper"],
@@ -239,6 +286,7 @@ function validateCards(parsed: unknown, slots: ChatSlots): GiftCard[] {
 
   const max = slots.budget_max || 80;
   const min = slots.budget_min || Math.max(15, Math.round(max * 0.6));
+  const currency = slots.currency || "USD";
   const cards = parsed.gifts.slice(0, 3).map((raw): GiftCard | null => {
     if (!isRecord(raw)) return null;
     const title = sanitizeString(String(raw.title || raw.name || ""), 140);
@@ -251,7 +299,7 @@ function validateCards(parsed: unknown, slots: ChatSlots): GiftCard[] {
       title,
       blurb: sanitizeString(String(raw.blurb || raw.description || ""), 240) || `A thoughtful fit for ${slots.recipient_relationship || "this recipient"}.`,
       confidence: Math.max(50, Math.min(96, Number(raw.confidence || raw.confidence_score || 75))),
-      estimated_price: { min, max, currency: "USD" },
+      estimated_price: { min, max, currency },
       why_it_fits: why.length ? why.slice(0, 4) : ["Matches the gift brief"],
       citations: citations.length ? citations : ["chat_context"],
       search_keywords: keywords.slice(0, 5),
@@ -268,7 +316,7 @@ async function generateCards(slots: ChatSlots, message: string, settings: Record
   const systemPrompt = [
     "You are GiftMind's concise gift recommender.",
     "Return strict JSON only: {\"gifts\":[{\"title\":\"\",\"blurb\":\"\",\"confidence\":85,\"why_it_fits\":[\"\"],\"citations\":[\"chat_context\"],\"search_keywords\":[\"\"],\"product_category\":\"\"}]}",
-    "Return exactly 3 gifts. Every gift must include at least one citation id. Do not invent store names, prices, or stock.",
+    "Return exactly 3 gifts. Every gift must fit the user's stated budget and currency. Every gift must include at least one citation id. Do not invent store names, prices, or stock.",
   ].join("\n");
 
   const userMessage = JSON.stringify({ latest_message: message, slots });
@@ -418,6 +466,17 @@ serve(async (req: Request): Promise<Response> => {
       return json({ thread_id: threadId, status: "clarifying", assistant_message: reply, slots });
     }
 
+    if (body.intake_only) {
+      const reply = "I have enough to run the full recommendation engine for this saved recipient.";
+      await supabaseAdmin.from("chat_messages").insert({
+        thread_id: threadId,
+        role: "assistant",
+        content: { text: reply, type: "ready" },
+      });
+      await supabaseAdmin.from("chat_threads").update({ slots, updated_at: new Date().toISOString() }).eq("id", threadId);
+      return json({ thread_id: threadId, status: "ready", assistant_message: reply, slots });
+    }
+
     let guestWasAlreadyUsed = false;
     if (!user) {
       const { data: guestCredit } = await supabaseAdmin
@@ -435,7 +494,7 @@ serve(async (req: Request): Promise<Response> => {
     const startedAt = Date.now();
     const plan = user ? ((await supabaseAdmin.from("users").select("active_plan,country").eq("id", user.id).single()).data?.active_plan || "spark") : "spark";
     const userCountry = user ? ((await supabaseAdmin.from("users").select("country").eq("id", user.id).single()).data?.country || "US") : "US";
-    const targetCountry = sanitizeString(slots.country || userCountry || "US", 10).toUpperCase();
+    const targetCountry = sanitizeString(slots.country || countryForCurrency(slots.currency) || userCountry || "US", 10).toUpperCase();
 
     let aiProvider: string | null = null;
     let aiLatencyMs: number | null = null;
@@ -465,7 +524,7 @@ serve(async (req: Request): Promise<Response> => {
           occasion: slots.occasion || "just_because",
           budget_min: slots.budget_min,
           budget_max: slots.budget_max,
-          currency: "USD",
+          currency: slots.currency || "USD",
           special_context: message,
           context_tags: slots.interests,
           status: "completed",

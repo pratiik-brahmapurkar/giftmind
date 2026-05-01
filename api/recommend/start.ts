@@ -115,12 +115,13 @@ export default async function handler(request: Request) {
     );
   }
 
+  const actionType = body.source === "chat" ? "chat_retrieval" : "gift_generation";
   const { data: deductResult, error: deductError } = await supabase.rpc("deduct_user_credit", {
     p_user_id: user.id,
     p_session_id: body.session_id,
     p_amount: giftGenerationUnits,
     p_action_id: body.action_id,
-    p_action_type: "gift_generation",
+    p_action_type: actionType,
   });
 
   if (deductError) {
@@ -140,6 +141,10 @@ export default async function handler(request: Request) {
       },
       402,
     );
+  }
+
+  if (body.source === "chat") {
+    await supabase.from("credit_transactions").update({ context: "chat" }).eq("session_id", body.session_id);
   }
 
   const persistedBody: StartRequestBody = {

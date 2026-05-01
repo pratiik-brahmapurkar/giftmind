@@ -33,6 +33,8 @@ export interface StartRequestBody {
   is_regeneration?: boolean;
   action_id?: string | null;
   gift_generation_units?: number | null;
+  source?: string | null;
+  chat_thread_id?: string | null;
 }
 
 export interface RecipientRecord {
