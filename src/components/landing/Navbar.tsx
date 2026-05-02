@@ -10,9 +10,9 @@ const Navbar = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2 rounded-md transition-transform duration-200 hover:scale-[1.03] focus-visible:scale-[1.03]">
-          <img src="/brand/giftmind-lockup.png" alt="GiftMind" className="h-9 w-auto object-contain" />
+          <img src="/brand/giftmind-lockup.png" alt="GiftMind" className="h-8 w-auto max-w-[72vw] object-contain sm:h-9" />
         </Link>
 
         {/* Desktop */}
@@ -40,8 +40,8 @@ const Navbar = () => {
         </div>
 
         {/* Mobile toggle */}
-        <button className="md:hidden" onClick={() => setOpen(!open)}>
-          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        <button className="rounded-md p-2 md:hidden" onClick={() => setOpen(!open)} aria-label={open ? "Close menu" : "Open menu"}>
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 

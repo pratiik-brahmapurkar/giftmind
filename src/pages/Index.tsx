@@ -14,7 +14,7 @@ import ChatWidget from "@/components/chat/ChatWidget";
 
 const Index = () => {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <SEOHead 
         title="AI Gift Recommendations with Confidence"
         description="Stop guessing. Get 3 AI-powered gift recommendations with confidence scores, cultural intelligence, and buy links for your region. Start free."

@@ -559,7 +559,7 @@ export default function ChatWidget({ surface, defaultOpen = false, compact = fal
   const drawer = (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent side="right" className="flex w-full flex-col overflow-hidden p-0 sm:max-w-[480px]">
-        <SheetHeader className="border-b bg-background px-4 py-3">
+        <SheetHeader className="border-b bg-background px-4 py-3 pr-12">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <SheetTitle className="flex items-center gap-2 text-base">
@@ -575,7 +575,7 @@ export default function ChatWidget({ surface, defaultOpen = false, compact = fal
                 {slots?.currency ? <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{slots.currency}</Badge> : null}
               </div>
             </div>
-            <Button type="button" variant="ghost" size="sm" onClick={openWizard}>Use full form</Button>
+            <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-xs sm:px-3 sm:text-sm" onClick={openWizard}>Full form</Button>
           </div>
           {slotSummary(slots) || boundRecipient ? (
             <div className="text-left text-xs text-muted-foreground">
@@ -626,10 +626,11 @@ export default function ChatWidget({ surface, defaultOpen = false, compact = fal
           {messages.map((message) => (
             <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
               <div className={cn(
-                "max-w-[88%] px-3 py-2 text-sm shadow-sm",
+                "px-3 py-2 text-sm shadow-sm",
                 message.role === "user"
-                  ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground"
-                  : "rounded-2xl rounded-bl-md border bg-background",
+                  ? "max-w-[88%] rounded-2xl rounded-br-md bg-primary text-primary-foreground"
+                  : "max-w-[88%] rounded-2xl rounded-bl-md border bg-background",
+                "cards" in message && "max-w-full sm:max-w-[88%]",
               )}>
                 <p className="whitespace-pre-wrap leading-5">{message.text}</p>
                 {"cards" in message ? (
@@ -678,7 +679,7 @@ export default function ChatWidget({ surface, defaultOpen = false, compact = fal
             <Input
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Gift for dad, loves fishing, around ₹3000..."
+              placeholder="Gift for dad around $80..."
               disabled={loading || (guestGate && !user)}
               aria-label="Ask GiftMind"
             />
@@ -708,7 +709,7 @@ export default function ChatWidget({ surface, defaultOpen = false, compact = fal
     <>
       <Button
         type="button"
-        className={cn("fixed bottom-5 right-5 z-40 h-14 rounded-full px-5 shadow-lg", className)}
+        className={cn("fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 right-4 z-40 h-12 justify-center rounded-full px-5 shadow-lg sm:bottom-5 sm:left-auto sm:right-5 sm:h-14", className)}
         onClick={() => setOpen(true)}
       >
         {open ? <X className="mr-2 h-5 w-5" /> : <Bot className="mr-2 h-5 w-5" />}

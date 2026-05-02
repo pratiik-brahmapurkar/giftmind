@@ -172,51 +172,51 @@ const HeroPreview = () => (
 
 const Hero = () => {
   return (
-    <section className="relative overflow-hidden bg-[linear-gradient(180deg,#FAF7F2_0%,#FDFCFA_72%,#FFFFFF_100%)]">
-      <div className="container relative z-10 mx-auto px-4 pb-16 pt-24 md:pb-20 md:pt-28">
+    <section className="relative overflow-x-hidden bg-[linear-gradient(180deg,#FAF7F2_0%,#FDFCFA_72%,#FFFFFF_100%)]">
+      <div className="container relative z-10 mx-auto max-w-full px-4 pb-24 pt-24 sm:pb-16 md:pb-20 md:pt-28">
         <div className="grid items-center gap-12 lg:grid-cols-[1.05fr,0.95fr] lg:gap-16">
           <motion.div
-            className="text-center lg:text-left"
+            className="mx-auto w-full max-w-[38rem] text-center lg:mx-0 lg:max-w-none lg:text-left"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
             <motion.div
-              className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800"
+              className="mb-5 inline-flex max-w-full items-center justify-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-snug text-amber-800 shadow-sm sm:mb-6 sm:px-4 sm:text-sm"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
             >
-              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-              Built for thoughtful gifting, not generic lists
+              <Sparkles className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" strokeWidth={1.5} />
+              <span>Built for thoughtful gifting, not generic lists</span>
             </motion.div>
 
-            <h1 className="font-heading text-display-md text-balance text-foreground md:text-display-lg">
+            <h1 className="mx-auto max-w-[22rem] font-heading text-[2.25rem] font-bold leading-[1.08] tracking-normal text-balance text-foreground min-[380px]:text-[2.35rem] sm:max-w-2xl sm:text-display-md md:text-display-lg lg:mx-0">
               AI gift recommendations that feel{" "}
               <span className="text-amber-700">personal</span>, not random.
             </h1>
 
-            <p className="mt-6 max-w-xl text-body-lg text-muted-foreground">
+            <p className="mx-auto mt-5 max-w-[22rem] text-base leading-7 text-muted-foreground sm:mt-6 sm:max-w-xl sm:text-body-lg lg:mx-0">
               Tell GiftMind who you are buying for. Get three thoughtful options with confidence scores, cultural context, and links to stores that work for your region.
             </p>
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
-              <Button asChild variant="hero" size="lg" className="text-base">
+            <div className="mx-auto mt-8 flex w-full max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center sm:gap-4 lg:mx-0 lg:justify-start">
+              <Button asChild variant="hero" size="lg" className="w-full text-base sm:w-auto">
                 <Link to="/signup">
                   <Gift className="mr-2 h-5 w-5" strokeWidth={1.5} />
                   Get 3 Gift Ideas
                 </Link>
               </Button>
-              <Button asChild variant="heroGhost" size="lg" className="text-base">
+              <Button asChild variant="heroGhost" size="lg" className="w-full text-base sm:w-auto">
                 <a href="#how">
                   See the Flow
                   <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.5} />
                 </a>
               </Button>
-              <ChatWidget surface="landing" compact className="sm:w-auto" />
+              <ChatWidget surface="landing" compact className="hidden sm:block sm:w-auto" />
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-neutral-700 lg:justify-start">
+            <div className="mx-auto mt-5 flex max-w-sm flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs font-medium text-neutral-700 sm:mt-6 sm:max-w-xl sm:gap-x-4 sm:gap-y-2 sm:text-sm lg:mx-0 lg:justify-start">
               <TooltipProvider delayDuration={150}>
                 {[
                   { icon: CheckCircle2, label: "Free monthly credits", tip: "Spark includes free credits every month to try recommendations." },
@@ -238,7 +238,7 @@ const Hero = () => {
           </motion.div>
 
           <motion.div
-            className="flex justify-center lg:justify-end"
+            className="flex w-full justify-center lg:justify-end"
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}

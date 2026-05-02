@@ -109,7 +109,7 @@ function InfoNote({ label, note }: PricingFeature) {
       {open ? (
         <span
           role="tooltip"
-          className="absolute right-0 top-6 z-20 w-52 max-w-[min(13rem,70vw)] rounded-lg bg-[#2A2724] px-3 py-2 text-xs font-normal leading-5 text-[#FAF7F2] shadow-xl"
+          className="absolute left-1/2 top-6 z-20 w-52 max-w-[min(13rem,70vw)] -translate-x-1/2 rounded-lg bg-[#2A2724] px-3 py-2 text-xs font-normal leading-5 text-[#FAF7F2] shadow-xl sm:left-auto sm:right-0 sm:translate-x-0"
         >
           {note}
         </span>
@@ -155,7 +155,7 @@ function PricingCard({
           : "border-[#E6D9C8] bg-[#FFFDFC]",
       )}
     >
-      <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="mb-5 flex flex-col gap-3 min-[380px]:flex-row min-[380px]:items-start min-[380px]:justify-between">
         <div className="min-w-0">
           <p className={cn(
             "mb-3 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]",
@@ -163,11 +163,11 @@ function PricingCard({
           )}>
             {plan.kicker}
           </p>
-          <h3 className="font-heading text-3xl font-semibold tracking-normal text-[#2A2724]">{plan.name}</h3>
+          <h3 className="font-heading text-2xl font-semibold tracking-normal text-[#2A2724] min-[380px]:text-3xl">{plan.name}</h3>
           <p className="mt-2 max-w-sm text-[13px] leading-5 text-[#7A6F63]">{plan.subtitle}</p>
         </div>
         {plan.badge ? (
-          <span className="shrink-0 rounded-full border border-[#D4A04A]/40 bg-[#D4A04A]/20 px-2.5 py-1 text-[11px] font-semibold text-[#6B4716]">
+          <span className="w-fit shrink-0 rounded-full border border-[#D4A04A]/40 bg-[#D4A04A]/20 px-2.5 py-1 text-[11px] font-semibold text-[#6B4716]">
             {plan.badge}
           </span>
         ) : null}
@@ -237,7 +237,7 @@ export function PricingCards({
   source = "plans_page",
 }: PricingCardsProps) {
   return (
-    <section className="rounded-[28px] bg-[#FAF7F2] px-4 py-12 text-[#2A2724] sm:px-6 lg:px-8" aria-labelledby="pricing-heading">
+    <section className="rounded-[22px] bg-[#FAF7F2] px-3 py-10 text-[#2A2724] sm:rounded-[28px] sm:px-6 sm:py-12 lg:px-8" aria-labelledby="pricing-heading">
       <div className="mx-auto max-w-4xl">
         <div className={cn("mx-auto mb-9 max-w-2xl text-center", compact && "mb-7")}>
           <h2 id="pricing-heading" className="font-heading text-3xl font-semibold tracking-normal text-[#2A2724] md:text-4xl">

@@ -37,7 +37,7 @@ const CookieConsent = () => {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
+    <div className="pointer-events-none fixed bottom-20 left-4 right-4 z-50 flex justify-center sm:bottom-4">
       <div className="pointer-events-auto w-full max-w-lg rounded-xl border border-border bg-card/95 backdrop-blur-sm p-4 shadow-lg flex flex-col sm:flex-row items-center gap-3">
         <p className="text-sm text-muted-foreground text-center sm:text-left flex-1">
           We use analytics cookies to improve GiftMind. No advertising cookies.

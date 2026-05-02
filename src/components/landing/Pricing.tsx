@@ -15,8 +15,8 @@ const Pricing = () => {
   };
 
   return (
-    <section className="bg-[#F6EFE5] py-24">
-      <div className="container mx-auto px-4">
+    <section className="bg-[#F6EFE5] py-14 sm:py-20 lg:py-24">
+      <div className="container mx-auto px-3 sm:px-4">
         <PricingCards onBuyClick={handleBuyClick} />
       </div>
     </section>
